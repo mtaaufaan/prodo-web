@@ -1,0 +1,48 @@
+# ============================================================
+# prodo-web — React + Vite .gitignore
+# ============================================================
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Vite cache
+.vite/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Environment files — JANGAN commit secrets
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.staging.local
+.env.production.local
+
+# Test artifacts
+coverage/
+*.lcov
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# shadcn/ui — komponen di-generate ke src/components/ui/ dan HARUS di-commit
+# Jangan tambahkan src/components/ui/ ke sini
+
+# Storybook build
+storybook-static/
+
+# MSW (Mock Service Worker) — service worker di public/ di-commit
+# tapi mockServiceWorker.js di dist/ tidak perlu
