@@ -25,4 +25,5 @@ function App() {
   )
 }
 
+// H2 CI verification: confirms ci-web.yml triggers on PR to develop.
 export default App
