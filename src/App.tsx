@@ -1,5 +1,7 @@
 import { Routes, Route } from 'react-router-dom'
 
+import DesignPage from '@/pages/DesignPage'
+
 // TODO S1: Replace placeholder routes with actual page components
 function App() {
   return (
@@ -20,6 +22,7 @@ function App() {
           </div>
         }
       />
+      <Route path="/design" element={<DesignPage />} />
       {/* TODO S1: /login, /dashboard, /tasks, /projects, /settings */}
     </Routes>
   )

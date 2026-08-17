@@ -1,5 +1,14 @@
 import type { Config } from 'tailwindcss'
 
+// PRODO is dark-only (docs/design.md). Tokens are stored as bare oklch
+// components (L C H) in src/styles/tokens.css and composed here with
+// oklch(var(--x) / <alpha-value>) so Tailwind's opacity modifiers
+// (e.g. `bg-primary/90`, used throughout shadcn/ui components) work --
+// same pattern shadcn's own HSL-triplet scaffold uses, just with oklch.
+function oklchVar(name: string) {
+  return `oklch(var(${name}) / <alpha-value>)`
+}
+
 const config: Config = {
   darkMode: ['class'],
   content: [
@@ -18,45 +27,92 @@ const config: Config = {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Archivo', 'system-ui', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+      },
       colors: {
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
+        // shadcn/ui semantic roles (mapped in src/index.css)
+        border: oklchVar('--border'),
+        input: oklchVar('--input'),
+        ring: oklchVar('--ring'),
+        background: oklchVar('--background'),
+        foreground: oklchVar('--foreground'),
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
+          DEFAULT: oklchVar('--primary'),
+          foreground: oklchVar('--primary-foreground'),
         },
         secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
+          DEFAULT: oklchVar('--secondary'),
+          foreground: oklchVar('--secondary-foreground'),
         },
         destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))',
+          DEFAULT: oklchVar('--destructive'),
+          foreground: oklchVar('--destructive-foreground'),
         },
         muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
+          DEFAULT: oklchVar('--muted'),
+          foreground: oklchVar('--muted-foreground'),
         },
         accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
+          DEFAULT: oklchVar('--accent'),
+          foreground: oklchVar('--accent-foreground'),
         },
         popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))',
+          DEFAULT: oklchVar('--popover'),
+          foreground: oklchVar('--popover-foreground'),
         },
         card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))',
+          DEFAULT: oklchVar('--card'),
+          foreground: oklchVar('--card-foreground'),
         },
+
+        // Raw PRODO design tokens (docs/design.md §2) -- for direct utility
+        // use (e.g. `bg-mint`, `text-text-dim`, `border-line-strong`) where
+        // the shadcn semantic roles above don't apply.
+        'bg-deep': oklchVar('--bg-deep'),
+        panel: oklchVar('--panel'),
+        content: oklchVar('--content'),
+        raised: oklchVar('--raised'),
+        'raised-2': oklchVar('--raised-2'),
+        'input-bg': oklchVar('--input-bg'),
+        'accent-wash': oklchVar('--accent-wash'),
+
+        line: oklchVar('--line'),
+        'line-strong': oklchVar('--line-strong'),
+        'line-subtle': oklchVar('--line-subtle'),
+
+        'text-bone': oklchVar('--text-bone'),
+        'text-body': oklchVar('--text-body'),
+        'text-muted': oklchVar('--text-muted'),
+        'text-dim': oklchVar('--text-dim'),
+        'text-faint': oklchVar('--text-faint'),
+
+        signal: oklchVar('--signal'),
+        'signal-hover': oklchVar('--signal-hover'),
+        mint: oklchVar('--mint'),
+        violet: oklchVar('--violet'),
+        amber: oklchVar('--amber'),
+        red: oklchVar('--red'),
+        blue: oklchVar('--blue'),
+        grey: oklchVar('--grey'),
+        'avatar-rd': oklchVar('--avatar-rd'),
+
+        // Platform Admin — separate namespace, not shared with member app
+        'pa-bg': oklchVar('--pa-bg'),
+        'pa-header': oklchVar('--pa-header'),
+        'pa-border': oklchVar('--pa-border'),
+        'pa-accent': oklchVar('--pa-accent'),
+        'pa-accent-hover': oklchVar('--pa-accent-hover'),
+        'pa-step-active': oklchVar('--pa-step-active'),
       },
       borderRadius: {
+        // Radius is 0 everywhere per docs/design.md §4 ("Radius: 0. All
+        // rectangles.") -- lg/md/sm all collapse to the same value rather
+        // than a calc() offset from zero.
         lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        md: 'var(--radius)',
+        sm: 'var(--radius)',
       },
       keyframes: {
         'accordion-down': {
