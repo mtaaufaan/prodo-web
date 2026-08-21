@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 import { useAuthStore } from '@/store/useAuthStore'
+import { useUIStore } from '@/store/useUIStore'
 
 interface ApiErrorBody {
   error: { code: string; message: string; details?: unknown }
@@ -40,9 +41,13 @@ instance.interceptors.response.use(
     const body = error?.response?.data as ApiErrorBody | undefined
     // Token ditolak (expired/invalid) saat request TERAUTENTIKASI --
     // bersihkan sesi supaya AuthGuard (reaktif ke store) redirect balik
-    // ke /login alih-alih diam-diam terus gagal dengan token basi.
+    // ke /login alih-alih diam-diam terus gagal dengan token basi. Ini juga
+    // jalur yang sama saat sesi di-revoke server-side (S1-33/34/35 --
+    // middleware balas TOKEN_EXPIRED begitu jti masuk blacklist), jadi
+    // toast S1-37 dipicu di sini juga, bukan cuma untuk expiry alami.
     if (error?.response?.status === 401 && useAuthStore.getState().accessToken) {
       useAuthStore.getState().clearSession()
+      useUIStore.getState().showToast('Sesi Anda telah diakhiri.')
     }
     if (body?.error) {
       return Promise.reject(new ApiError(body.error.code, body.error.message, body.error.details))
@@ -59,4 +64,5 @@ instance.interceptors.response.use(
 export const apiClient = instance as unknown as {
   get<T>(url: string, config?: Parameters<typeof instance.get>[1]): Promise<T>
   post<T>(url: string, data?: unknown, config?: Parameters<typeof instance.post>[1]): Promise<T>
+  delete<T>(url: string, config?: Parameters<typeof instance.delete>[1]): Promise<T>
 }
