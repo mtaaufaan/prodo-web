@@ -8,6 +8,7 @@ import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
 import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
+import SessionsPage from '@/pages/SessionsPage'
 
 // Definisi route terpusat (S0-28). Route asli (dashboard/tasks/projects/dst)
 // ditambahkan di bawah <Route element={<AuthGuard />}> mulai S1.
@@ -27,7 +28,8 @@ export default function AppRouter() {
             AuthGuard yang menangani redirect ke /login kalau belum ada
             sesi, jadi tidak perlu Navigate eksplisit lagi di sini. */}
         <Route path="/" element={<Home />} />
-        {/* TODO S1: /dashboard, /tasks, /projects, /settings */}
+        {/* TODO S1: /dashboard, /tasks, /projects */}
+        <Route path="/settings/sessions" element={<SessionsPage />} />{/* S1-31 */}
         {/* S1-12: AuthGuard baru cek token ada/tidak, BELUM cek role --
             RBAC platform_admin akan diperkuat saat S1-16 (JWT decode di FE)
             benar-benar diimplementasikan. */}
