@@ -1,5 +1,7 @@
 import axios from 'axios'
 
+import { useAuthStore } from '@/store/useAuthStore'
+
 interface ApiErrorBody {
   error: { code: string; message: string; details?: unknown }
 }
@@ -21,10 +23,11 @@ export class ApiError extends Error {
 
 const instance = axios.create()
 
-// Bearer token dari localStorage (kunci sama dengan AuthGuard, S0-28) --
-// dipasang otomatis ke setiap request yang butuh auth.
+// Bearer token dari useAuthStore (S1-25 -- sebelumnya baca localStorage
+// mentah langsung, sekarang lewat Zustand supaya satu sumber kebenaran
+// dipakai bareng AuthGuard).
 instance.interceptors.request.use((config) => {
-  const token = localStorage.getItem('prodo_access_token')
+  const token = useAuthStore.getState().accessToken
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -35,6 +38,12 @@ instance.interceptors.response.use(
   (response) => response.data?.data ?? response.data,
   (error) => {
     const body = error?.response?.data as ApiErrorBody | undefined
+    // Token ditolak (expired/invalid) saat request TERAUTENTIKASI --
+    // bersihkan sesi supaya AuthGuard (reaktif ke store) redirect balik
+    // ke /login alih-alih diam-diam terus gagal dengan token basi.
+    if (error?.response?.status === 401 && useAuthStore.getState().accessToken) {
+      useAuthStore.getState().clearSession()
+    }
     if (body?.error) {
       return Promise.reject(new ApiError(body.error.code, body.error.message, body.error.details))
     }

@@ -1,10 +1,14 @@
 import { Navigate, Outlet } from 'react-router-dom'
 
-// Placeholder S0 (S0-28) -- cek keberadaan token di localStorage saja, belum
-// validasi JWT/refresh sungguhan. Logic Keycloak asli (verify token, refresh,
-// redirect ke OIDC login) ditambahkan di S1 saat auth flow diimplementasikan.
+import { useAuthStore } from '@/store/useAuthStore'
+
+// S1-25: baca token dari useAuthStore secara reaktif (bukan localStorage
+// mentah seperti placeholder S0-28) -- kalau interceptor axios membersihkan
+// sesi (401, lihat src/lib/api.ts), komponen ini re-render dan langsung
+// redirect ke /login tanpa perlu reload manual. Masih belum cek role
+// (RBAC per halaman) -- itu dikerjakan terpisah saat routing per-role dibutuhkan.
 export default function AuthGuard() {
-  const hasToken = Boolean(localStorage.getItem('prodo_access_token'))
+  const hasToken = useAuthStore((state) => Boolean(state.accessToken))
 
   if (!hasToken) {
     return <Navigate to="/login" replace />
