@@ -1,6 +1,10 @@
+import { useState } from 'react'
+
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useSessionList } from '@/features/sessions/hooks'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useRevokeAllSessions, useRevokeSession, useSessionList } from '@/features/sessions/hooks'
 import type { SessionSummary } from '@/features/sessions/types'
 import { cn } from '@/lib/utils'
 
@@ -9,9 +13,8 @@ import { cn } from '@/lib/utils'
 // halaman standalone /settings/sessions (bukan shell tab 5-menu penuh, lihat
 // sprint_backlog.md S1-31: "Halaman `/settings/sessions`") karena tab lain
 // (Profil, Workspace & Role, Notifikasi) butuh backend yang belum dibangun
-// di S1. Tombol "Akhiri Sesi" / "Akhiri Semua Sesi Lain" menyusul S1-36
-// bersama endpoint DELETE (S1-33/34/35, H10) -- SessionService.RevokeSession
-// sudah ada di backend tapi belum diekspos lewat route.
+// di S1. Tombol revoke (S1-36) wired ke DELETE /auth/sessions/:jti dan
+// DELETE /auth/sessions (S1-33/34, H10).
 function formatRelative(iso: string): string {
   const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
   if (diffMin < 1) return 'baru saja'
@@ -21,9 +24,27 @@ function formatRelative(iso: string): string {
   return `${Math.round(diffHour / 24)} hari lalu`
 }
 
+type PendingConfirm = { kind: 'single'; jti: string; label: string } | { kind: 'all' } | null
+
 function SessionsPageContent() {
   const { data, isLoading, isError } = useSessionList()
+  const revokeSession = useRevokeSession()
+  const revokeAll = useRevokeAllSessions()
+  const [pending, setPending] = useState<PendingConfirm>(null)
   const others = (data ?? []).filter((s) => !s.is_current).length
+
+  const closeDialog = () => setPending(null)
+
+  const confirmAction = () => {
+    if (!pending) return
+    if (pending.kind === 'single') {
+      revokeSession.mutate(pending.jti, { onSuccess: closeDialog })
+    } else {
+      revokeAll.mutate(undefined, { onSuccess: closeDialog })
+    }
+  }
+
+  const isConfirming = pending?.kind === 'single' ? revokeSession.isPending : revokeAll.isPending
 
   return (
     <div className="min-h-screen bg-bg-deep">
@@ -52,24 +73,73 @@ function SessionsPageContent() {
                     <span>Perangkat</span>
                     <span>IP</span>
                     <span>Aktivitas</span>
-                    <span>Status</span>
+                    <span>Aksi</span>
                   </div>
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {data.length === 0 && <p className="p-4 text-sm text-text-muted">Tidak ada sesi aktif.</p>}
                 {data.map((session) => (
-                  <SessionRow key={session.jti} session={session} />
+                  <SessionRow
+                    key={session.jti}
+                    session={session}
+                    onRevoke={() =>
+                      setPending({
+                        kind: 'single',
+                        jti: session.jti,
+                        label: `${session.device_info.browser} · ${session.device_info.os}`,
+                      })
+                    }
+                  />
                 ))}
               </CardContent>
             </Card>
 
-            <p className="font-mono text-[9px] leading-relaxed text-text-dim">
-              Sesi JWT memakai sliding expiration; idle 30 menit mengakhiri sesi otomatis.
-            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                variant="outline"
+                disabled={others === 0}
+                onClick={() => setPending({ kind: 'all' })}
+                className="border-red font-mono text-[10px] uppercase tracking-[0.06em] text-red hover:bg-red/10 hover:text-red disabled:opacity-40"
+              >
+                Akhiri Semua Sesi Lain
+              </Button>
+              <p className="font-mono text-[9px] leading-relaxed text-text-dim">
+                Sesi JWT memakai sliding expiration; idle 30 menit mengakhiri sesi otomatis.
+              </p>
+            </div>
           </>
         )}
       </div>
+
+      <Dialog open={pending !== null} onOpenChange={(open) => !open && closeDialog()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{pending?.kind === 'single' ? 'Akhiri Sesi' : 'Akhiri Semua Sesi Lain'}</DialogTitle>
+          </DialogHeader>
+          <DialogDescription>
+            {pending?.kind === 'single'
+              ? `Sesi di perangkat "${pending.label}" akan diakhiri. Perangkat tersebut perlu login ulang.`
+              : `${others} sesi di perangkat lain akan diakhiri. Sesi ini (perangkat yang sedang Anda pakai) tidak terpengaruh.`}
+          </DialogDescription>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={closeDialog}
+              className="font-mono text-[10px] uppercase tracking-[0.06em]"
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={confirmAction}
+              disabled={isConfirming}
+              className="bg-red font-mono text-[10px] uppercase tracking-[0.06em] text-bg-deep hover:bg-red/90"
+            >
+              {isConfirming ? 'Memproses...' : 'Konfirmasi'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -83,7 +153,7 @@ function StatCard({ label, value, className }: { label: string; value: string; c
   )
 }
 
-function SessionRow({ session }: { session: SessionSummary }) {
+function SessionRow({ session, onRevoke }: { session: SessionSummary; onRevoke: () => void }) {
   return (
     <div className="grid grid-cols-[2fr_1.2fr_1fr_0.8fr] items-center gap-3 border-t border-line px-4 py-3">
       <div>
@@ -101,7 +171,12 @@ function SessionRow({ session }: { session: SessionSummary }) {
       {session.is_current ? (
         <span className="font-mono text-[9px] text-text-dim">SESI INI</span>
       ) : (
-        <span className="font-mono text-[9px] text-text-faint">—</span>
+        <button
+          onClick={onRevoke}
+          className="w-fit font-mono text-[10px] text-red hover:text-red/80"
+        >
+          ⏻ Akhiri
+        </button>
       )}
     </div>
   )
