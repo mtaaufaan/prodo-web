@@ -1,9 +1,10 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 
 import AuthGuard from '@/components/AuthGuard'
 import Activate from '@/pages/Activate'
 import ActivateMfaSetup from '@/pages/ActivateMfaSetup'
 import DesignPage from '@/pages/DesignPage'
+import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
 import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
@@ -13,7 +14,6 @@ import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
 export default function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<Login />} />
       <Route path="/design" element={<DesignPage />} />
       {/* /activate & /activate/mfa-setup PUBLIC (S1-10/11) -- otorisasi lewat
@@ -22,6 +22,11 @@ export default function AppRouter() {
       <Route path="/activate/mfa-setup" element={<ActivateMfaSetup />} />
 
       <Route element={<AuthGuard />}>
+        {/* S1-22/25: "/" dulu unconditional redirect ke /login, sekarang
+            landing placeholder (dashboard sungguhan belum dibangun) --
+            AuthGuard yang menangani redirect ke /login kalau belum ada
+            sesi, jadi tidak perlu Navigate eksplisit lagi di sini. */}
+        <Route path="/" element={<Home />} />
         {/* TODO S1: /dashboard, /tasks, /projects, /settings */}
         {/* S1-12: AuthGuard baru cek token ada/tidak, BELUM cek role --
             RBAC platform_admin akan diperkuat saat S1-16 (JWT decode di FE)
