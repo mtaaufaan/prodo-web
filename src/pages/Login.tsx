@@ -14,12 +14,14 @@ import { loginFormSchema, type LoginFormValues } from '@/features/auth/types'
 // form) sesuai docs/Prodo Desain/PRODO Alur Aplikasi - Standalone.html
 // (screen "LOGIN -- SSO GATE"), bukan card tunggal ala Activate.tsx.
 //
-// Perbedaan yang SENGAJA tidak direplikasi dari prototipe (dicek langsung
-// lewat DOM inspection prototipe, bukan cuma dari deskripsi design.md):
-// - 3 tombol SSO per-provider (Microsoft/Okta/Google) -> tetap SATU tombol
-//   ghost generik & disabled. Prototipe menampilkan SSO + form lokal
-//   BERSAMAAN, yang justru persis DG-01 (design_gaps.md) -- bug yang belum
-//   diperbaiki di desainnya sendiri, jadi tidak direplikasi apa adanya.
+// 3 tombol SSO per-provider (Microsoft/Okta/Google) DITAMPILKAN sesuai
+// prototipe (dikonfirmasi user), tapi disabled -- desain-only, belum
+// fungsional sampai design_gaps.md DG-01 (mode SSO vs credential lokal)
+// resolved dan S1-19/23 (masih pending) selesai. Ukuran/tracking/urutan
+// (SSO dulu, baru form lokal) dicocokkan lewat inspeksi computed style
+// prototipe langsung, bukan dari deskripsi tertulis design.md.
+//
+// Perbedaan yang SENGAJA tidak direplikasi:
 // - Copy "5x gagal -> lockout 15 menit" & "tercatat di audit trail" -> tidak
 //   dimasukkan, karena lockout dan audit log percobaan GAGAL belum
 //   diimplementasikan backend (lihat gap S1-20 di docs/s1-kickoff.html).
@@ -28,6 +30,10 @@ import { loginFormSchema, type LoginFormValues } from '@/features/auth/types'
 //   endpoint/flow-nya (akun GA diundang, bukan self-signup); dihilangkan
 //   daripada jadi link mati.
 // - Toggle bahasa ID/EN -> di luar scope S1-22.
+// - Ikon brand asli Microsoft/Okta/Google -> tidak disertakan (aset
+//   trademark, bukan bagian dari design token PRODO); tombol berupa teks.
+const SSO_PROVIDERS = ['Microsoft', 'Okta', 'Google']
+
 const FEATURE_BADGES = [
   'RBAC 7-ROLE · AUDIT TRAIL IMMUTABLE',
   'AES-256 AT REST · TLS 1.3 IN TRANSIT',
@@ -129,6 +135,28 @@ export default function Login() {
           </h2>
 
           <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 space-y-4">
+            <div className="space-y-2.5">
+              {SSO_PROVIDERS.map((provider) => (
+                <Button
+                  key={provider}
+                  type="button"
+                  variant="outline"
+                  disabled={mfaRequired}
+                  title="Login SSO belum tersedia -- menunggu konfigurasi SSO per organisasi (design_gaps.md DG-01)"
+                  className="w-full border-line-strong font-mono text-[11px] font-normal uppercase tracking-[0.04em]"
+                >
+                  Masuk dengan {provider}
+                </Button>
+              ))}
+            </div>
+
+            <div className="relative py-1 text-center">
+              <span className="relative bg-bg-deep px-2 font-mono text-[9px] uppercase tracking-[0.08em] text-text-dim">
+                atau
+              </span>
+              <div className="absolute inset-x-0 top-1/2 -z-10 border-t border-line" />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -190,27 +218,10 @@ export default function Login() {
 
             <Button
               type="submit"
-              className="w-full font-mono text-[11px] uppercase tracking-[0.08em]"
+              className="w-full font-mono text-[11px] font-bold uppercase tracking-[0.1em]"
               disabled={login.isPending}
             >
               {login.isPending ? 'Memproses...' : mfaRequired ? 'Verifikasi & Masuk' : 'Masuk'}
-            </Button>
-
-            <div className="relative py-2 text-center">
-              <span className="relative bg-bg-deep px-2 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
-                atau
-              </span>
-              <div className="absolute inset-x-0 top-1/2 -z-10 border-t border-line" />
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              disabled
-              title="Login SSO belum tersedia -- menunggu konfigurasi SSO per organisasi (design_gaps.md DG-01)"
-              className="w-full border-line-strong font-mono text-[11px] uppercase tracking-[0.08em]"
-            >
-              Lanjutkan dengan SSO
             </Button>
           </form>
         </div>
