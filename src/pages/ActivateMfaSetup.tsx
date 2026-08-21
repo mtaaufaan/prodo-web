@@ -45,7 +45,7 @@ function ActivateMfaSetupPage() {
     return (
       <PageShell>
         <CardHeader>
-          <CardTitle>Link Tidak Valid</CardTitle>
+          <CardTitle className="font-extrabold tracking-tight">Link Tidak Valid</CardTitle>
           <CardDescription>Link aktivasi tidak lengkap -- token tidak ditemukan.</CardDescription>
         </CardHeader>
       </PageShell>
@@ -60,7 +60,7 @@ function ActivateMfaSetupPage() {
     return (
       <PageShell>
         <CardHeader>
-          <CardTitle>QR Code Tidak Tersedia</CardTitle>
+          <CardTitle className="font-extrabold tracking-tight">QR Code Tidak Tersedia</CardTitle>
           <CardDescription>
             Silakan mulai lagi dari link aktivasi di email Anda untuk melihat QR code setup MFA.
           </CardDescription>
@@ -74,14 +74,18 @@ function ActivateMfaSetupPage() {
   return (
     <PageShell>
       <CardHeader>
-        <CardTitle>Setup MFA</CardTitle>
+        <CardTitle className="font-extrabold tracking-tight">Setup MFA</CardTitle>
         <CardDescription>
           Scan QR code ini dengan aplikasi authenticator (Google Authenticator, Authy, dsb.), lalu masukkan kode 6
           digit yang muncul.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <img src={qrUrl} alt="QR code setup MFA" className="mx-auto h-56 w-56" />
+        <img
+          src={qrUrl}
+          alt="QR code setup MFA"
+          className="mx-auto h-56 w-56 border border-line p-2"
+        />
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
@@ -91,16 +95,22 @@ function ActivateMfaSetupPage() {
               inputMode="numeric"
               maxLength={6}
               autoComplete="one-time-code"
+              aria-invalid={Boolean(form.formState.errors.otpCode)}
+              className="text-center font-mono tracking-[0.3em]"
               {...form.register('otpCode')}
             />
             {form.formState.errors.otpCode && (
-              <p className="text-sm text-destructive">{form.formState.errors.otpCode.message}</p>
+              <p className="text-[11px] text-destructive">{form.formState.errors.otpCode.message}</p>
             )}
           </div>
 
-          {apiErrorMessage && <p className="text-sm text-destructive">{apiErrorMessage}</p>}
+          {apiErrorMessage && <p className="text-[11px] text-destructive">{apiErrorMessage}</p>}
 
-          <Button type="submit" className="w-full" disabled={verifyMfa.isPending}>
+          <Button
+            type="submit"
+            className="w-full font-mono text-[11px] uppercase tracking-[0.08em]"
+            disabled={verifyMfa.isPending}
+          >
             {verifyMfa.isPending ? 'Memverifikasi...' : 'Verifikasi & Aktifkan Akun'}
           </Button>
         </form>
@@ -111,8 +121,8 @@ function ActivateMfaSetupPage() {
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
-      <Card className="w-full max-w-md">{children}</Card>
+    <div className="flex min-h-screen items-center justify-center bg-bg-deep p-6">
+      <Card className="w-full max-w-md border-line shadow-none">{children}</Card>
     </div>
   )
 }

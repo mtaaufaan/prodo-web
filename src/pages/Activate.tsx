@@ -41,7 +41,7 @@ function ActivatePage() {
     return (
       <PageShell>
         <CardHeader>
-          <CardTitle>Link Tidak Valid</CardTitle>
+          <CardTitle className="font-extrabold tracking-tight">Link Tidak Valid</CardTitle>
           <CardDescription>Link aktivasi tidak lengkap -- token tidak ditemukan.</CardDescription>
         </CardHeader>
       </PageShell>
@@ -53,16 +53,22 @@ function ActivatePage() {
   return (
     <PageShell>
       <CardHeader>
-        <CardTitle>Aktivasi Akun</CardTitle>
+        <CardTitle className="font-extrabold tracking-tight">Aktivasi Akun</CardTitle>
         <CardDescription>Setel password baru untuk mengaktifkan akun Group Admin Anda.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="password">Password Baru</Label>
-            <Input id="password" type="password" autoComplete="new-password" {...form.register('password')} />
+            <Input
+              id="password"
+              type="password"
+              autoComplete="new-password"
+              aria-invalid={Boolean(form.formState.errors.password)}
+              {...form.register('password')}
+            />
             {form.formState.errors.password && (
-              <p className="text-sm text-destructive">{form.formState.errors.password.message}</p>
+              <p className="text-[11px] text-destructive">{form.formState.errors.password.message}</p>
             )}
           </div>
 
@@ -72,16 +78,21 @@ function ActivatePage() {
               id="confirmPassword"
               type="password"
               autoComplete="new-password"
+              aria-invalid={Boolean(form.formState.errors.confirmPassword)}
               {...form.register('confirmPassword')}
             />
             {form.formState.errors.confirmPassword && (
-              <p className="text-sm text-destructive">{form.formState.errors.confirmPassword.message}</p>
+              <p className="text-[11px] text-destructive">{form.formState.errors.confirmPassword.message}</p>
             )}
           </div>
 
-          {apiErrorMessage && <p className="text-sm text-destructive">{apiErrorMessage}</p>}
+          {apiErrorMessage && <p className="text-[11px] text-destructive">{apiErrorMessage}</p>}
 
-          <Button type="submit" className="w-full" disabled={activate.isPending}>
+          <Button
+            type="submit"
+            className="w-full font-mono text-[11px] uppercase tracking-[0.08em]"
+            disabled={activate.isPending}
+          >
             {activate.isPending ? 'Memproses...' : 'Lanjutkan'}
           </Button>
         </form>
@@ -92,8 +103,8 @@ function ActivatePage() {
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
-      <Card className="w-full max-w-md">{children}</Card>
+    <div className="flex min-h-screen items-center justify-center bg-bg-deep p-6">
+      <Card className="w-full max-w-md border-line shadow-none">{children}</Card>
     </div>
   )
 }

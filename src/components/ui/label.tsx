@@ -4,8 +4,10 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
+// Spesifikasi docs/design-system.md §10.1 -- "Label di atas field: IBM Plex
+// Mono, 9px, UPPERCASE, text/dim".
 const labelVariants = cva(
-  "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+  "font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
 )
 
 const Label = React.forwardRef<
