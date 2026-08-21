@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -24,13 +24,20 @@ export default function Home() {
         <p className="mt-2 text-muted-foreground">
           Role: {user?.platform_role} -- dashboard belum tersedia, menyusul di sprint berikutnya.
         </p>
-        <Button
-          onClick={handleLogout}
-          variant="outline"
-          className="mt-4 font-mono text-[11px] uppercase tracking-[0.08em]"
-        >
-          Keluar
-        </Button>
+        <div className="mt-4 flex justify-center gap-3">
+          <Link to="/settings/sessions">
+            <Button variant="outline" className="font-mono text-[11px] uppercase tracking-[0.08em]">
+              Sesi & Perangkat
+            </Button>
+          </Link>
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            className="font-mono text-[11px] uppercase tracking-[0.08em]"
+          >
+            Keluar
+          </Button>
+        </div>
       </div>
     </div>
   )
