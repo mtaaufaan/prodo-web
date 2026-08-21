@@ -4,23 +4,54 @@ import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
 import { useLogin } from '@/features/auth/hooks'
 import { loginFormSchema, type LoginFormValues } from '@/features/auth/types'
 
-// S1-22/24, US-001: halaman /login -- form credential lokal + step MFA.
-// Tombol SSO ("CONTINUE WITH SSO", ghost button per docs/design.md §8)
-// sengaja NON-FUNGSIONAL -- desain-only sampai design_gaps.md DG-01 (mode
-// SSO vs credential lokal tidak boleh tampil bersamaan) resolved dan
-// S1-19/23 (handler + FE callback SSO, saat ini pending) selesai.
+// S1-22/24, US-001: halaman /login -- layout split-screen (panel branding +
+// form) sesuai docs/Prodo Desain/PRODO Alur Aplikasi - Standalone.html
+// (screen "LOGIN -- SSO GATE"), bukan card tunggal ala Activate.tsx.
+//
+// Perbedaan yang SENGAJA tidak direplikasi dari prototipe (dicek langsung
+// lewat DOM inspection prototipe, bukan cuma dari deskripsi design.md):
+// - 3 tombol SSO per-provider (Microsoft/Okta/Google) -> tetap SATU tombol
+//   ghost generik & disabled. Prototipe menampilkan SSO + form lokal
+//   BERSAMAAN, yang justru persis DG-01 (design_gaps.md) -- bug yang belum
+//   diperbaiki di desainnya sendiri, jadi tidak direplikasi apa adanya.
+// - Copy "5x gagal -> lockout 15 menit" & "tercatat di audit trail" -> tidak
+//   dimasukkan, karena lockout dan audit log percobaan GAGAL belum
+//   diimplementasikan backend (lihat gap S1-20 di docs/s1-kickoff.html).
+//   Menampilkannya akan mengklaim fitur yang belum ada.
+// - Link "LUPA PASSWORD?" dan "BELUM PUNYA PASSWORD? ..." -> tidak ada
+//   endpoint/flow-nya (akun GA diundang, bukan self-signup); dihilangkan
+//   daripada jadi link mati.
+// - Toggle bahasa ID/EN -> di luar scope S1-22.
+const FEATURE_BADGES = [
+  'RBAC 7-ROLE · AUDIT TRAIL IMMUTABLE',
+  'AES-256 AT REST · TLS 1.3 IN TRANSIT',
+  'DATA RESIDENSI · ASIA TENGGARA',
+  'SOC 2 · SAML 2.0 / OIDC · WCAG 2.1 AA',
+]
+
+function LogoMark({ size = 28 }: { size?: number }) {
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center bg-signal font-mono font-black text-bg-deep"
+      style={{ width: size, height: size, fontSize: size * 0.46 }}
+    >
+      P
+    </div>
+  )
+}
+
 export default function Login() {
   const navigate = useNavigate()
   const login = useLogin()
   const [mfaRequired, setMfaRequired] = useState(false)
   const [otpCode, setOtpCode] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   // Bedakan "baru pertama kali diminta OTP" (bukan error, sekadar prompt)
   // dari "OTP yang diketik salah" (error sungguhan) -- backend membalas
   // kode INVALID_OTP yang SAMA untuk keduanya, jadi front-end yang perlu
@@ -53,16 +84,51 @@ export default function Login() {
   const errorMessage = isPendingOtpPrompt ? null : apiError?.message
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-deep p-6">
-      <Card className="w-full max-w-md border-line shadow-none">
-        <CardHeader>
-          <CardTitle className="font-extrabold tracking-tight">Masuk ke PRODO</CardTitle>
-          <CardDescription>
-            {mfaRequired ? 'Masukkan kode OTP dari aplikasi authenticator Anda.' : 'Masuk dengan email dan password.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <div className="grid min-h-screen bg-bg-deep md:grid-cols-[1.7fr_1fr]">
+      {/* Panel branding -- disembunyikan di mobile, cuma tampil >= md */}
+      <div className="hidden flex-col justify-between p-12 md:flex">
+        <div className="flex items-center gap-2">
+          <LogoMark />
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-dim">PRODO · OPS LEDGER</span>
+        </div>
+
+        <div>
+          <h1 className="text-[44px] font-extrabold uppercase leading-[1.05] text-primary">
+            Delivery
+            <br />
+            Control
+            <br />
+            Console
+          </h1>
+          <p className="mt-4 max-w-md text-sm text-muted-foreground">
+            Boards, timelines, sprints, dan workload untuk setiap workspace -- satu instrumen operasional untuk
+            &gt;10.000 pengguna enterprise.
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          {FEATURE_BADGES.map((badge) => (
+            <p key={badge} className="font-mono text-[10.5px] uppercase tracking-[0.03em] text-text-dim">
+              {badge}
+            </p>
+          ))}
+        </div>
+      </div>
+
+      {/* Panel form */}
+      <div className="flex items-center justify-center p-6">
+        <div className="w-full max-w-[352px]">
+          <div className="mb-6 flex items-center gap-2 md:hidden">
+            <LogoMark size={24} />
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-dim">PRODO</span>
+          </div>
+
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-dim">Masuk ke PRODO</p>
+          <h2 className="mt-1 text-xl font-bold text-primary">
+            {mfaRequired ? 'Verifikasi MFA' : 'Selamat datang kembali'}
+          </h2>
+
+          <form onSubmit={form.handleSubmit(onSubmit)} className="mt-6 space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -80,14 +146,25 @@ export default function Login() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                disabled={mfaRequired}
-                aria-invalid={Boolean(form.formState.errors.password)}
-                {...form.register('password')}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  disabled={mfaRequired}
+                  aria-invalid={Boolean(form.formState.errors.password)}
+                  className="pr-9"
+                  {...form.register('password')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-text-dim hover:text-text-body"
+                  aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                >
+                  {showPassword ? '🙈' : '👁'}
+                </button>
+              </div>
               {form.formState.errors.password && (
                 <p className="text-[11px] text-destructive">{form.formState.errors.password.message}</p>
               )}
@@ -120,7 +197,7 @@ export default function Login() {
             </Button>
 
             <div className="relative py-2 text-center">
-              <span className="bg-raised px-2 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
+              <span className="relative bg-bg-deep px-2 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
                 atau
               </span>
               <div className="absolute inset-x-0 top-1/2 -z-10 border-t border-line" />
@@ -136,8 +213,8 @@ export default function Login() {
               Lanjutkan dengan SSO
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }
