@@ -31,8 +31,9 @@ function WorkspaceMembersPageContent() {
           <Card className="border-line bg-transparent shadow-none">
             <CardHeader className="border-b border-line pb-3">
               <CardTitle className="font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
-                <div className="grid grid-cols-[2fr_1.3fr_1fr_0.8fr] gap-3">
+                <div className="grid grid-cols-[1.8fr_1.2fr_1.1fr_0.9fr_0.8fr] gap-3">
                   <span>Member</span>
+                  <span>Tipe</span>
                   <span>Role</span>
                   <span>Gabung</span>
                   <span>Aksi</span>
@@ -44,6 +45,12 @@ function WorkspaceMembersPageContent() {
               {data.map((member) => (
                 <MemberRow key={member.user_id} member={member} onManage={() => setSelected(member)} />
               ))}
+              {/* S2-14: seksi "Project-Scoped Member" (glossary.md --
+                  Workspace Membership vs Project-Scoped Membership) belum
+                  ditampilkan di sini -- datanya (`project_scoped_members`)
+                  belum ada, S3-14 asli baru mengembalikan array itu setelah
+                  tabel project_members dibangun (lihat implementation_gaps.md
+                  IG-09). Menyusul begitu datanya tersedia. */}
             </CardContent>
           </Card>
         )}
@@ -66,11 +73,17 @@ function WorkspaceMembersPageContent() {
 function MemberRow({ member, onManage }: { member: WorkspaceMember; onManage: () => void }) {
   const locked = member.role === 'admin_workspace'
   return (
-    <div className="grid grid-cols-[2fr_1.3fr_1fr_0.8fr] items-center gap-3 border-t border-line px-4 py-3">
+    <div className="grid grid-cols-[1.8fr_1.2fr_1.1fr_0.9fr_0.8fr] items-center gap-3 border-t border-line px-4 py-3">
       <div>
         <div className="text-[13px] text-text-body">{member.display_name || member.email}</div>
         <div className="mt-1 font-mono text-[8.5px] text-text-muted">{member.email}</div>
       </div>
+      {/* Istilah resmi glossary.md "Workspace Membership" -- bukan "Project
+          Member" generik. Semua baris di sini SELALU tipe ini (data
+          workspace_members saja) sampai project-scoped member ada. */}
+      <span className="w-fit border border-line-subtle px-1.5 py-0.5 font-mono text-[8.5px] uppercase text-text-muted">
+        Workspace Member
+      </span>
       <span className="w-fit border border-line-strong px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase text-text-body">
         {member.role.replace('_', ' ')}
       </span>

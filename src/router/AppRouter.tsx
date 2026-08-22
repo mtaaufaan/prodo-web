@@ -1,9 +1,11 @@
 import { Route, Routes } from 'react-router-dom'
 
 import AuthGuard from '@/components/AuthGuard'
+import RoleGuard from '@/components/RoleGuard'
 import Activate from '@/pages/Activate'
 import ActivateMfaSetup from '@/pages/ActivateMfaSetup'
 import DesignPage from '@/pages/DesignPage'
+import Forbidden from '@/pages/Forbidden'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
@@ -32,10 +34,12 @@ export default function AppRouter() {
         {/* TODO S1: /dashboard, /tasks, /projects */}
         <Route path="/settings/sessions" element={<SessionsPage />} />{/* S1-31 */}
         <Route path="/workspaces/:wsId/members" element={<WorkspaceMembersPage />} />{/* S2-07/08 */}
-        {/* S1-12: AuthGuard baru cek token ada/tidak, BELUM cek role --
-            RBAC platform_admin akan diperkuat saat S1-16 (JWT decode di FE)
-            benar-benar diimplementasikan. */}
-        <Route path="/platform/group-admins" element={<PlatformGroupAdminPage />} />
+        <Route path="/403" element={<Forbidden />} />{/* S2-15 */}
+        {/* S2-13 (menutup implementation_gaps.md IG-02): route pertama yang
+            digerbangi RoleGuard berbasis platform_role. */}
+        <Route element={<RoleGuard allowedRoles={['platform_admin']} />}>
+          <Route path="/platform/group-admins" element={<PlatformGroupAdminPage />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<NotFound />} />
