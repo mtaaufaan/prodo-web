@@ -1,0 +1,97 @@
+import { useState } from 'react'
+import { useParams } from 'react-router-dom'
+
+import RolePickerModal from '@/components/workspace/RolePickerModal'
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useWorkspaceMembers } from '@/features/workspace-members/hooks'
+import type { WorkspaceMember } from '@/features/workspace-members/types'
+import { cn } from '@/lib/utils'
+
+// S2-07/08, US-002 (AW Members Roles.dc.html) -- versi minimal: cuma
+// tabel member + aksi kelola role, TANPA stats/filter/pagination/undang
+// member dari desain (di luar scope S2, GET .../members sendiri baru
+// prasyarat minimal yang dimajukan dari S3-14, lihat
+// implementation_gaps.md IG-09). Halaman penuh menyusul S3/S6.
+function WorkspaceMembersPageContent() {
+  const { wsId } = useParams<{ wsId: string }>()
+  const workspaceId = wsId ?? ''
+  const { data, isLoading, isError } = useWorkspaceMembers(workspaceId)
+  const [selected, setSelected] = useState<WorkspaceMember | null>(null)
+
+  return (
+    <div className="min-h-screen bg-bg-deep">
+      <div className="mx-auto max-w-4xl space-y-6 p-6">
+        <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Member Workspace</h1>
+
+        {isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
+        {isError && <p className="text-sm text-destructive">Gagal memuat daftar member.</p>}
+
+        {data && (
+          <Card className="border-line bg-transparent shadow-none">
+            <CardHeader className="border-b border-line pb-3">
+              <CardTitle className="font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
+                <div className="grid grid-cols-[2fr_1.3fr_1fr_0.8fr] gap-3">
+                  <span>Member</span>
+                  <span>Role</span>
+                  <span>Gabung</span>
+                  <span>Aksi</span>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {data.length === 0 && <p className="p-4 text-sm text-text-muted">Belum ada member di workspace ini.</p>}
+              {data.map((member) => (
+                <MemberRow key={member.user_id} member={member} onManage={() => setSelected(member)} />
+              ))}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* workspaceName pakai workspaceId apa adanya -- GET /workspaces/:wsId
+          (nama workspace sungguhan) belum diverifikasi hidup di S2, di luar
+          scope prasyarat minimal S2-07/08. Ganti begitu S3 (workspace detail)
+          selesai. */}
+      <RolePickerModal
+        workspaceId={workspaceId}
+        workspaceName={workspaceId}
+        member={selected}
+        onClose={() => setSelected(null)}
+      />
+    </div>
+  )
+}
+
+function MemberRow({ member, onManage }: { member: WorkspaceMember; onManage: () => void }) {
+  const locked = member.role === 'admin_workspace'
+  return (
+    <div className="grid grid-cols-[2fr_1.3fr_1fr_0.8fr] items-center gap-3 border-t border-line px-4 py-3">
+      <div>
+        <div className="text-[13px] text-text-body">{member.display_name || member.email}</div>
+        <div className="mt-1 font-mono text-[8.5px] text-text-muted">{member.email}</div>
+      </div>
+      <span className="w-fit border border-line-strong px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase text-text-body">
+        {member.role.replace('_', ' ')}
+      </span>
+      <span className="font-mono text-[10px] text-text-muted">
+        {new Date(member.joined_at).toLocaleDateString('id-ID')}
+      </span>
+      {locked ? (
+        <span className="font-mono text-[10px] text-text-faint">— Kunci</span>
+      ) : (
+        <button onClick={onManage} className={cn('w-fit font-mono text-[10px] text-text-muted hover:text-signal')}>
+          ✎ Kelola
+        </button>
+      )}
+    </div>
+  )
+}
+
+export default function WorkspaceMembersPage() {
+  return (
+    <ErrorBoundary>
+      <WorkspaceMembersPageContent />
+    </ErrorBoundary>
+  )
+}
