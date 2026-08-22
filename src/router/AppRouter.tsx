@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 
 import AuthGuard from '@/components/AuthGuard'
 import RoleGuard from '@/components/RoleGuard'
+import AcceptInvitationPage from '@/pages/AcceptInvitationPage'
 import Activate from '@/pages/Activate'
 import ActivateMfaSetup from '@/pages/ActivateMfaSetup'
 import DesignPage from '@/pages/DesignPage'
@@ -24,6 +25,9 @@ export default function AppRouter() {
           token satu-pakai di query string, bukan sesi login. */}
       <Route path="/activate" element={<Activate />} />
       <Route path="/activate/mfa-setup" element={<ActivateMfaSetup />} />
+      {/* PUBLIC (S2-27, US-006) -- alur token satu-pakai sama dengan /activate,
+          tapi tanpa MFA wajib (member biasa, bukan Group Admin). */}
+      <Route path="/invitations/accept" element={<AcceptInvitationPage />} />
 
       <Route element={<AuthGuard />}>
         {/* S1-22/25: "/" dulu unconditional redirect ke /login, sekarang

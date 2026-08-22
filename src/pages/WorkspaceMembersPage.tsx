@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
+import InviteMemberModal from '@/components/workspace/InviteMemberModal'
+import { PendingInvitationsSection } from '@/components/workspace/PendingInvitationsSection'
 import RolePickerModal from '@/components/workspace/RolePickerModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useWorkspaceMembers } from '@/features/workspace-members/hooks'
 import type { WorkspaceMember } from '@/features/workspace-members/types'
@@ -18,11 +21,17 @@ function WorkspaceMembersPageContent() {
   const workspaceId = wsId ?? ''
   const { data, isLoading, isError } = useWorkspaceMembers(workspaceId)
   const [selected, setSelected] = useState<WorkspaceMember | null>(null)
+  const [inviteOpen, setInviteOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-bg-deep">
       <div className="mx-auto max-w-4xl space-y-6 p-6">
-        <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Member Workspace</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Member Workspace</h1>
+          <Button onClick={() => setInviteOpen(true)} className="font-mono text-[10px] uppercase tracking-[0.06em]">
+            + Undang Member
+          </Button>
+        </div>
 
         {isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
         {isError && <p className="text-sm text-destructive">Gagal memuat daftar member.</p>}
@@ -54,6 +63,8 @@ function WorkspaceMembersPageContent() {
             </CardContent>
           </Card>
         )}
+
+        <PendingInvitationsSection workspaceId={workspaceId} />
       </div>
 
       {/* workspaceName pakai workspaceId apa adanya -- GET /workspaces/:wsId
@@ -65,6 +76,12 @@ function WorkspaceMembersPageContent() {
         workspaceName={workspaceId}
         member={selected}
         onClose={() => setSelected(null)}
+      />
+      <InviteMemberModal
+        workspaceId={workspaceId}
+        workspaceName={workspaceId}
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
       />
     </div>
   )
