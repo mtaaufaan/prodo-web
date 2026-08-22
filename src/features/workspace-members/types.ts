@@ -16,3 +16,17 @@ export const ASSIGNABLE_ROLES: { key: string; label: string; description: string
   { key: 'approver', label: 'APPROVER', description: 'Menyetujui atau menolak entri waktu dan task tertentu.' },
   { key: 'viewer', label: 'VIEWER', description: 'Akses lihat saja, tidak dapat mengubah data.' },
 ]
+
+// S2-16..24, US-006.
+export interface PendingInvitation {
+  id: string
+  email: string
+  role: string
+  expires_at: string
+}
+
+export interface CreateInvitationsResult {
+  invitation_ids: string[]
+  added_directly: string[] | null
+  errors: Record<string, string>
+}
