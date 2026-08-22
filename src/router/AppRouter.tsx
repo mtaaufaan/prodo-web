@@ -9,6 +9,7 @@ import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
 import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
 import SessionsPage from '@/pages/SessionsPage'
+import WorkspaceMembersPage from '@/pages/WorkspaceMembersPage'
 
 // Definisi route terpusat (S0-28). Route asli (dashboard/tasks/projects/dst)
 // ditambahkan di bawah <Route element={<AuthGuard />}> mulai S1.
@@ -30,6 +31,7 @@ export default function AppRouter() {
         <Route path="/" element={<Home />} />
         {/* TODO S1: /dashboard, /tasks, /projects */}
         <Route path="/settings/sessions" element={<SessionsPage />} />{/* S1-31 */}
+        <Route path="/workspaces/:wsId/members" element={<WorkspaceMembersPage />} />{/* S2-07/08 */}
         {/* S1-12: AuthGuard baru cek token ada/tidak, BELUM cek role --
             RBAC platform_admin akan diperkuat saat S1-16 (JWT decode di FE)
             benar-benar diimplementasikan. */}
