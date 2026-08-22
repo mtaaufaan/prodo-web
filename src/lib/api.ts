@@ -64,5 +64,6 @@ instance.interceptors.response.use(
 export const apiClient = instance as unknown as {
   get<T>(url: string, config?: Parameters<typeof instance.get>[1]): Promise<T>
   post<T>(url: string, data?: unknown, config?: Parameters<typeof instance.post>[1]): Promise<T>
+  put<T>(url: string, data?: unknown, config?: Parameters<typeof instance.put>[1]): Promise<T>
   delete<T>(url: string, config?: Parameters<typeof instance.delete>[1]): Promise<T>
 }
