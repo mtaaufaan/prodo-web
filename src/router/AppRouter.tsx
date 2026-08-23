@@ -12,6 +12,7 @@ import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
 import OrganizationManagementPage from '@/pages/OrganizationManagementPage'
 import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
+import ProjectMembersPage from '@/pages/ProjectMembersPage'
 import SessionsPage from '@/pages/SessionsPage'
 import WorkspaceListPage from '@/pages/WorkspaceListPage'
 import WorkspaceMembersPage from '@/pages/WorkspaceMembersPage'
@@ -40,6 +41,10 @@ export default function AppRouter() {
         {/* TODO S1: /dashboard, /tasks, /projects */}
         <Route path="/settings/sessions" element={<SessionsPage />} />{/* S1-31 */}
         <Route path="/workspaces/:wsId/members" element={<WorkspaceMembersPage />} />{/* S2-07/08 */}
+        {/* S3-24, US-009b: TANPA RoleGuard platform-role -- aktor sah (AW/PM)
+            platform_role-nya "member" biasa, otorisasi penuh di backend
+            ProjectMemberService. */}
+        <Route path="/projects/:projectId/members" element={<ProjectMembersPage />} />
         <Route path="/403" element={<Forbidden />} />{/* S2-15 */}
         {/* S2-13 (menutup implementation_gaps.md IG-02): route pertama yang
             digerbangi RoleGuard berbasis platform_role. */}
