@@ -5,6 +5,7 @@ import {
   createInvitations,
   listPendingInvitations,
   listWorkspaceMembers,
+  removeMember,
   resendInvitation,
   updateMemberRole,
 } from './api'
@@ -37,6 +38,15 @@ export function useUpdateMemberRole(workspaceId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: string }) => updateMemberRole(workspaceId, userId, role),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.list(workspaceId) }),
+  })
+}
+
+// S3-15/18: keluarkan member dari workspace.
+export function useRemoveMember(workspaceId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (userId: string) => removeMember(workspaceId, userId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.list(workspaceId) }),
   })
 }
