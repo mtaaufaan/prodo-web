@@ -29,3 +29,15 @@ export function deleteOrganization(id: string) {
 export function getOrganizationSummary(id: string) {
   return apiClient.get<OrganizationSummary>(`/api/v1/organizations/${id}/summary`)
 }
+
+export function updateOrganizationSettings(id: string, defaultLanguage: string) {
+  return apiClient.put<{ id: string; default_language: string }>(`/api/v1/organizations/${id}/settings`, {
+    default_language: defaultLanguage,
+  })
+}
+
+export function updateOrganizationStorageQuota(id: string, quotaBytes: number) {
+  return apiClient.put<{ id: string; storage_quota_bytes: number }>(`/api/v1/organizations/${id}/storage-quota`, {
+    storage_quota_bytes: quotaBytes,
+  })
+}

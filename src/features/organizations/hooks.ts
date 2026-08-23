@@ -8,6 +8,8 @@ import {
   listOrganizations,
   reactivateOrganization,
   updateOrganization,
+  updateOrganizationSettings,
+  updateOrganizationStorageQuota,
 } from './api'
 import type { CreateOrganizationFormValues, UpdateOrganizationFormValues } from './types'
 
@@ -63,6 +65,22 @@ export function useReactivateOrganization() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => reactivateOrganization(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: organizationKeys.all }),
+  })
+}
+
+export function useUpdateOrganizationSettings(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (defaultLanguage: string) => updateOrganizationSettings(id, defaultLanguage),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: organizationKeys.all }),
+  })
+}
+
+export function useUpdateOrganizationStorageQuota(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (quotaBytes: number) => updateOrganizationStorageQuota(id, quotaBytes),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: organizationKeys.all }),
   })
 }

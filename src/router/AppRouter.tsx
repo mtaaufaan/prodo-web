@@ -5,6 +5,7 @@ import RoleGuard from '@/components/RoleGuard'
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage'
 import Activate from '@/pages/Activate'
 import ActivateMfaSetup from '@/pages/ActivateMfaSetup'
+import CrossOrgMembershipsPage from '@/pages/CrossOrgMembershipsPage'
 import DesignPage from '@/pages/DesignPage'
 import Forbidden from '@/pages/Forbidden'
 import Home from '@/pages/Home'
@@ -60,6 +61,9 @@ export default function AppRouter() {
               konsisten RLS `workspaces_delete` yang tidak punya cabang
               `admin_workspace`. */}
           <Route path="/organizations/:orgId/workspaces" element={<WorkspaceListPage />} />
+          {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
+              (S3-25/27) PA/GA saja. */}
+          <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />
         </Route>
       </Route>
 

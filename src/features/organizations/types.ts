@@ -5,6 +5,9 @@ export interface Organization {
   group_id: string
   name: string
   slug: string
+  default_language: string
+  storage_quota_bytes: number
+  storage_max_bytes: number
   deactivated_at: string | null
   created_at: string
 }
@@ -36,3 +39,16 @@ export const updateOrganizationSchema = z.object({
   slug: slugSchema,
 })
 export type UpdateOrganizationFormValues = z.infer<typeof updateOrganizationSchema>
+
+// S3-29/30/31 (US-010).
+export const updateSettingsSchema = z.object({
+  default_language: z.enum(['id', 'en']),
+})
+export type UpdateSettingsFormValues = z.infer<typeof updateSettingsSchema>
+
+// S3-32/34/36 (US-011) -- input FE dalam GB (lebih ramah dibaca), dikonversi
+// ke bytes sebelum dikirim ke API.
+export const updateStorageQuotaSchema = z.object({
+  quota_gb: z.coerce.number().min(0.1, 'Kuota minimal 0.1 GB'),
+})
+export type UpdateStorageQuotaFormValues = z.infer<typeof updateStorageQuotaSchema>
