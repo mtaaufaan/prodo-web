@@ -10,6 +10,7 @@ import Forbidden from '@/pages/Forbidden'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
+import OrganizationManagementPage from '@/pages/OrganizationManagementPage'
 import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
 import SessionsPage from '@/pages/SessionsPage'
 import WorkspaceMembersPage from '@/pages/WorkspaceMembersPage'
@@ -43,6 +44,11 @@ export default function AppRouter() {
             digerbangi RoleGuard berbasis platform_role. */}
         <Route element={<RoleGuard allowedRoles={['platform_admin']} />}>
           <Route path="/platform/group-admins" element={<PlatformGroupAdminPage />} />
+        </Route>
+        {/* S3-07, US-007: Platform Admin (semua org) atau Group Admin (org
+            dalam grup yang dia kelola, scoping lewat RLS `orgs_select`). */}
+        <Route element={<RoleGuard allowedRoles={['platform_admin', 'group_admin']} />}>
+          <Route path="/organizations" element={<OrganizationManagementPage />} />
         </Route>
       </Route>
 
