@@ -15,6 +15,10 @@ export function updateMemberRole(workspaceId: string, userId: string, role: stri
   )
 }
 
+export function removeMember(workspaceId: string, userId: string) {
+  return apiClient.delete<void>(`/api/v1/workspaces/${workspaceId}/members/${userId}`)
+}
+
 export function listPendingInvitations(workspaceId: string) {
   return apiClient
     .get<{ pending_invitations: PendingInvitation[] }>(`/api/v1/workspaces/${workspaceId}/invitations`)

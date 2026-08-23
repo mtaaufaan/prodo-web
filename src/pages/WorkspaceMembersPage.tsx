@@ -7,30 +7,52 @@ import RolePickerModal from '@/components/workspace/RolePickerModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useWorkspaceMembers } from '@/features/workspace-members/hooks'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useRemoveMember, useWorkspaceMembers } from '@/features/workspace-members/hooks'
 import type { WorkspaceMember } from '@/features/workspace-members/types'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/useAuthStore'
 
 // S2-07/08, US-002 (AW Members Roles.dc.html) -- versi minimal: cuma
 // tabel member + aksi kelola role, TANPA stats/filter/pagination/undang
 // member dari desain (di luar scope S2, GET .../members sendiri baru
 // prasyarat minimal yang dimajukan dari S3-14, lihat
 // implementation_gaps.md IG-09). Halaman penuh menyusul S3/S6.
+//
+// S3-18 (tombol hapus) + S3-43 (sembunyikan Undang Member/Kelola/Hapus
+// berdasarkan workspace_role viewer sendiri, bukan cuma platform_role
+// seperti RoleGuard S2-13) ditambahkan di sini. Baris viewer sendiri
+// di-resolve dari response GET .../members yang sama (tidak perlu state
+// "current workspace" global baru, sesuai catatan sprint_backlog.md).
 function WorkspaceMembersPageContent() {
   const { wsId } = useParams<{ wsId: string }>()
   const workspaceId = wsId ?? ''
   const { data, isLoading, isError } = useWorkspaceMembers(workspaceId)
   const [selected, setSelected] = useState<WorkspaceMember | null>(null)
+  const [removeTarget, setRemoveTarget] = useState<WorkspaceMember | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const removeMember = useRemoveMember(workspaceId)
+  const currentUser = useAuthStore((state) => state.user)
+  const platformRole = currentUser?.platform_role
+
+  const viewerRole = data?.find((m) => m.user_id === currentUser?.id)?.role
+  const canManage = platformRole === 'platform_admin' || platformRole === 'group_admin' || viewerRole === 'admin_workspace'
+
+  const handleConfirmRemove = () => {
+    if (!removeTarget) return
+    removeMember.mutate(removeTarget.user_id, { onSuccess: () => setRemoveTarget(null) })
+  }
 
   return (
     <div className="min-h-screen bg-bg-deep">
       <div className="mx-auto max-w-4xl space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Member Workspace</h1>
-          <Button onClick={() => setInviteOpen(true)} className="font-mono text-[10px] uppercase tracking-[0.06em]">
-            + Undang Member
-          </Button>
+          {canManage && (
+            <Button onClick={() => setInviteOpen(true)} className="font-mono text-[10px] uppercase tracking-[0.06em]">
+              + Undang Member
+            </Button>
+          )}
         </div>
 
         {isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
@@ -52,14 +74,20 @@ function WorkspaceMembersPageContent() {
             <CardContent className="p-0">
               {data.length === 0 && <p className="p-4 text-sm text-text-muted">Belum ada member di workspace ini.</p>}
               {data.map((member) => (
-                <MemberRow key={member.user_id} member={member} onManage={() => setSelected(member)} />
+                <MemberRow
+                  key={member.user_id}
+                  member={member}
+                  canManage={canManage}
+                  onManage={() => setSelected(member)}
+                  onRemove={() => setRemoveTarget(member)}
+                />
               ))}
               {/* S2-14: seksi "Project-Scoped Member" (glossary.md --
                   Workspace Membership vs Project-Scoped Membership) belum
                   ditampilkan di sini -- datanya (`project_scoped_members`)
                   belum ada, S3-14 asli baru mengembalikan array itu setelah
                   tabel project_members dibangun (lihat implementation_gaps.md
-                  IG-09). Menyusul begitu datanya tersedia. */}
+                  IG-09/IG-17). Menyusul begitu datanya tersedia (S4+). */}
             </CardContent>
           </Card>
         )}
@@ -83,11 +111,47 @@ function WorkspaceMembersPageContent() {
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
       />
+
+      <Dialog open={removeTarget !== null} onOpenChange={(next) => !next && setRemoveTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Keluarkan Member?</DialogTitle>
+          </DialogHeader>
+          <div className="px-5 py-5">
+            <p className="text-sm text-text-muted">
+              {removeTarget?.display_name || removeTarget?.email} akan kehilangan akses ke workspace ini. Akun tetap ada,
+              cuma keanggotaan workspace ini yang dicabut.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRemoveTarget(null)} className="font-mono text-[10px] uppercase tracking-[0.06em]">
+              Batal
+            </Button>
+            <Button
+              onClick={handleConfirmRemove}
+              disabled={removeMember.isPending}
+              className="border-destructive bg-destructive font-mono text-[10px] uppercase tracking-[0.06em] text-destructive-foreground hover:bg-destructive/90"
+            >
+              {removeMember.isPending ? 'Memproses...' : 'Keluarkan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-function MemberRow({ member, onManage }: { member: WorkspaceMember; onManage: () => void }) {
+function MemberRow({
+  member,
+  canManage,
+  onManage,
+  onRemove,
+}: {
+  member: WorkspaceMember
+  canManage: boolean
+  onManage: () => void
+  onRemove: () => void
+}) {
   const locked = member.role === 'admin_workspace'
   return (
     <div className="grid grid-cols-[1.8fr_1.2fr_1.1fr_0.9fr_0.8fr] items-center gap-3 border-t border-line px-4 py-3">
@@ -107,12 +171,17 @@ function MemberRow({ member, onManage }: { member: WorkspaceMember; onManage: ()
       <span className="font-mono text-[10px] text-text-muted">
         {new Date(member.joined_at).toLocaleDateString('id-ID')}
       </span>
-      {locked ? (
-        <span className="font-mono text-[10px] text-text-faint">— Kunci</span>
+      {locked || !canManage ? (
+        <span className="font-mono text-[10px] text-text-faint">{locked ? '— Kunci' : ''}</span>
       ) : (
-        <button onClick={onManage} className={cn('w-fit font-mono text-[10px] text-text-muted hover:text-signal')}>
-          ✎ Kelola
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={onManage} className={cn('w-fit font-mono text-[10px] text-text-muted hover:text-signal')}>
+            ✎ Kelola
+          </button>
+          <button onClick={onRemove} className="w-fit font-mono text-[10px] text-text-muted hover:text-destructive">
+            ✕ Hapus
+          </button>
+        </div>
       )}
     </div>
   )
