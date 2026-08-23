@@ -12,9 +12,14 @@ import {
   useOrganizationSummary,
   useReactivateOrganization,
   useUpdateOrganization,
+  useUpdateOrganizationSettings,
+  useUpdateOrganizationStorageQuota,
 } from '@/features/organizations/hooks'
 import { updateOrganizationSchema, type Organization, type UpdateOrganizationFormValues } from '@/features/organizations/types'
 import { ApiError } from '@/lib/api'
+import { cn } from '@/lib/utils'
+
+const GB = 1024 * 1024 * 1024
 
 interface ManageOrganizationModalProps {
   organization: Organization | null
@@ -43,15 +48,27 @@ const CONFIRM_COPY: Record<Exclude<ConfirmAction, null>, { title: string; body: 
 
 // S3-07, US-007 (GA Organizations.dc.html) -- versi minimal: edit name/slug,
 // toggle aktif/nonaktif dua arah (S3-07 prasyarat Reactivate), ringkasan
-// dashboard (S3-06), dan hapus. TANPA domain/logo/quota/retention/language
-// dari desain penuh -- sama alasan CreateOrganizationModal.
+// dashboard (S3-06), dan hapus. TANPA domain/logo/retention dari desain
+// penuh -- sama alasan CreateOrganizationModal. Bahasa Default (S3-31) dan
+// Kuota Storage (S3-36) DITAMBAHKAN di sini (S3 H10) alih-alih halaman
+// OrganizationSettingsPage/StorageDashboard terpisah seperti wording task
+// asli -- organisasi sudah punya satu modal kelola, tidak perlu halaman
+// baru untuk 2 field tambahan. Gauge storage berupa bar teks sederhana
+// (used/quota/max) -- breakdown per workspace (S3-35) dan usage real-time
+// dari attachments (S3-33) TIDAK ditampilkan, keduanya blocked karena
+// tabel attachments belum ada (implementation_gaps.md IG-19).
 export default function ManageOrganizationModal({ organization, onClose }: ManageOrganizationModalProps) {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
   const updateOrganization = useUpdateOrganization(organization?.id ?? '')
   const deactivateOrganization = useDeactivateOrganization()
   const reactivateOrganization = useReactivateOrganization()
   const deleteOrganization = useDeleteOrganization()
+  const updateSettings = useUpdateOrganizationSettings(organization?.id ?? '')
+  const updateQuota = useUpdateOrganizationStorageQuota(organization?.id ?? '')
   const summary = useOrganizationSummary(organization?.id ?? '')
+
+  const [language, setLanguage] = useState('id')
+  const [quotaGb, setQuotaGb] = useState('')
 
   const form = useForm<UpdateOrganizationFormValues>({
     resolver: zodResolver(updateOrganizationSchema),
@@ -59,7 +76,11 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
   })
 
   useEffect(() => {
-    if (organization) form.reset({ name: organization.name, slug: organization.slug })
+    if (organization) {
+      form.reset({ name: organization.name, slug: organization.slug })
+      setLanguage(organization.default_language)
+      setQuotaGb((organization.storage_quota_bytes / GB).toFixed(1))
+    }
   }, [organization, form])
 
   const handleClose = () => {
@@ -82,7 +103,19 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
     }
   }
 
+  const handleSaveLanguage = () => {
+    updateSettings.mutate(language)
+  }
+
+  const handleSaveQuota = () => {
+    const gb = Number(quotaGb)
+    if (Number.isNaN(gb) || gb <= 0) return
+    updateQuota.mutate(Math.round(gb * GB))
+  }
+
   const updateErrorMessage = updateOrganization.error instanceof ApiError ? updateOrganization.error.message : null
+  const settingsErrorMessage = updateSettings.error instanceof ApiError ? updateSettings.error.message : null
+  const quotaErrorMessage = updateQuota.error instanceof ApiError ? updateQuota.error.message : null
   const deleteErrorMessage = deleteOrganization.error instanceof ApiError ? deleteOrganization.error.message : null
   const isDeactivated = organization?.deactivated_at !== null
   const confirmPending = deactivateOrganization.isPending || reactivateOrganization.isPending || deleteOrganization.isPending
@@ -119,6 +152,81 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
             >
               {updateOrganization.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
             </Button>
+
+            <div className="flex flex-wrap items-end gap-3 border-t border-line pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-language">Bahasa Default</Label>
+                <select
+                  id="edit-language"
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="border border-line-strong bg-bg-deep px-2 py-1.5 font-mono text-[11px] text-text-body outline-none"
+                >
+                  <option value="id">Bahasa Indonesia</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveLanguage}
+                disabled={updateSettings.isPending}
+                className="font-mono text-[10px] uppercase tracking-[0.06em]"
+              >
+                {updateSettings.isPending ? 'Menyimpan...' : 'Simpan Bahasa'}
+              </Button>
+              {settingsErrorMessage && <p className="text-[11px] text-destructive">{settingsErrorMessage}</p>}
+            </div>
+
+            <div className="border-t border-line pt-4">
+              <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Kuota Storage</p>
+              {organization && (
+                <div className="mb-2">
+                  <div className="h-2 w-full bg-line-subtle">
+                    <div
+                      className={cn(
+                        'h-full',
+                        summary.data && summary.data.storage_used_bytes / organization.storage_quota_bytes >= 0.8
+                          ? 'bg-amber'
+                          : 'bg-mint',
+                      )}
+                      style={{
+                        width: `${Math.min(100, ((summary.data?.storage_used_bytes ?? 0) / organization.storage_quota_bytes) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="mt-1 font-mono text-[9px] text-text-muted">
+                    {((summary.data?.storage_used_bytes ?? 0) / GB).toFixed(2)} GB / {(organization.storage_quota_bytes / GB).toFixed(1)} GB
+                    {' · maks '}
+                    {(organization.storage_max_bytes / GB).toFixed(0)} GB
+                  </p>
+                </div>
+              )}
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-quota">Kuota (GB)</Label>
+                  <Input
+                    id="edit-quota"
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    value={quotaGb}
+                    onChange={(e) => setQuotaGb(e.target.value)}
+                    className="w-28"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSaveQuota}
+                  disabled={updateQuota.isPending}
+                  className="font-mono text-[10px] uppercase tracking-[0.06em]"
+                >
+                  {updateQuota.isPending ? 'Menyimpan...' : 'Simpan Kuota'}
+                </Button>
+              </div>
+              {quotaErrorMessage && <p className="mt-2 text-[11px] text-destructive">{quotaErrorMessage}</p>}
+            </div>
 
             <div className="border-t border-line pt-4">
               <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Ringkasan</p>

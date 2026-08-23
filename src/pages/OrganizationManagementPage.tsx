@@ -38,11 +38,12 @@ function OrganizationManagementPageContent() {
         <Card className="border-line bg-transparent shadow-none">
           <CardHeader className="border-b border-line pb-3">
             <CardTitle className="font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
-              <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.7fr_0.7fr] gap-3">
+              <div className="grid grid-cols-[1.4fr_0.9fr_0.7fr_0.65fr_0.75fr_0.65fr] gap-3">
                 <span>Nama</span>
                 <span>Slug</span>
                 <span>Status</span>
                 <span>Workspace</span>
+                <span>Cross-Org</span>
                 <span>Aksi</span>
               </div>
             </CardTitle>
@@ -69,7 +70,7 @@ function OrganizationManagementPageContent() {
 function OrganizationRow({ organization, onManage }: { organization: Organization; onManage: () => void }) {
   const isActive = organization.deactivated_at === null
   return (
-    <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.7fr_0.7fr] items-center gap-3 border-t border-line px-4 py-3">
+    <div className="grid grid-cols-[1.4fr_0.9fr_0.7fr_0.65fr_0.75fr_0.65fr] items-center gap-3 border-t border-line px-4 py-3">
       <div className="text-[13px] text-text-body">{organization.name}</div>
       <div className="font-mono text-[10px] text-text-muted">{organization.slug}</div>
       <span
@@ -82,6 +83,14 @@ function OrganizationRow({ organization, onManage }: { organization: Organizatio
       </span>
       <Link
         to={`/organizations/${organization.id}/workspaces`}
+        className="w-fit font-mono text-[10px] text-text-muted hover:text-signal"
+      >
+        Lihat →
+      </Link>
+      {/* S3-28: group_id dari organisasi ini dipakai apa adanya sebagai
+          :groupId -- belum ada halaman "GA dashboard" terpisah. */}
+      <Link
+        to={`/groups/${organization.group_id}/cross-org-memberships`}
         className="w-fit font-mono text-[10px] text-text-muted hover:text-signal"
       >
         Lihat →
