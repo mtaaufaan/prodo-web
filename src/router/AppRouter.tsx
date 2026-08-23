@@ -13,6 +13,7 @@ import NotFound from '@/pages/NotFound'
 import OrganizationManagementPage from '@/pages/OrganizationManagementPage'
 import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
 import SessionsPage from '@/pages/SessionsPage'
+import WorkspaceListPage from '@/pages/WorkspaceListPage'
 import WorkspaceMembersPage from '@/pages/WorkspaceMembersPage'
 
 // Definisi route terpusat (S0-28). Route asli (dashboard/tasks/projects/dst)
@@ -49,6 +50,11 @@ export default function AppRouter() {
             dalam grup yang dia kelola, scoping lewat RLS `orgs_select`). */}
         <Route element={<RoleGuard allowedRoles={['platform_admin', 'group_admin']} />}>
           <Route path="/organizations" element={<OrganizationManagementPage />} />
+          {/* S3-13, US-008: sama gate seperti /organizations -- backend
+              GET .../workspaces (implementation_gaps.md IG-17) PA/GA saja,
+              konsisten RLS `workspaces_delete` yang tidak punya cabang
+              `admin_workspace`. */}
+          <Route path="/organizations/:orgId/workspaces" element={<WorkspaceListPage />} />
         </Route>
       </Route>
 
