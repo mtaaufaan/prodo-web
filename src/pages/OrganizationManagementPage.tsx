@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 import CreateOrganizationModal from '@/components/organizations/CreateOrganizationModal'
 import ManageOrganizationModal from '@/components/organizations/ManageOrganizationModal'
@@ -37,10 +38,11 @@ function OrganizationManagementPageContent() {
         <Card className="border-line bg-transparent shadow-none">
           <CardHeader className="border-b border-line pb-3">
             <CardTitle className="font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
-              <div className="grid grid-cols-[1.8fr_1.2fr_0.9fr_0.8fr] gap-3">
+              <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.7fr_0.7fr] gap-3">
                 <span>Nama</span>
                 <span>Slug</span>
                 <span>Status</span>
+                <span>Workspace</span>
                 <span>Aksi</span>
               </div>
             </CardTitle>
@@ -67,7 +69,7 @@ function OrganizationManagementPageContent() {
 function OrganizationRow({ organization, onManage }: { organization: Organization; onManage: () => void }) {
   const isActive = organization.deactivated_at === null
   return (
-    <div className="grid grid-cols-[1.8fr_1.2fr_0.9fr_0.8fr] items-center gap-3 border-t border-line px-4 py-3">
+    <div className="grid grid-cols-[1.6fr_1fr_0.8fr_0.7fr_0.7fr] items-center gap-3 border-t border-line px-4 py-3">
       <div className="text-[13px] text-text-body">{organization.name}</div>
       <div className="font-mono text-[10px] text-text-muted">{organization.slug}</div>
       <span
@@ -78,6 +80,12 @@ function OrganizationRow({ organization, onManage }: { organization: Organizatio
       >
         {isActive ? 'Aktif' : 'Nonaktif'}
       </span>
+      <Link
+        to={`/organizations/${organization.id}/workspaces`}
+        className="w-fit font-mono text-[10px] text-text-muted hover:text-signal"
+      >
+        Lihat →
+      </Link>
       <button onClick={onManage} className="w-fit font-mono text-[10px] text-text-muted hover:text-signal">
         ✎ Kelola
       </button>
