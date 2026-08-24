@@ -23,7 +23,7 @@ function PlatformGroupAdminPageContent() {
 
   const form = useForm<CreateGroupAdminFormValues>({
     resolver: zodResolver(createGroupAdminSchema),
-    defaultValues: { email: '', display_name: '' },
+    defaultValues: { email: '', display_name: '', group_name: '' },
   })
 
   const onSubmit = (values: CreateGroupAdminFormValues) => {
@@ -46,7 +46,7 @@ function PlatformGroupAdminPageContent() {
             <CardDescription>Email aktivasi berisi link one-time yang berlaku 72 jam akan dikirim.</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto]">
               <div className="space-y-2">
                 <Label htmlFor="display_name">Nama Lengkap</Label>
                 <Input id="display_name" {...form.register('display_name')} />
@@ -59,6 +59,13 @@ function PlatformGroupAdminPageContent() {
                 <Input id="email" type="email" {...form.register('email')} />
                 {form.formState.errors.email && (
                   <p className="text-[11px] text-destructive">{form.formState.errors.email.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="group_name">Nama Perusahaan / Grup</Label>
+                <Input id="group_name" {...form.register('group_name')} />
+                {form.formState.errors.group_name && (
+                  <p className="text-[11px] text-destructive">{form.formState.errors.group_name.message}</p>
                 )}
               </div>
               <div className="flex items-end">
