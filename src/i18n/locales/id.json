@@ -2,5 +2,22 @@
   "app": {
     "name": "PRODO"
   },
-  "welcome": "Selamat datang di PRODO"
+  "welcome": "Selamat datang di PRODO",
+  "platformAdminLayout": {
+    "title": "Platform Admin Console",
+    "description": "Lintas-organisasi: kelola Group Admin, tier & kuota global, right to erasure, dan audit trail platform. Tidak ada akses konten organisasi manapun.",
+    "scope": "SCOPE",
+    "scopeValue": "PRODO PLATFORM",
+    "signOut": "KELUAR",
+    "soon": "SEGERA",
+    "nav": {
+      "groupAdmins": "Kelola Group Admin",
+      "groupDirectory": "Direktori Grup",
+      "tiers": "Tier & Kuota Global",
+      "erasure": "Right to Erasure",
+      "auditTrail": "Platform Audit Trail",
+      "dashboard": "Dashboard Kesehatan",
+      "securitySettings": "Pengaturan Keamanan"
+    }
+  }
 }

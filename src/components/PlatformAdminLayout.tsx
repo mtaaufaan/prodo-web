@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 import { cn } from '@/lib/utils'
@@ -10,45 +11,40 @@ import { useAuthStore } from '@/store/useAuthStore'
 //
 // TIDAK disalin dari desain: eyebrow "Platform Layer -- EPIC 1 · 4.5 ·
 // 4.6" (anotasi dokumen desain, sama kelas dengan referensi "§" yang
-// sudah dihilangkan dari PlatformLoginPage), panel swatch TYPE, dan
-// toggle bahasa ID/EN (i18n belum terpasang untuk area PA).
+// sudah dihilangkan dari PlatformLoginPage), panel swatch TYPE.
+//
+// Toggle bahasa ID/EN -- SEKARANG BENERAN BERFUNGSI (i18next), koreksi
+// dari asumsi awal "belum terpasang" (ternyata sudah terpasang app-wide
+// tapi tidak dipakai satu halaman pun, ditemukan user). Cakupan
+// terjemahan SENGAJA dibatasi ke teks kerangka ini saja (judul, nav,
+// sign out) -- isi halaman (form, tabel) di dalamnya belum diterjemahkan,
+// itu pekerjaan i18n penuh yang terpisah.
 //
 // Item nav DIPERLUAS dari 4 tab asli desain (Group Admin Mgmt/Tier &
 // Kuota/Right to Erasure/Audit Trail) dengan Direktori Grup (US-083) dan
 // Pengaturan Keamanan (S4P-18) -- keduanya fitur nyata yang dijadwalkan
 // setelah mockup asli dibuat. Item yang halamannya belum dibangun
 // ditampilkan non-aktif ("SEGERA"), bukan link mati.
-const NAV_ITEMS: { icon: string; label: string; to: string | null }[] = [
-  { icon: '◉', label: 'Group Admin Mgmt', to: '/platform/group-admins' },
-  { icon: '▤', label: 'Direktori Grup', to: null },
-  { icon: '▦', label: 'Tier & Kuota Global', to: null },
-  { icon: '⌗', label: 'Right to Erasure', to: null },
-  { icon: '☰', label: 'Platform Audit Trail', to: null },
-  { icon: '◫', label: 'Dashboard Kesehatan', to: null },
-  {
-    icon: '⚙',
-    label: 'Pengaturan Keamanan',
-    to: '/platform/security-settings',
-  },
-]
+function useNavItems() {
+  const { t } = useTranslation()
+  return [
+    { icon: '◉', label: t('platformAdminLayout.nav.groupAdmins'), to: '/platform/group-admins' },
+    { icon: '▤', label: t('platformAdminLayout.nav.groupDirectory'), to: null },
+    { icon: '▦', label: t('platformAdminLayout.nav.tiers'), to: null },
+    { icon: '⌗', label: t('platformAdminLayout.nav.erasure'), to: null },
+    { icon: '☰', label: t('platformAdminLayout.nav.auditTrail'), to: null },
+    { icon: '◫', label: t('platformAdminLayout.nav.dashboard'), to: null },
+    { icon: '⚙', label: t('platformAdminLayout.nav.securitySettings'), to: '/platform/security-settings' },
+  ]
+}
 
-function PlatformNavItem({
-  icon,
-  label,
-  to,
-}: {
-  icon: string
-  label: string
-  to: string | null
-}) {
+function PlatformNavItem({ icon, label, to, soonLabel }: { icon: string; label: string; to: string | null; soonLabel: string }) {
   if (!to) {
     return (
       <div className="flex cursor-not-allowed items-center gap-2.5 border-l-2 border-transparent px-3 py-2.5 text-[12.5px] text-text-dim">
         <span className="w-4 font-mono text-[11px]">{icon}</span>
         {label}
-        <span className="ml-auto font-mono text-[9px] tracking-[0.08em]">
-          SEGERA
-        </span>
+        <span className="ml-auto font-mono text-[9px] tracking-[0.08em]">{soonLabel}</span>
       </div>
     )
   }
@@ -70,7 +66,31 @@ function PlatformNavItem({
   )
 }
 
+function LanguageToggle() {
+  const { i18n } = useTranslation()
+  const current = i18n.language?.startsWith('en') ? 'en' : 'id'
+  return (
+    <div className="mt-3 flex gap-1.5 border-t border-pa-border pt-3 font-mono text-[10.5px] tracking-[0.08em]">
+      {(['id', 'en'] as const).map((lng) => (
+        <button
+          key={lng}
+          type="button"
+          onClick={() => i18n.changeLanguage(lng)}
+          className={cn(
+            'border px-2.5 py-1',
+            current === lng ? 'border-pa-accent text-text-bone' : 'border-pa-border text-text-muted',
+          )}
+        >
+          {lng.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export default function PlatformAdminLayout() {
+  const { t } = useTranslation()
+  const navItems = useNavItems()
   const navigate = useNavigate()
   const clearSession = useAuthStore((state) => state.clearSession)
 
@@ -83,13 +103,9 @@ export default function PlatformAdminLayout() {
     <div className="min-h-screen bg-pa-bg p-10">
       <div className="mx-auto mb-5 flex max-w-[1540px] flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold uppercase tracking-tight">
-            Platform Admin Console
-          </h1>
+          <h1 className="text-2xl font-extrabold uppercase tracking-tight">{t('platformAdminLayout.title')}</h1>
           <p className="mt-2 max-w-xl text-[13.5px] leading-relaxed text-text-muted">
-            Lintas-organisasi: kelola Group Admin, tier &amp; kuota global,
-            right to erasure, dan audit trail platform. Tidak ada akses konten
-            organisasi manapun.
+            {t('platformAdminLayout.description')}
           </p>
         </div>
       </div>
@@ -98,15 +114,14 @@ export default function PlatformAdminLayout() {
         <aside className="flex w-56 flex-shrink-0 flex-col border-r border-pa-border">
           <div className="border-b border-pa-border p-4">
             <div className="font-mono text-[10px] tracking-[0.14em] text-text-muted">
-              SCOPE
+              {t('platformAdminLayout.scope')}
             </div>
-            <div className="mt-1 text-sm font-bold text-pa-accent">
-              PRODO PLATFORM
-            </div>
+            <div className="mt-1 text-sm font-bold text-pa-accent">{t('platformAdminLayout.scopeValue')}</div>
+            <LanguageToggle />
           </div>
           <nav className="flex flex-col gap-0.5 p-2">
-            {NAV_ITEMS.map((item) => (
-              <PlatformNavItem key={item.label} {...item} />
+            {navItems.map((item) => (
+              <PlatformNavItem key={item.label} {...item} soonLabel={t('platformAdminLayout.soon')} />
             ))}
           </nav>
           <div className="mt-auto flex justify-end border-t border-pa-border p-4">
@@ -115,7 +130,7 @@ export default function PlatformAdminLayout() {
               onClick={handleSignOut}
               className="inline-flex items-center gap-2 border border-pa-border px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-pa-accent"
             >
-              SIGN OUT ⏻
+              {t('platformAdminLayout.signOut')} ⏻
             </button>
           </div>
         </aside>
