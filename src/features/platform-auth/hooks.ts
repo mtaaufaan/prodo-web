@@ -9,7 +9,8 @@ export function usePlatformLogin() {
   const setSession = useAuthStore((state) => state.setSession)
 
   return useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) => platformLogin(email, password),
+    mutationFn: ({ email, password, mfaCode }: { email: string; password: string; mfaCode: string }) =>
+      platformLogin(email, password, mfaCode),
     onSuccess: (result) => {
       if (!isMfaSetupRequired(result)) {
         setSession({ accessToken: result.access_token, refreshToken: result.refresh_token, user: result.user })
