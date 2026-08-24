@@ -32,4 +32,25 @@ describe('useAuthStore', () => {
     expect(useAuthStore.getState().accessToken).toBeNull()
     expect(useAuthStore.getState().user).toBeNull()
   })
+
+  it('wasPlatformAdmin survives clearSession so AuthGuard can redirect PA sessions correctly', () => {
+    useAuthStore.getState().setSession({
+      accessToken: 'at',
+      refreshToken: 'rt',
+      user: { id: 'pa-1', email: 'pa@b.com', display_name: 'PA', platform_role: 'platform_admin', avatar_url: null },
+    })
+    expect(useAuthStore.getState().wasPlatformAdmin).toBe(true)
+    useAuthStore.getState().clearSession()
+    expect(useAuthStore.getState().accessToken).toBeNull()
+    expect(useAuthStore.getState().wasPlatformAdmin).toBe(true)
+  })
+
+  it('wasPlatformAdmin is false for non-PA roles', () => {
+    useAuthStore.getState().setSession({
+      accessToken: 'at',
+      refreshToken: 'rt',
+      user: { id: 'user-1', email: 'a@b.com', display_name: 'A', platform_role: 'member', avatar_url: null },
+    })
+    expect(useAuthStore.getState().wasPlatformAdmin).toBe(false)
+  })
 })
