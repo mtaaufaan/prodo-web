@@ -26,9 +26,11 @@ import { isMfaSetupRequired } from '@/features/platform-auth/types'
 //   lokal), tidak relevan untuk aplikasi sungguhan.
 // - Toggle bahasa ID/EN -> tampil sesuai desain tapi TIDAK di-wire ke
 //   i18next (sama seperti Login.tsx, halaman ini belum diterjemahkan).
-// - "Referensi PRD §2.1, §4.1, §4.5." di deskripsi header -> anotasi
-//   dokumentasi desain (rujukan spek untuk reviewer), bukan salinan
-//   produk yang perlu ditampilkan ke pengguna sungguhan.
+// - Rujukan pasal PRD ("§2.1, §4.1, §4.5" di deskripsi header, "(§4.1)"
+//   di catatan SSO/audit trail) -> anotasi dokumentasi desain (rujukan
+//   spek untuk reviewer), bukan salinan produk yang perlu ditampilkan ke
+//   pengguna sungguhan. Ditemukan user dua kali terpisah -- cek SELURUH
+//   teks halaman untuk pola "§" sebelum implementasi layar PA berikutnya.
 //
 // Ditambahkan MELEBIHI cakupan file desain (yang mengasumsikan MFA sudah
 // terpasang di seluruh demo -- tidak pernah memodelkan skenario "belum
@@ -300,7 +302,7 @@ export default function PlatformLoginPage() {
             </button>
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: C.faint, lineHeight: 1.7 }}>
               SSO tidak tersedia untuk akun Platform Admin — kredensial dikelola langsung oleh tim operasional PRODO.
-              Percobaan login dicatat di Platform Audit Trail (§4.1).
+              Percobaan login dicatat di Platform Audit Trail.
             </div>
           </>
         )}
