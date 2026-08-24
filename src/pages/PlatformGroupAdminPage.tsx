@@ -1,89 +1,32 @@
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
 
+import GroupAdminFormModal, { type GroupAdminFormMode } from '@/components/GroupAdminFormModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { ApiError } from '@/lib/api'
-import { useCreateGroupAdmin, useGroupAdminList, useResendActivation } from '@/features/platform-admin/hooks'
-import { createGroupAdminSchema, type CreateGroupAdminFormValues, type GroupAdmin } from '@/features/platform-admin/types'
+import { useGroupAdminList } from '@/features/platform-admin/hooks'
+import type { GroupAdmin } from '@/features/platform-admin/types'
 
-// S1-12, US-073: panel Platform Admin -- buat akun Group Admin + resend activation.
-// Aksen `pa-accent` (bukan `signal` bawaan member app) menandai zona restricted
-// sesuai docs/design.md §5B -- aksi Platform Admin sifatnya platform-wide.
+// S1-12, US-073, diperluas S4P-06 sesuai desain "PA Group Admins": kolom
+// Tier/Sisa Org/Sisa Kuota/Sisa Member/Tanggal Daftar, aksi Lihat/Ubah
+// (bukan lagi form Tambah inline + tombol Resend -- Resend sekarang di
+// dalam modal mode Ubah, sesuai desain "PA Group Admin Form").
 function PlatformGroupAdminPageContent() {
   const list = useGroupAdminList()
-  const createGroupAdmin = useCreateGroupAdmin()
-  const resendActivation = useResendActivation()
-  const [lastResentId, setLastResentId] = useState<string | null>(null)
-
-  const form = useForm<CreateGroupAdminFormValues>({
-    resolver: zodResolver(createGroupAdminSchema),
-    defaultValues: { email: '', display_name: '', group_name: '' },
-  })
-
-  const onSubmit = (values: CreateGroupAdminFormValues) => {
-    createGroupAdmin.mutate(values, { onSuccess: () => form.reset() })
-  }
-
-  const handleResend = (id: string) => {
-    setLastResentId(null)
-    resendActivation.mutate(id, { onSuccess: () => setLastResentId(id) })
-  }
-
-  const createErrorMessage = createGroupAdmin.error instanceof ApiError ? createGroupAdmin.error.message : null
+  const [modal, setModal] = useState<{ mode: GroupAdminFormMode; id: string | null } | null>(null)
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-6">
       <Card className="border-pa-border shadow-none">
-        <CardHeader>
-          <CardTitle className="font-extrabold tracking-tight">Buat Akun Group Admin</CardTitle>
-          <CardDescription>Email aktivasi berisi link one-time yang berlaku 72 jam akan dikirim.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 sm:grid-cols-[1fr_1fr_1fr_auto]">
-            <div className="space-y-2">
-              <Label htmlFor="display_name">Nama Lengkap</Label>
-              <Input id="display_name" {...form.register('display_name')} />
-              {form.formState.errors.display_name && (
-                <p className="text-[11px] text-destructive">{form.formState.errors.display_name.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" {...form.register('email')} />
-              {form.formState.errors.email && (
-                <p className="text-[11px] text-destructive">{form.formState.errors.email.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="group_name">Nama Perusahaan / Grup</Label>
-              <Input id="group_name" {...form.register('group_name')} />
-              {form.formState.errors.group_name && (
-                <p className="text-[11px] text-destructive">{form.formState.errors.group_name.message}</p>
-              )}
-            </div>
-            <div className="flex items-end">
-              <Button
-                type="submit"
-                className="bg-pa-accent font-mono text-[11px] uppercase tracking-[0.08em] text-bg-deep hover:bg-pa-accent-hover"
-                disabled={createGroupAdmin.isPending}
-              >
-                {createGroupAdmin.isPending ? 'Membuat...' : 'Buat Akun'}
-              </Button>
-            </div>
-          </form>
-          {createErrorMessage && <p className="mt-2 text-[11px] text-destructive">{createErrorMessage}</p>}
-        </CardContent>
-      </Card>
-
-      <Card className="border-pa-border shadow-none">
-        <CardHeader>
-          <CardTitle className="font-extrabold tracking-tight">Daftar Group Admin</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="font-extrabold tracking-tight">Group Admin Mgmt</CardTitle>
+          <button
+            type="button"
+            onClick={() => setModal({ mode: 'add', id: null })}
+            className="inline-flex items-center gap-2 border border-pa-accent px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-pa-accent"
+          >
+            + Tambah Group Admin
+          </button>
         </CardHeader>
         <CardContent>
           {list.isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
@@ -96,16 +39,13 @@ function PlatformGroupAdminPageContent() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-line text-left">
-                    <th className="py-2 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
-                      Nama
-                    </th>
-                    <th className="py-2 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
-                      Email
-                    </th>
-                    <th className="py-2 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
-                      Status
-                    </th>
-                    <th className="py-2 pr-4"></th>
+                    {['Group Admin', 'Tier', 'Sisa Org', 'Sisa Kuota', 'Sisa Member', 'Tanggal Daftar', 'Status', ''].map(
+                      (h) => (
+                        <th key={h} className="py-2 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
+                          {h}
+                        </th>
+                      ),
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -113,9 +53,8 @@ function PlatformGroupAdminPageContent() {
                     <GroupAdminRow
                       key={ga.id}
                       groupAdmin={ga}
-                      onResend={handleResend}
-                      isResending={resendActivation.isPending && resendActivation.variables === ga.id}
-                      justResent={lastResentId === ga.id}
+                      onView={() => setModal({ mode: 'view', id: ga.id })}
+                      onEdit={() => setModal({ mode: 'edit', id: ga.id })}
                     />
                   ))}
                 </tbody>
@@ -124,58 +63,87 @@ function PlatformGroupAdminPageContent() {
           )}
         </CardContent>
       </Card>
+
+      {modal && (
+        <GroupAdminFormModal mode={modal.mode} groupAdminId={modal.id} open onClose={() => setModal(null)} />
+      )}
     </div>
   )
 }
 
 // Status pill: docs/design-system.md §8.1 -- border 1px status hue, mono
-// uppercase, TANPA fill (bukan badge terisi warna).
+// uppercase, TANPA fill.
 function StatusPill({ status }: { status: GroupAdmin['status'] }) {
+  const styleByStatus: Record<GroupAdmin['status'], string> = {
+    AKTIF: 'border-mint text-mint',
+    SUSPENDED: 'border-red text-red',
+    'TIDAK AKTIF': 'border-amber text-amber',
+  }
   return (
     <span
       className={cn(
         'inline-block border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em]',
-        status === 'active' ? 'border-mint text-mint' : 'border-amber text-amber',
+        styleByStatus[status],
       )}
     >
-      {status === 'active' ? 'Aktif' : 'Pending'}
+      {status}
     </span>
   )
 }
 
 function GroupAdminRow({
   groupAdmin,
-  onResend,
-  isResending,
-  justResent,
+  onView,
+  onEdit,
 }: {
   groupAdmin: GroupAdmin
-  onResend: (id: string) => void
-  isResending: boolean
-  justResent: boolean
+  onView: () => void
+  onEdit: () => void
 }) {
+  const hasGroup = groupAdmin.group_id != null
+  const sisaOrg = hasGroup ? Math.max(0, groupAdmin.tier_max_org - groupAdmin.used_org_count) : null
+  const sisaKuotaGB = hasGroup
+    ? Math.max(0, (groupAdmin.storage_quota_gb ?? groupAdmin.tier_max_storage_gb) - groupAdmin.used_storage_mb / 1024)
+    : null
+  const sisaMember = hasGroup ? Math.max(0, groupAdmin.tier_max_members - groupAdmin.used_member_count) : null
+
   return (
     <tr className="border-b border-line last:border-0">
-      <td className="py-2 pr-4">{groupAdmin.display_name}</td>
-      <td className="py-2 pr-4">{groupAdmin.email}</td>
+      <td className="py-2 pr-4">
+        <div>{groupAdmin.display_name}</div>
+        <div className="font-mono text-[10px] text-text-dim">{groupAdmin.email}</div>
+      </td>
+      <td className="py-2 pr-4 font-mono text-[10px] uppercase text-text-muted">{groupAdmin.tier ?? '—'}</td>
+      <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">{sisaOrg != null ? `${sisaOrg} org` : '—'}</td>
+      <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">
+        {sisaKuotaGB != null ? `${sisaKuotaGB.toFixed(1).replace(/\.0$/, '')} GB` : '—'}
+      </td>
+      <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">
+        {sisaMember != null ? sisaMember.toLocaleString('id-ID') : '—'}
+      </td>
+      <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">
+        {new Date(groupAdmin.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+      </td>
       <td className="py-2 pr-4">
         <StatusPill status={groupAdmin.status} />
       </td>
       <td className="py-2 pr-4 text-right">
-        {groupAdmin.status === 'pending' &&
-          (justResent ? (
-            <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-mint">Terkirim</span>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-line-strong font-mono text-[10px] uppercase tracking-[0.08em]"
-              disabled={isResending}
-              onClick={() => onResend(groupAdmin.id)}
-            >
-              {isResending ? 'Mengirim...' : 'Resend'}
-            </Button>
-          ))}
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onView}
+            className="font-mono text-[10px] text-text-muted hover:text-mint"
+          >
+            ◱ Lihat
+          </button>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="font-mono text-[10px] text-text-muted hover:text-pa-accent"
+          >
+            ✎ Ubah
+          </button>
+        </div>
       </td>
     </tr>
   )

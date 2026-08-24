@@ -2,5 +2,22 @@
   "app": {
     "name": "PRODO"
   },
-  "welcome": "Welcome to PRODO"
+  "welcome": "Welcome to PRODO",
+  "platformAdminLayout": {
+    "title": "Platform Admin Console",
+    "description": "Cross-organization: manage Group Admins, service tiers & global quota, right to erasure, and platform audit trail. No access to any organization's content.",
+    "scope": "SCOPE",
+    "scopeValue": "PRODO PLATFORM",
+    "signOut": "SIGN OUT",
+    "soon": "SOON",
+    "nav": {
+      "groupAdmins": "Manage Group Admins",
+      "groupDirectory": "Group Directory",
+      "tiers": "Tier & Global Quota",
+      "erasure": "Right to Erasure",
+      "auditTrail": "Platform Audit Trail",
+      "dashboard": "Health Dashboard",
+      "securitySettings": "Security Settings"
+    }
+  }
 }
