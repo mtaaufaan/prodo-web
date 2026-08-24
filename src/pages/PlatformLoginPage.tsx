@@ -37,6 +37,11 @@ export default function PlatformLoginPage() {
   const [otpCode, setOtpCode] = useState('')
   const [setupChallenge, setSetupChallenge] = useState<{ qrUrl: string; secret: string; email: string } | null>(null)
   const [backupCodes, setBackupCodes] = useState<string[]>([])
+  // MFA SUDAH aktif (login kedua dst) -- beda dari step 'mfa-setup' yang
+  // cuma untuk login PERTAMA. Sama pola dengan Login.tsx (mfaRequired).
+  const [loginMfaRequired, setLoginMfaRequired] = useState(false)
+  const [loginOtpCode, setLoginOtpCode] = useState('')
+  const [loginOtpWasWrong, setLoginOtpWasWrong] = useState(false)
 
   const form = useForm<PlatformLoginFormValues>({
     resolver: zodResolver(platformLoginFormSchema),
@@ -45,8 +50,9 @@ export default function PlatformLoginPage() {
 
   const onSubmitCredentials = (values: PlatformLoginFormValues) => {
     setPassword(values.password)
+    const alreadyPromptedForOtp = loginMfaRequired
     login.mutate(
-      { email: values.email, password: values.password },
+      { email: values.email, password: values.password, mfaCode: loginOtpCode },
       {
         onSuccess: (result) => {
           if (isMfaSetupRequired(result)) {
@@ -54,6 +60,12 @@ export default function PlatformLoginPage() {
             setStep('mfa-setup')
           } else {
             navigate('/platform/group-admins')
+          }
+        },
+        onError: (err) => {
+          if (err instanceof ApiError && err.code === 'INVALID_OTP') {
+            setLoginMfaRequired(true)
+            setLoginOtpWasWrong(alreadyPromptedForOtp)
           }
         },
       },
@@ -73,7 +85,12 @@ export default function PlatformLoginPage() {
     )
   }
 
-  const loginError = login.error instanceof ApiError ? login.error.message : null
+  const loginApiError = login.error instanceof ApiError ? login.error : null
+  // Sama pola Login.tsx: percobaan PERTAMA yang dibalas INVALID_OTP bukan
+  // error sungguhan, cuma prompt "sekarang masukkan OTP" -- baru jadi
+  // pesan error kalau OTP yang diketik user sendiri ternyata salah.
+  const isPendingLoginOtpPrompt = loginApiError?.code === 'INVALID_OTP' && !loginOtpWasWrong
+  const loginError = isPendingLoginOtpPrompt ? null : loginApiError?.message ?? null
   const setupError = completeMfaSetup.error instanceof ApiError ? completeMfaSetup.error.message : null
 
   return (
@@ -143,6 +160,7 @@ export default function PlatformLoginPage() {
                   id="email"
                   type="email"
                   autoComplete="username"
+                  disabled={loginMfaRequired}
                   aria-invalid={Boolean(form.formState.errors.email)}
                   {...form.register('email')}
                 />
@@ -159,6 +177,7 @@ export default function PlatformLoginPage() {
                   id="password"
                   type="password"
                   autoComplete="current-password"
+                  disabled={loginMfaRequired}
                   aria-invalid={Boolean(form.formState.errors.password)}
                   {...form.register('password')}
                 />
@@ -166,6 +185,24 @@ export default function PlatformLoginPage() {
                   <p className="mt-2 text-[11px] text-destructive">{form.formState.errors.password.message}</p>
                 )}
               </div>
+
+              {loginMfaRequired && (
+                <div>
+                  <Label htmlFor="loginOtpCode" className="mb-2 block text-[9.5px] tracking-[0.14em] text-text-dim">
+                    Kode OTP
+                  </Label>
+                  <Input
+                    id="loginOtpCode"
+                    inputMode="numeric"
+                    maxLength={6}
+                    autoComplete="one-time-code"
+                    autoFocus
+                    className="text-center font-mono tracking-[0.3em]"
+                    value={loginOtpCode}
+                    onChange={(e) => setLoginOtpCode(e.target.value)}
+                  />
+                </div>
+              )}
 
               {loginError && <p className="text-[11px] text-destructive">{loginError}</p>}
 
@@ -175,7 +212,7 @@ export default function PlatformLoginPage() {
                 className="w-full font-mono text-[11px] font-bold tracking-[0.1em]"
                 disabled={login.isPending}
               >
-                {login.isPending ? 'Memproses...' : 'Masuk'}
+                {login.isPending ? 'Memproses...' : loginMfaRequired ? 'Verifikasi & Masuk' : 'Masuk'}
               </Button>
 
               <p className="font-mono text-[9px] leading-[1.7] text-text-faint">
