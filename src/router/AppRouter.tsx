@@ -14,6 +14,7 @@ import NotFound from '@/pages/NotFound'
 import OrganizationManagementPage from '@/pages/OrganizationManagementPage'
 import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
 import PlatformLoginPage from '@/pages/PlatformLoginPage'
+import PlatformSecuritySettingsPage from '@/pages/PlatformSecuritySettingsPage'
 import ProjectMembersPage from '@/pages/ProjectMembersPage'
 import SessionsPage from '@/pages/SessionsPage'
 import WorkspaceListPage from '@/pages/WorkspaceListPage'
@@ -57,6 +58,8 @@ export default function AppRouter() {
             digerbangi RoleGuard berbasis platform_role. */}
         <Route element={<RoleGuard allowedRoles={['platform_admin']} />}>
           <Route path="/platform/group-admins" element={<PlatformGroupAdminPage />} />
+          {/* S4P-18, US-070: panel keamanan (session timeout global + IP allowlist self-service). */}
+          <Route path="/platform/security-settings" element={<PlatformSecuritySettingsPage />} />
         </Route>
         {/* S3-07, US-007: Platform Admin (semua org) atau Group Admin (org
             dalam grup yang dia kelola, scoping lewat RLS `orgs_select`). */}
