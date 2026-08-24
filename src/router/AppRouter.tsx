@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 
 import AuthGuard from '@/components/AuthGuard'
+import PlatformAdminLayout from '@/components/PlatformAdminLayout'
 import RoleGuard from '@/components/RoleGuard'
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage'
 import Activate from '@/pages/Activate'
@@ -56,10 +57,17 @@ export default function AppRouter() {
         <Route path="/403" element={<Forbidden />} />{/* S2-15 */}
         {/* S2-13 (menutup implementation_gaps.md IG-02): route pertama yang
             digerbangi RoleGuard berbasis platform_role. */}
+        {/* PlatformAdminLayout (2026-08-24, atas permintaan user): kerangka
+            konsol PA (sidebar navigasi + sign out), diekstrak dari desain
+            "Platform Admin Console.dc.html" -- dibangun supaya bentuk penuh
+            menu PA terlihat sejak sekarang, halaman baru tinggal disambung
+            sebagai child route begitu task-nya selesai. */}
         <Route element={<RoleGuard allowedRoles={['platform_admin']} />}>
-          <Route path="/platform/group-admins" element={<PlatformGroupAdminPage />} />
-          {/* S4P-18, US-070: panel keamanan (session timeout global + IP allowlist self-service). */}
-          <Route path="/platform/security-settings" element={<PlatformSecuritySettingsPage />} />
+          <Route element={<PlatformAdminLayout />}>
+            <Route path="/platform/group-admins" element={<PlatformGroupAdminPage />} />
+            {/* S4P-18, US-070: panel keamanan (session timeout global + IP allowlist self-service). */}
+            <Route path="/platform/security-settings" element={<PlatformSecuritySettingsPage />} />
+          </Route>
         </Route>
         {/* S3-07, US-007: Platform Admin (semua org) atau Group Admin (org
             dalam grup yang dia kelola, scoping lewat RLS `orgs_select`). */}
