@@ -37,6 +37,9 @@ export default function PlatformLoginPage() {
   const [otpCode, setOtpCode] = useState('')
   const [setupChallenge, setSetupChallenge] = useState<{ qrUrl: string; secret: string; email: string } | null>(null)
   const [backupCodes, setBackupCodes] = useState<string[]>([])
+  // Konsisten dengan ActivateMfaSetup.tsx (onboarding GA, S1-11) -- wajib
+  // konfirmasi sebelum lanjut, bukan sekadar tampilan.
+  const [savedAck, setSavedAck] = useState(false)
   // MFA SUDAH aktif (login kedua dst) -- beda dari step 'mfa-setup' yang
   // cuma untuk login PERTAMA. Sama pola dengan Login.tsx (mfaRequired).
   const [loginMfaRequired, setLoginMfaRequired] = useState(false)
@@ -273,10 +276,22 @@ export default function PlatformLoginPage() {
                   <span key={code}>{code}</span>
                 ))}
               </div>
+
+              <label className="flex cursor-pointer items-start gap-2.5 font-mono text-[10.5px] leading-relaxed text-text-muted">
+                <input
+                  type="checkbox"
+                  checked={savedAck}
+                  onChange={(e) => setSavedAck(e.target.checked)}
+                  className="mt-0.5 accent-destructive"
+                />
+                <span>Saya sudah menyimpan kode cadangan di tempat aman.</span>
+              </label>
+
               <Button
                 type="button"
                 variant="destructive"
                 className="w-full font-mono text-[11px] font-bold tracking-[0.1em]"
+                disabled={!savedAck}
                 onClick={() => navigate('/platform/group-admins')}
               >
                 Lanjut ke Console
