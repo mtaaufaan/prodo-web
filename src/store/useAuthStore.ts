@@ -17,6 +17,10 @@ interface AuthState {
   accessToken: string | null
   refreshToken: string | null
   user: AuthUser | null
+  // Sengaja TIDAK ikut di-null-kan oleh clearSession -- dipakai AuthGuard
+  // untuk tahu harus redirect ke /platform/login atau /login setelah sesi
+  // berakhir sendiri (idle/expired), padahal `user` sudah null saat itu.
+  wasPlatformAdmin: boolean
   setSession: (session: { accessToken: string; refreshToken: string; user: AuthUser }) => void
   clearSession: () => void
 }
@@ -27,7 +31,9 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       user: null,
-      setSession: ({ accessToken, refreshToken, user }) => set({ accessToken, refreshToken, user }),
+      wasPlatformAdmin: false,
+      setSession: ({ accessToken, refreshToken, user }) =>
+        set({ accessToken, refreshToken, user, wasPlatformAdmin: user.platform_role === 'platform_admin' }),
       clearSession: () => set({ accessToken: null, refreshToken: null, user: null }),
     }),
     { name: 'prodo-auth' },
