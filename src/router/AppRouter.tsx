@@ -13,6 +13,7 @@ import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
 import OrganizationManagementPage from '@/pages/OrganizationManagementPage'
 import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
+import PlatformLoginPage from '@/pages/PlatformLoginPage'
 import ProjectMembersPage from '@/pages/ProjectMembersPage'
 import SessionsPage from '@/pages/SessionsPage'
 import WorkspaceListPage from '@/pages/WorkspaceListPage'
@@ -24,6 +25,11 @@ export default function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* S4P-19 (implementation_gaps.md IG-20): login terpisah khusus
+          Platform Admin, PUBLIC sama seperti /login -- otorisasi lewat
+          credential + MFA di endpoint yang sama (/auth/login), bukan
+          mekanisme baru. */}
+      <Route path="/platform/login" element={<PlatformLoginPage />} />
       <Route path="/design" element={<DesignPage />} />
       {/* /activate & /activate/mfa-setup PUBLIC (S1-10/11) -- otorisasi lewat
           token satu-pakai di query string, bukan sesi login. */}
