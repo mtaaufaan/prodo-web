@@ -35,9 +35,9 @@ function PlatformGroupAdminPageContent() {
         </button>
       </div>
 
-      {list.isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
-      {list.isError && <p className="text-sm text-destructive">Gagal memuat daftar Group Admin.</p>}
-      {list.data && list.data.length === 0 && <p className="text-sm text-text-muted">Belum ada Group Admin.</p>}
+      {list.isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
+      {list.isError && <p className="font-mono text-sm text-destructive">Gagal memuat daftar Group Admin.</p>}
+      {list.data && list.data.length === 0 && <p className="font-mono text-sm text-text-muted">Belum ada Group Admin.</p>}
       {list.data && list.data.length > 0 && (
         <div className="overflow-x-auto border border-pa-border">
           <table className="w-full text-sm">

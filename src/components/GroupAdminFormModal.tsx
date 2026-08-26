@@ -154,8 +154,8 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
         </DialogHeader>
 
         <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-5 py-4">
-          {!isAdd && detail.isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
-          {!isAdd && detail.isError && <p className="text-sm text-destructive">Gagal memuat detail Group Admin.</p>}
+          {!isAdd && detail.isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
+          {!isAdd && detail.isError && <p className="font-mono text-sm text-destructive">Gagal memuat detail Group Admin.</p>}
 
           {(isAdd || detail.data) && (
             <form
@@ -211,7 +211,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                   ) : (
                     <Input id="ga-email" type="email" className={paFieldFont} disabled defaultValue={detail.data?.email ?? ''} />
                   )}
-                  {!isAdd && <p className="text-[10px] text-text-dim">Email tidak dapat diubah setelah akun dibuat.</p>}
+                  {!isAdd && <p className="font-mono text-[10px] text-text-dim">Email tidak dapat diubah setelah akun dibuat.</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="ga-phone">No. Telepon (PIC)</Label>
@@ -301,9 +301,9 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                 </div>
               )}
 
-              {errorMessage && <p className="text-[11px] text-destructive">{errorMessage}</p>}
+              {errorMessage && <p className="font-mono text-[11px] text-destructive">{errorMessage}</p>}
 
-              <p className="text-[10.5px] leading-relaxed text-text-dim">
+              <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
                 Kuota global mengikuti plafon tier dan tidak dapat diubah manual -- Group Admin membagi alokasi ke
                 tiap organisasi di dalam plafon ini.
               </p>
