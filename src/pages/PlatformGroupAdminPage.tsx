@@ -2,7 +2,6 @@ import { useState } from 'react'
 
 import GroupAdminFormModal, { type GroupAdminFormMode } from '@/components/GroupAdminFormModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useGroupAdminList } from '@/features/platform-admin/hooks'
 import type { GroupAdmin } from '@/features/platform-admin/types'
@@ -11,58 +10,61 @@ import type { GroupAdmin } from '@/features/platform-admin/types'
 // Tier/Sisa Org/Sisa Kuota/Sisa Member/Tanggal Daftar, aksi Lihat/Ubah
 // (bukan lagi form Tambah inline + tombol Resend -- Resend sekarang di
 // dalam modal mode Ubah, sesuai desain "PA Group Admin Form").
+//
+// Sengaja TIDAK dibungkus shadcn Card -- desain aslinya flat, tanpa
+// bg/shadow/rounded terpisah dari halaman, dan tanpa judul di dalam
+// konten (nama halaman sudah ada di label nav sidebar). Card sebelumnya
+// menambah "Group Admin Mgmt" 24px sans-serif yang tidak ada sama sekali
+// di desain -- akar dari keluhan "style/font masih beda". Juga TANPA
+// max-w -- desain "PA Group Admins" membiarkan tabel melebar penuh
+// mengisi seluruh area konten (main), bukan dikunci ke lebar tetap.
 function PlatformGroupAdminPageContent() {
   const list = useGroupAdminList()
   const [modal, setModal] = useState<{ mode: GroupAdminFormMode; id: string | null } | null>(null)
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <Card className="border-pa-border shadow-none">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="font-extrabold tracking-tight">Group Admin Mgmt</CardTitle>
-          <button
-            type="button"
-            onClick={() => setModal({ mode: 'add', id: null })}
-            className="inline-flex items-center gap-2 border border-pa-accent px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-pa-accent"
-          >
-            + Tambah Group Admin
-          </button>
-        </CardHeader>
-        <CardContent>
-          {list.isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
-          {list.isError && <p className="text-sm text-destructive">Gagal memuat daftar Group Admin.</p>}
-          {list.data && list.data.length === 0 && (
-            <p className="text-sm text-text-muted">Belum ada Group Admin.</p>
-          )}
-          {list.data && list.data.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-line text-left">
-                    {['Group Admin', 'Tier', 'Sisa Org', 'Sisa Kuota', 'Sisa Member', 'Tanggal Daftar', 'Status', ''].map(
-                      (h) => (
-                        <th key={h} className="py-2 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
-                          {h}
-                        </th>
-                      ),
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {list.data.map((ga) => (
-                    <GroupAdminRow
-                      key={ga.id}
-                      groupAdmin={ga}
-                      onView={() => setModal({ mode: 'view', id: ga.id })}
-                      onEdit={() => setModal({ mode: 'edit', id: ga.id })}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <div className="space-y-3.5 p-6">
+      <div className="flex items-center gap-3.5">
+        <div className="flex-1" />
+        <button
+          type="button"
+          onClick={() => setModal({ mode: 'add', id: null })}
+          className="inline-flex items-center gap-2 border border-pa-accent px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-pa-accent"
+        >
+          + Tambah Group Admin
+        </button>
+      </div>
+
+      {list.isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
+      {list.isError && <p className="font-mono text-sm text-destructive">Gagal memuat daftar Group Admin.</p>}
+      {list.data && list.data.length === 0 && <p className="font-mono text-sm text-text-muted">Belum ada Group Admin.</p>}
+      {list.data && list.data.length > 0 && (
+        <div className="overflow-x-auto border border-pa-border">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-pa-header text-left">
+                {['Group Admin', 'Tier', 'Sisa Org', 'Sisa Kuota', 'Sisa Member', 'Tanggal Daftar', 'Status', ''].map(
+                  (h) => (
+                    <th key={h} className="py-2.5 pl-3.5 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
+                      {h}
+                    </th>
+                  ),
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {list.data.map((ga) => (
+                <GroupAdminRow
+                  key={ga.id}
+                  groupAdmin={ga}
+                  onView={() => setModal({ mode: 'view', id: ga.id })}
+                  onEdit={() => setModal({ mode: 'edit', id: ga.id })}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {modal && (
         <GroupAdminFormModal mode={modal.mode} groupAdminId={modal.id} open onClose={() => setModal(null)} />
@@ -109,7 +111,7 @@ function GroupAdminRow({
 
   return (
     <tr className="border-b border-line last:border-0">
-      <td className="py-2 pr-4">
+      <td className="py-2.5 pl-3.5 pr-4">
         <div>{groupAdmin.display_name}</div>
         <div className="font-mono text-[10px] text-text-dim">{groupAdmin.email}</div>
       </td>

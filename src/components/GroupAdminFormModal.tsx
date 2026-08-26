@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
+import { cn } from '@/lib/utils'
 import {
   useCreateGroupAdmin,
   useGroupAdminDetail,
@@ -34,8 +35,14 @@ interface GroupAdminFormModalProps {
   onClose: () => void
 }
 
+// Desain "PA Group Admin Form" memakai IBM Plex Mono di SELURUH field
+// (beda dari Input/Select bersama di components/ui yang dikalibrasi
+// Archivo untuk form member app biasa, docs/design-system.md §10.1) --
+// PA console punya bahasa tipografi sendiri (lihat juga PlatformLoginPage
+// & tailwind.config.ts "Platform Admin -- separate namespace").
+const paFieldFont = 'font-mono text-[12.5px]'
 const selectClassName =
-  'flex h-9 w-full rounded-none border border-line bg-input-bg px-2.5 py-2 font-sans text-[13px] text-text-body focus-visible:outline-none focus-visible:border-signal disabled:cursor-not-allowed disabled:opacity-50'
+  `flex h-9 w-full rounded-none border border-line bg-input-bg px-2.5 py-2 ${paFieldFont} text-text-body focus-visible:outline-none focus-visible:border-signal disabled:cursor-not-allowed disabled:opacity-50`
 
 // GroupAdminFormModal -- S4P-06, desain "PA Group Admin Form" (mode
 // add/edit/view). Field Kredensial Login "Khusus Demo" di desain SENGAJA
@@ -147,8 +154,8 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
         </DialogHeader>
 
         <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-5 py-4">
-          {!isAdd && detail.isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
-          {!isAdd && detail.isError && <p className="text-sm text-destructive">Gagal memuat detail Group Admin.</p>}
+          {!isAdd && detail.isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
+          {!isAdd && detail.isError && <p className="font-mono text-sm text-destructive">Gagal memuat detail Group Admin.</p>}
 
           {(isAdd || detail.data) && (
             <form
@@ -159,6 +166,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                 <Label htmlFor="ga-display-name">Nama Group Admin</Label>
                 <Input
                   id="ga-display-name"
+                  className={paFieldFont}
                   disabled={isView}
                   {...(isAdd ? createForm.register('display_name') : editForm.register('display_name'))}
                 />
@@ -169,6 +177,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                   <Label htmlFor="ga-group-name">Nama Perusahaan / Grup</Label>
                   <Input
                     id="ga-group-name"
+                    className={paFieldFont}
                     disabled={isView}
                     {...(isAdd ? createForm.register('group_name') : editForm.register('group_name'))}
                   />
@@ -177,6 +186,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                   <Label htmlFor="ga-job-title">Jabatan PIC</Label>
                   <Input
                     id="ga-job-title"
+                    className={paFieldFont}
                     disabled={isView}
                     {...(isAdd ? createForm.register('job_title') : editForm.register('job_title'))}
                   />
@@ -197,16 +207,17 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                 <div className="space-y-1.5">
                   <Label htmlFor="ga-email">Email</Label>
                   {isAdd ? (
-                    <Input id="ga-email" type="email" {...createForm.register('email')} />
+                    <Input id="ga-email" type="email" className={paFieldFont} {...createForm.register('email')} />
                   ) : (
-                    <Input id="ga-email" type="email" disabled defaultValue={detail.data?.email ?? ''} />
+                    <Input id="ga-email" type="email" className={paFieldFont} disabled defaultValue={detail.data?.email ?? ''} />
                   )}
-                  {!isAdd && <p className="text-[10px] text-text-dim">Email tidak dapat diubah setelah akun dibuat.</p>}
+                  {!isAdd && <p className="font-mono text-[10px] text-text-dim">Email tidak dapat diubah setelah akun dibuat.</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="ga-phone">No. Telepon (PIC)</Label>
                   <Input
                     id="ga-phone"
+                    className={paFieldFont}
                     disabled={isView}
                     {...(isAdd ? createForm.register('phone') : editForm.register('phone'))}
                   />
@@ -240,6 +251,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                   <Input
                     id="ga-plafon"
                     type="number"
+                    className={paFieldFont}
                     disabled={isView}
                     {...(isAdd ? createForm.register('storage_quota_gb') : editForm.register('storage_quota_gb'))}
                   />
@@ -289,9 +301,9 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                 </div>
               )}
 
-              {errorMessage && <p className="text-[11px] text-destructive">{errorMessage}</p>}
+              {errorMessage && <p className="font-mono text-[11px] text-destructive">{errorMessage}</p>}
 
-              <p className="text-[10.5px] leading-relaxed text-text-dim">
+              <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
                 Kuota global mengikuti plafon tier dan tidak dapat diubah manual -- Group Admin membagi alokasi ke
                 tiap organisasi di dalam plafon ini.
               </p>
@@ -316,7 +328,12 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                   : 'Simpan Perubahan'}
             </Button>
           )}
-          <Button type="button" variant="outline" onClick={onClose} className={isView ? 'flex-1' : ''}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className={cn('font-mono text-[11px]', isView && 'flex-1')}
+          >
             {isView ? 'Keluar' : 'Batal'}
           </Button>
         </DialogFooter>
