@@ -15,13 +15,15 @@ import type { GroupAdmin } from '@/features/platform-admin/types'
 // bg/shadow/rounded terpisah dari halaman, dan tanpa judul di dalam
 // konten (nama halaman sudah ada di label nav sidebar). Card sebelumnya
 // menambah "Group Admin Mgmt" 24px sans-serif yang tidak ada sama sekali
-// di desain -- akar dari keluhan "style/font masih beda".
+// di desain -- akar dari keluhan "style/font masih beda". Juga TANPA
+// max-w -- desain "PA Group Admins" membiarkan tabel melebar penuh
+// mengisi seluruh area konten (main), bukan dikunci ke lebar tetap.
 function PlatformGroupAdminPageContent() {
   const list = useGroupAdminList()
   const [modal, setModal] = useState<{ mode: GroupAdminFormMode; id: string | null } | null>(null)
 
   return (
-    <div className="mx-auto max-w-5xl space-y-3.5 p-6">
+    <div className="space-y-3.5 p-6">
       <div className="flex items-center gap-3.5">
         <div className="flex-1" />
         <button
