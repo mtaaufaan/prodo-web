@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import GroupAdminFormModal, { type GroupAdminFormMode } from '@/components/GroupAdminFormModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import TierDistributionChart from '@/components/TierDistributionChart'
 import { cn } from '@/lib/utils'
 import { useGroupAdminList } from '@/features/platform-admin/hooks'
 import type { GroupAdmin } from '@/features/platform-admin/types'
@@ -38,6 +39,11 @@ function PlatformGroupAdminPageContent() {
       {list.isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
       {list.isError && <p className="font-mono text-sm text-destructive">Gagal memuat daftar Group Admin.</p>}
       {list.data && list.data.length === 0 && <p className="font-mono text-sm text-text-muted">Belum ada Group Admin.</p>}
+      {list.data && list.data.length > 0 && (
+        <div className="max-w-xs">
+          <TierDistributionChart groupAdmins={list.data} />
+        </div>
+      )}
       {list.data && list.data.length > 0 && (
         <div className="overflow-x-auto border border-pa-border">
           <table className="w-full text-sm">
