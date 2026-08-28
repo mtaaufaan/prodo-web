@@ -56,6 +56,10 @@ export function formatAuditNarrative(entry: PlatformAuditLogEntry): string {
       return 'Menambahkan entri baru ke daftar IP yang diizinkan.'
     case 'ip_allowlist.removed':
       return 'Menghapus satu entri dari daftar IP yang diizinkan.'
+    case 'erasure.executed':
+      return `Mengeksekusi Right to Erasure untuk ${target} (pseudonymization, revoke sesi, hapus MFA).`
+    case 'erasure.rejected':
+      return `Menolak permintaan Right to Erasure untuk ${target}.`
     default:
       return `Melakukan aksi "${entry.action}" pada ${entry.entity_type}.`
   }

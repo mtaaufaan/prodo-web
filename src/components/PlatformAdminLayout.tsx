@@ -31,7 +31,7 @@ function useNavItems() {
     { icon: '◉', label: t('platformAdminLayout.nav.groupAdmins'), to: '/platform/group-admins' },
     { icon: '▤', label: t('platformAdminLayout.nav.groupDirectory'), to: null },
     { icon: '▦', label: t('platformAdminLayout.nav.tiers'), to: '/platform/tiers' },
-    { icon: '⌗', label: t('platformAdminLayout.nav.erasure'), to: null },
+    { icon: '⌗', label: t('platformAdminLayout.nav.erasure'), to: '/platform/erasure-requests' },
     { icon: '☰', label: t('platformAdminLayout.nav.auditTrail'), to: '/platform/audit-logs' },
     { icon: '◫', label: t('platformAdminLayout.nav.dashboard'), to: '/platform/dashboard' },
     { icon: '⚙', label: t('platformAdminLayout.nav.securitySettings'), to: '/platform/security-settings' },
