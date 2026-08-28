@@ -3,8 +3,11 @@ import { apiClient } from '@/lib/api'
 import type {
   CreateGroupAdminFormValues,
   GroupAdmin,
+  PlatformAnomalies,
   PlatformAuditLogEntry,
   PlatformAuditLogFilter,
+  PlatformHealthMetrics,
+  PlatformTrendPoint,
   ServiceTier,
   ServiceTierFormValues,
   UpdateGroupAdminFormValues,
@@ -91,4 +94,18 @@ export function exportAuditLogsCSV(filter: PlatformAuditLogFilter) {
     params: { ...filter, export: 'csv' },
     responseType: 'blob',
   })
+}
+
+// getHealthMetrics/getTrends/getAnomalies -- S4P-24/25/26, US-072,
+// halaman "Dashboard Kesehatan Platform".
+export function getHealthMetrics() {
+  return apiClient.get<PlatformHealthMetrics>('/api/v1/platform/health-metrics')
+}
+
+export function getTrends(period: 7 | 30 | 90) {
+  return apiClient.get<PlatformTrendPoint[]>('/api/v1/platform/trends', { params: { period } })
+}
+
+export function getAnomalies() {
+  return apiClient.get<PlatformAnomalies>('/api/v1/platform/anomalies')
 }

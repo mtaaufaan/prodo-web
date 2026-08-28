@@ -14,6 +14,7 @@ import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
 import OrganizationManagementPage from '@/pages/OrganizationManagementPage'
 import PlatformAuditLogPage from '@/pages/PlatformAuditLogPage'
+import PlatformDashboardPage from '@/pages/PlatformDashboardPage'
 import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
 import PlatformLoginPage from '@/pages/PlatformLoginPage'
 import PlatformSecuritySettingsPage from '@/pages/PlatformSecuritySettingsPage'
@@ -75,6 +76,8 @@ export default function AppRouter() {
             <Route path="/platform/security-settings" element={<PlatformSecuritySettingsPage />} />
             {/* S4P-23, US-071: jejak audit level platform (append-only). */}
             <Route path="/platform/audit-logs" element={<PlatformAuditLogPage />} />
+            {/* S4P-27, US-072: KPI, tren, dan alert anomali. */}
+            <Route path="/platform/dashboard" element={<PlatformDashboardPage />} />
           </Route>
         </Route>
         {/* S3-07, US-007: Platform Admin (semua org) atau Group Admin (org
