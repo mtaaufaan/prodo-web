@@ -101,3 +101,29 @@ export const updateGroupAdminSchema = groupAdminFormSchema.extend({
   status: z.enum(['AKTIF', 'SUSPENDED', '']).optional(),
 })
 export type UpdateGroupAdminFormValues = z.infer<typeof updateGroupAdminSchema>
+
+// PlatformAuditLogEntry -- satu baris GET /platform/audit-logs (S4P-22,
+// US-071). actor_* nullable -- beberapa aksi lama (sebelum kolom ini
+// dipakai) atau aksi sistem bisa tidak punya actor. metadata bentuknya
+// bebas tergantung action (mis. { email, group_id } untuk user.invited).
+export interface PlatformAuditLogEntry {
+  id: string
+  actor_id: string | null
+  actor_email: string | null
+  actor_display_name: string | null
+  actor_role: string | null
+  action: string
+  entity_type: string
+  entity_id: string | null
+  metadata: Record<string, unknown> | null
+  logged_at: string
+}
+
+// PlatformAuditLogFilter -- field kosong berarti tidak difilter (dikirim
+// sebagai query param cuma kalau terisi, lihat api.ts listAuditLogs).
+export interface PlatformAuditLogFilter {
+  action_type?: string
+  actor_id?: string
+  from?: string
+  to?: string
+}
