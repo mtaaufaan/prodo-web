@@ -1,6 +1,14 @@
 import { apiClient } from '@/lib/api'
 
-import type { CreateGroupAdminFormValues, GroupAdmin, ServiceTier, ServiceTierFormValues, UpdateGroupAdminFormValues } from './types'
+import type {
+  CreateGroupAdminFormValues,
+  GroupAdmin,
+  PlatformAuditLogEntry,
+  PlatformAuditLogFilter,
+  ServiceTier,
+  ServiceTierFormValues,
+  UpdateGroupAdminFormValues,
+} from './types'
 
 // ponytail: tidak ada UI paginasi -- endpoint sudah dukung page/per_page,
 // tapi jumlah Group Admin diharapkan kecil di S1. Tambah kontrol halaman
@@ -63,4 +71,24 @@ export function unarchiveTier(id: string) {
 
 export function deleteTier(id: string) {
   return apiClient.delete<void>(`/api/v1/platform/tiers/${id}`)
+}
+
+// listAuditLogs -- S4P-22, US-071. per_page dipatok ke maxAuditLogPerPage
+// backend (200) sekali ambil -- tanpa kontrol paginasi FE, pola sama
+// dengan listGroupAdmins di atas ("ponytail" komentar); export CSV
+// (exportAuditLogsCSV) yang menjadi jalan keluar untuk dataset besar.
+export function listAuditLogs(filter: PlatformAuditLogFilter) {
+  return apiClient.get<PlatformAuditLogEntry[]>('/api/v1/platform/audit-logs', {
+    params: { ...filter, per_page: 200 },
+  })
+}
+
+// exportAuditLogsCSV -- unduh CSV hasil filter yang sama (tanpa per_page --
+// backend membatasi sendiri ke csvExportLimit). Blob (bukan JSON) supaya
+// FE bisa memicu unduhan file lewat URL objek sementara.
+export function exportAuditLogsCSV(filter: PlatformAuditLogFilter) {
+  return apiClient.get<Blob>('/api/v1/platform/audit-logs', {
+    params: { ...filter, export: 'csv' },
+    responseType: 'blob',
+  })
 }
