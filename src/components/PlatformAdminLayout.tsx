@@ -30,7 +30,7 @@ function useNavItems() {
   return [
     { icon: '◉', label: t('platformAdminLayout.nav.groupAdmins'), to: '/platform/group-admins' },
     { icon: '▤', label: t('platformAdminLayout.nav.groupDirectory'), to: null },
-    { icon: '▦', label: t('platformAdminLayout.nav.tiers'), to: null },
+    { icon: '▦', label: t('platformAdminLayout.nav.tiers'), to: '/platform/tiers' },
     { icon: '⌗', label: t('platformAdminLayout.nav.erasure'), to: null },
     { icon: '☰', label: t('platformAdminLayout.nav.auditTrail'), to: null },
     { icon: '◫', label: t('platformAdminLayout.nav.dashboard'), to: null },

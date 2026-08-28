@@ -16,6 +16,7 @@ import OrganizationManagementPage from '@/pages/OrganizationManagementPage'
 import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
 import PlatformLoginPage from '@/pages/PlatformLoginPage'
 import PlatformSecuritySettingsPage from '@/pages/PlatformSecuritySettingsPage'
+import PlatformTiersPage from '@/pages/PlatformTiersPage'
 import ProjectMembersPage from '@/pages/ProjectMembersPage'
 import SessionsPage from '@/pages/SessionsPage'
 import WorkspaceListPage from '@/pages/WorkspaceListPage'
@@ -65,6 +66,10 @@ export default function AppRouter() {
         <Route element={<RoleGuard allowedRoles={['platform_admin']} />}>
           <Route element={<PlatformAdminLayout />}>
             <Route path="/platform/group-admins" element={<PlatformGroupAdminPage />} />
+            {/* S4P-11: katalog tier (assign tier ke GA ada di form Group
+                Admin di atas; halaman ini untuk edit definisi tier itu
+                sendiri -- lifecycle nonaktif/archive/hapus). */}
+            <Route path="/platform/tiers" element={<PlatformTiersPage />} />
             {/* S4P-18, US-070: panel keamanan (session timeout global + IP allowlist self-service). */}
             <Route path="/platform/security-settings" element={<PlatformSecuritySettingsPage />} />
           </Route>

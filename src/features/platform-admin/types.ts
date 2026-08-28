@@ -1,13 +1,16 @@
 import { z } from 'zod'
 
-// S4P-07: nilai harus sama persis dengan migrations/..._service_tiers.up.sql
-// (CHECK constraint) -- 'business', BUKAN 'professional' (koreksi wording,
-// lihat commit S4P-06/07).
-export const SERVICE_TIERS = ['starter', 'business', 'enterprise'] as const
-export type ServiceTierName = (typeof SERVICE_TIERS)[number]
-
+// ServiceTier -- S4P-07, diperluas S4P-11: id jadi PK (bukan lagi name)
+// supaya rename tier tidak memutus referensi groups.tier_id yang sudah
+// ada. is_custom membedakan 3 tier standar (starter/business/enterprise,
+// tidak bisa dihapus) dari tier yang ditambahkan PA sendiri.
+// deactivated_at/archived_at -- 2 state independen dan reversible:
+// nonaktif (tidak bisa di-assign ke GA baru, tetap tampil di daftar
+// utama) vs archived (disembunyikan dari daftar utama, langkah menuju
+// penghapusan permanen).
 export interface ServiceTier {
-  name: ServiceTierName
+  id: string
+  name: string
   min_retention_days: number
   max_retention_days: number
   webhook_rate: number
@@ -15,7 +18,28 @@ export interface ServiceTier {
   max_org: number
   max_storage_gb: number
   max_members: number
+  is_custom: boolean
+  deactivated_at: string | null
+  archived_at: string | null
 }
+
+// serviceTierFormSchema -- dipakai form Tambah/Kelola Tier (S4P-11),
+// aturan validasi sama persis dengan desain "PA Tier Editor" dan backend
+// (service.validateServiceTierParams).
+export const serviceTierFormSchema = z.object({
+  name: z.string().min(1, 'Nama tier wajib diisi'),
+  max_storage_gb: z.coerce.number().int().positive('Kuota global wajib diisi dan lebih besar dari 0 GB'),
+  max_org: z.coerce.number().int().positive('Maks organisasi wajib diisi dan lebih besar dari 0'),
+  max_members: z.coerce.number().int().positive('Maks member wajib diisi dan lebih besar dari 0'),
+  min_retention_days: z.coerce.number().int().min(30, 'Retensi minimum tidak boleh di bawah 30 hari'),
+  max_retention_days: z.coerce.number().int().max(3650, 'Retensi maksimum tidak boleh di atas 3.650 hari'),
+  webhook_rate: z.coerce.number().int().positive('Rate webhook wajib diisi dan lebih besar dari 0 event/menit'),
+  sso_enabled: z.boolean(),
+}).refine((v) => v.max_retention_days >= v.min_retention_days, {
+  message: 'Retensi maksimum harus lebih besar atau sama dengan retensi minimum',
+  path: ['max_retention_days'],
+})
+export type ServiceTierFormValues = z.infer<typeof serviceTierFormSchema>
 
 // GroupAdminStatus -- 3 state sesuai desain "PA Group Admin Form" (dropdown
 // Status di mode Ubah): AKTIF, SUSPENDED, atau TIDAK AKTIF (pending, belum
@@ -26,7 +50,8 @@ export type GroupAdminStatus = 'AKTIF' | 'SUSPENDED' | 'TIDAK AKTIF'
 // GroupAdmin -- satu baris daftar/detail Group Admin (S1-12, diperluas
 // S4P-06 sesuai desain "PA Group Admins"). Field grup (group_name, tier,
 // dst.) nullable -- GA lama dari sebelum IG-21 mungkin belum punya grup
-// sama sekali.
+// sama sekali. tier_id sejak S4P-11 -- dipakai form Ubah untuk assign
+// tier (bukan tier/nama, yang cuma untuk tampilan).
 export interface GroupAdmin {
   id: string
   email: string
@@ -38,7 +63,8 @@ export interface GroupAdmin {
   job_title: string | null
   address: string | null
   phone: string | null
-  tier: ServiceTierName | null
+  tier_id: string | null
+  tier: string | null
   storage_quota_gb: number | null
   tier_max_org: number
   tier_max_storage_gb: number
@@ -48,19 +74,18 @@ export interface GroupAdmin {
   used_member_count: number
 }
 
-const tierEnum = z.enum(SERVICE_TIERS, { errorMap: () => ({ message: 'Tier wajib dipilih' }) })
-
 // groupAdminFormSchema -- dipakai bersama Tambah dan Ubah (email cuma
 // wajib/bisa diisi saat Tambah, lihat createGroupAdminSchema/
 // updateGroupAdminSchema di bawah). Jabatan PIC/Alamat/No. Telepon
-// opsional, sesuai desain "PA Group Admin Form".
+// opsional, sesuai desain "PA Group Admin Form". tier_id sejak S4P-11 --
+// pilihan dari daftar tier assignable yang dimuat live, bukan enum tetap.
 const groupAdminFormSchema = z.object({
   display_name: z.string().min(1, 'Nama wajib diisi'),
   group_name: z.string().min(1, 'Nama perusahaan/grup wajib diisi'),
   job_title: z.string().optional(),
   address: z.string().optional(),
   phone: z.string().optional(),
-  tier: tierEnum,
+  tier_id: z.string().min(1, 'Tier wajib dipilih'),
   storage_quota_gb: z.coerce.number().int().positive('Plafon storage wajib lebih besar dari 0 GB'),
 })
 

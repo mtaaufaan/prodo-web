@@ -1,14 +1,21 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
+  archiveTier,
   createGroupAdmin,
+  createTier,
+  deactivateTier,
+  deleteTier,
   getGroupAdmin,
   listGroupAdmins,
   listServiceTiers,
+  reactivateTier,
   resendActivation,
+  unarchiveTier,
   updateGroupAdmin,
+  updateTier,
 } from './api'
-import type { CreateGroupAdminFormValues, UpdateGroupAdminFormValues } from './types'
+import type { CreateGroupAdminFormValues, ServiceTierFormValues, UpdateGroupAdminFormValues } from './types'
 
 export const groupAdminKeys = {
   all: ['group-admins'] as const,
@@ -60,13 +67,73 @@ export function useResendActivation() {
   })
 }
 
-const serviceTiersQuery = () =>
+// serviceTierKeys -- dua daftar terpisah (assignable-only vs all) supaya
+// invalidate salah satu tidak menyisakan cache basi di yang lain.
+const serviceTierKeys = {
+  all: (includeArchived: boolean) => ['service-tiers', includeArchived] as const,
+}
+
+const serviceTiersQuery = (includeArchived: boolean) =>
   queryOptions({
-    queryKey: ['service-tiers'] as const,
-    queryFn: () => listServiceTiers(),
+    queryKey: serviceTierKeys.all(includeArchived),
+    queryFn: () => listServiceTiers(includeArchived),
     staleTime: 5 * 60 * 1000, // katalog tier jarang berubah
   })
 
-export function useServiceTiers() {
-  return useQuery(serviceTiersQuery())
+// useServiceTiers -- includeArchived=false (default, dropdown Tier di
+// form Group Admin) cuma tier assignable; true (halaman "Tier & Kuota
+// Global") termasuk yang nonaktif/archived.
+export function useServiceTiers(includeArchived = false) {
+  return useQuery(serviceTiersQuery(includeArchived))
+}
+
+function useInvalidateServiceTiers() {
+  const queryClient = useQueryClient()
+  return () => {
+    queryClient.invalidateQueries({ queryKey: ['service-tiers'] })
+    // tier yang berubah bisa memengaruhi tampilan GA (nama tier, batas) --
+    // ikut invalidate daftar/detail GA.
+    queryClient.invalidateQueries({ queryKey: groupAdminKeys.all })
+  }
+}
+
+export function useCreateTier() {
+  const invalidate = useInvalidateServiceTiers()
+  return useMutation({
+    mutationFn: (values: ServiceTierFormValues) => createTier(values),
+    onSuccess: invalidate,
+  })
+}
+
+export function useUpdateTier(id: string) {
+  const invalidate = useInvalidateServiceTiers()
+  return useMutation({
+    mutationFn: (values: ServiceTierFormValues) => updateTier(id, values),
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeactivateTier() {
+  const invalidate = useInvalidateServiceTiers()
+  return useMutation({ mutationFn: (id: string) => deactivateTier(id), onSuccess: invalidate })
+}
+
+export function useReactivateTier() {
+  const invalidate = useInvalidateServiceTiers()
+  return useMutation({ mutationFn: (id: string) => reactivateTier(id), onSuccess: invalidate })
+}
+
+export function useArchiveTier() {
+  const invalidate = useInvalidateServiceTiers()
+  return useMutation({ mutationFn: (id: string) => archiveTier(id), onSuccess: invalidate })
+}
+
+export function useUnarchiveTier() {
+  const invalidate = useInvalidateServiceTiers()
+  return useMutation({ mutationFn: (id: string) => unarchiveTier(id), onSuccess: invalidate })
+}
+
+export function useDeleteTier() {
+  const invalidate = useInvalidateServiceTiers()
+  return useMutation({ mutationFn: (id: string) => deleteTier(id), onSuccess: invalidate })
 }
