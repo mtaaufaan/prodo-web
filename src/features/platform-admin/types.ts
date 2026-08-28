@@ -129,3 +129,39 @@ export interface PlatformAuditLogFilter {
   from?: string
   to?: string
 }
+
+// PlatformHealthMetrics -- GET /platform/health-metrics (S4P-24, US-072).
+export interface PlatformHealthMetrics {
+  active_ga_count: number
+  active_org_count: number
+  total_storage_used_bytes: number
+  tier_distribution: Record<string, number>
+}
+
+// PlatformTrendPoint -- satu titik GET /platform/trends (S4P-25).
+export interface PlatformTrendPoint {
+  date: string
+  new_ga_count: number
+  new_org_count: number
+}
+
+// PlatformStorageAnomaly/PlatformContractEndingAnomaly -- GET
+// /platform/anomalies (S4P-26).
+export interface PlatformStorageAnomaly {
+  group_id: string
+  group_name: string
+  used_mb: number
+  quota_gb: number
+}
+
+export interface PlatformContractEndingAnomaly {
+  org_id: string
+  org_name: string
+  group_name: string
+  contract_end_at: string
+}
+
+export interface PlatformAnomalies {
+  storage: PlatformStorageAnomaly[]
+  contract_end: PlatformContractEndingAnomaly[]
+}
