@@ -152,6 +152,19 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
     createGroupAdmin.mutate(values, { onSuccess: onClose })
   }
   const onSubmitEdit = (values: UpdateGroupAdminFormValues) => {
+    // IG-23: cek proaktif di klien pakai used_storage_mb yang sudah termuat
+    // (mode Ubah selalu punya detail.data) supaya user dapat feedback
+    // instan tanpa round-trip -- backend TETAP jadi sumber kebenaran
+    // (service.UpdateGroupAdmin), jadi ini murni UX, bukan pengganti.
+    if (detail.data) {
+      const usedGB = Math.ceil(detail.data.used_storage_mb / 1024)
+      if (values.storage_quota_gb < usedGB) {
+        editForm.setError('storage_quota_gb', {
+          message: `Plafon minimal ${usedGB} GB — grup ini sudah memakai ${usedGB} GB. Turunkan alokasi organisasinya terlebih dahulu.`,
+        })
+        return
+      }
+    }
     updateGroupAdmin.mutate(values, { onSuccess: onClose })
   }
   const handleResend = () => {
@@ -160,12 +173,17 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
   }
 
   const title = isAdd ? 'Tambah Group Admin' : isView ? 'Detail Group Admin' : 'Ubah Group Admin'
-  const errorMessage =
+  const apiError =
     createGroupAdmin.error instanceof ApiError
-      ? createGroupAdmin.error.message
+      ? createGroupAdmin.error
       : updateGroupAdmin.error instanceof ApiError
-        ? updateGroupAdmin.error.message
+        ? updateGroupAdmin.error
         : null
+  // IG-23: STORAGE_QUOTA_BELOW_USAGE ditampilkan inline di bawah field
+  // Plafon Storage (meniru plafonHint/plafonBorder desain "PA Group Admin
+  // Form"), bukan di banner umum -- error lain tetap lewat banner umum.
+  const quotaBelowUsageMessage = apiError?.code === 'STORAGE_QUOTA_BELOW_USAGE' ? apiError.message : null
+  const errorMessage = apiError && !quotaBelowUsageMessage ? apiError.message : null
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -191,6 +209,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                   disabled={isView}
                   {...(isAdd ? createForm.register('display_name') : editForm.register('display_name'))}
                 />
+                <FieldError message={(isAdd ? createForm : editForm).formState.errors.display_name?.message} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -202,6 +221,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                     disabled={isView}
                     {...(isAdd ? createForm.register('group_name') : editForm.register('group_name'))}
                   />
+                  <FieldError message={(isAdd ? createForm : editForm).formState.errors.group_name?.message} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="ga-job-title">Jabatan PIC</Label>
@@ -228,7 +248,10 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                 <div className="space-y-1.5">
                   <Label htmlFor="ga-email">Email</Label>
                   {isAdd ? (
-                    <Input id="ga-email" type="email" className={paFieldFont} {...createForm.register('email')} />
+                    <>
+                      <Input id="ga-email" type="email" className={paFieldFont} {...createForm.register('email')} />
+                      <FieldError message={createForm.formState.errors.email?.message} />
+                    </>
                   ) : (
                     <Input id="ga-email" type="email" className={paFieldFont} disabled defaultValue={detail.data?.email ?? ''} />
                   )}
@@ -266,6 +289,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                       </option>
                     ))}
                   </select>
+                  <FieldError message={(isAdd ? createForm : editForm).formState.errors.tier_id?.message} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="ga-plafon">Plafon Storage Grup (GB)</Label>
@@ -275,6 +299,9 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                     className={paFieldFont}
                     disabled={isView}
                     {...(isAdd ? createForm.register('storage_quota_gb') : editForm.register('storage_quota_gb'))}
+                  />
+                  <FieldError
+                    message={(isAdd ? createForm : editForm).formState.errors.storage_quota_gb?.message ?? quotaBelowUsageMessage ?? undefined}
                   />
                 </div>
               </div>
@@ -361,6 +388,14 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
       </DialogContent>
     </Dialog>
   )
+}
+
+// FieldError -- IG-23, pola sama dengan PlatformTiersPage.tsx: pesan
+// validasi Zod (atau error server yang relevan ke field itu) ditampilkan
+// langsung di bawah field, bukan cuma memblokir submit secara diam-diam.
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null
+  return <p className="font-mono text-[10px] text-destructive">{message}</p>
 }
 
 function TierFactsPanel({ tierId, tiers }: { tierId: string; tiers?: ServiceTier[] }) {
