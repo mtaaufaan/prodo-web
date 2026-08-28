@@ -15,6 +15,7 @@ function ga(tier: GroupAdmin['tier']): GroupAdmin {
     job_title: null,
     address: null,
     phone: null,
+    tier_id: tier,
     tier,
     storage_quota_gb: null,
     tier_max_org: 1,

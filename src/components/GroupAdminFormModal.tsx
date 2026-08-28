@@ -16,13 +16,11 @@ import {
   useUpdateGroupAdmin,
 } from '@/features/platform-admin/hooks'
 import {
-  SERVICE_TIERS,
   createGroupAdminSchema,
   updateGroupAdminSchema,
   type CreateGroupAdminFormValues,
   type GroupAdmin,
   type ServiceTier,
-  type ServiceTierName,
   type UpdateGroupAdminFormValues,
 } from '@/features/platform-admin/types'
 
@@ -70,7 +68,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
       job_title: '',
       address: '',
       phone: '',
-      tier: 'starter',
+      tier_id: '',
       storage_quota_gb: 20,
     },
   })
@@ -82,7 +80,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
       job_title: '',
       address: '',
       phone: '',
-      tier: 'starter',
+      tier_id: '',
       storage_quota_gb: 20,
       status: '',
     },
@@ -97,7 +95,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
         job_title: detail.data.job_title ?? '',
         address: detail.data.address ?? '',
         phone: detail.data.phone ?? '',
-        tier: (detail.data.tier ?? 'starter') as ServiceTierName,
+        tier_id: detail.data.tier_id ?? '',
         storage_quota_gb: detail.data.storage_quota_gb ?? detail.data.tier_max_storage_gb,
         status: detail.data.status === 'TIDAK AKTIF' ? '' : detail.data.status,
       })
@@ -114,7 +112,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
         job_title: '',
         address: '',
         phone: '',
-        tier: 'starter',
+        tier_id: '',
         storage_quota_gb: 20,
       })
     }
@@ -122,8 +120,31 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, groupAdminId])
 
-  const applyTierDefault = (tier: ServiceTierName, setValue: (v: number) => void) => {
-    const found = tiers.data?.find((t) => t.name === tier)
+  // Default tier_id ke tier pertama begitu katalog termuat (mode Tambah)
+  // -- tier_id tidak bisa di-hardcode lagi seperti "starter" sejak S4P-11
+  // (ID dinamis, bukan nama tetap).
+  useEffect(() => {
+    if (isAdd && open && tiers.data && tiers.data.length > 0 && !createForm.getValues('tier_id')) {
+      const first = tiers.data[0]
+      createForm.setValue('tier_id', first.id)
+      createForm.setValue('storage_quota_gb', first.max_storage_gb)
+    }
+  }, [isAdd, open, tiers.data, createForm])
+
+  // tierOptions -- daftar tier assignable ditambah tier SAAT INI milik GA
+  // ini kalau sudah nonaktif/archived (S4P-11) supaya edit field lain
+  // tidak diam-diam memindahkan GA ke tier lain hanya karena tier
+  // lamanya tidak lagi muncul di daftar assignable.
+  const tierOptions: { id: string; name: string }[] = (() => {
+    const base = (tiers.data ?? []).map((t) => ({ id: t.id, name: t.name }))
+    if (!isAdd && detail.data?.tier_id && detail.data.tier && !base.some((t) => t.id === detail.data?.tier_id)) {
+      base.push({ id: detail.data.tier_id, name: detail.data.tier })
+    }
+    return base
+  })()
+
+  const applyTierDefault = (tierId: string, setValue: (v: number) => void) => {
+    const found = tiers.data?.find((t) => t.id === tierId)
     if (found) setValue(found.max_storage_gb)
   }
 
@@ -232,16 +253,16 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                     disabled={isView}
                     className={selectClassName}
                     {...(isAdd
-                      ? createForm.register('tier', {
+                      ? createForm.register('tier_id', {
                           onChange: (e) => applyTierDefault(e.target.value, (v) => createForm.setValue('storage_quota_gb', v)),
                         })
-                      : editForm.register('tier', {
+                      : editForm.register('tier_id', {
                           onChange: (e) => applyTierDefault(e.target.value, (v) => editForm.setValue('storage_quota_gb', v)),
                         }))}
                   >
-                    {SERVICE_TIERS.map((t) => (
-                      <option key={t} value={t}>
-                        {t.toUpperCase()}
+                    {tierOptions.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name.toUpperCase()}
                       </option>
                     ))}
                   </select>
@@ -260,7 +281,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
 
               {!isView && (
                 <TierFactsPanel
-                  tierName={(isAdd ? createForm.watch('tier') : editForm.watch('tier')) as ServiceTierName}
+                  tierId={isAdd ? createForm.watch('tier_id') : editForm.watch('tier_id')}
                   tiers={tiers.data}
                 />
               )}
@@ -342,13 +363,13 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
   )
 }
 
-function TierFactsPanel({ tierName, tiers }: { tierName: ServiceTierName; tiers?: ServiceTier[] }) {
-  const tier = tiers?.find((t) => t.name === tierName)
+function TierFactsPanel({ tierId, tiers }: { tierId: string; tiers?: ServiceTier[] }) {
+  const tier = tiers?.find((t) => t.id === tierId)
   if (!tier) return null
   return (
     <div className="flex flex-col gap-1.5 border border-line bg-bg-deep p-3">
       <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
-        Paket Tier {tierName.toUpperCase()} (Otomatis)
+        Paket Tier {tier.name.toUpperCase()} (Otomatis)
       </div>
       {[
         ['Rentang Retensi', `${tier.min_retention_days}–${tier.max_retention_days} hari`],
