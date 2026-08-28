@@ -7,6 +7,7 @@ import {
   deactivateTier,
   deleteTier,
   getGroupAdmin,
+  listAuditLogs,
   listGroupAdmins,
   listServiceTiers,
   reactivateTier,
@@ -15,7 +16,7 @@ import {
   updateGroupAdmin,
   updateTier,
 } from './api'
-import type { CreateGroupAdminFormValues, ServiceTierFormValues, UpdateGroupAdminFormValues } from './types'
+import type { CreateGroupAdminFormValues, PlatformAuditLogFilter, ServiceTierFormValues, UpdateGroupAdminFormValues } from './types'
 
 export const groupAdminKeys = {
   all: ['group-admins'] as const,
@@ -136,4 +137,14 @@ export function useUnarchiveTier() {
 export function useDeleteTier() {
   const invalidate = useInvalidateServiceTiers()
   return useMutation({ mutationFn: (id: string) => deleteTier(id), onSuccess: invalidate })
+}
+
+// useAuditLogs -- S4P-22, US-071. Query key menyertakan filter supaya
+// tiap kombinasi filter di-cache terpisah (ganti filter -> fetch baru,
+// bukan menyaring hasil lama di klien).
+export function useAuditLogs(filter: PlatformAuditLogFilter) {
+  return useQuery({
+    queryKey: ['platform-audit-logs', filter],
+    queryFn: () => listAuditLogs(filter),
+  })
 }
