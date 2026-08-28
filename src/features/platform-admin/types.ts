@@ -115,6 +115,8 @@ export interface PlatformAuditLogEntry {
   action: string
   entity_type: string
   entity_id: string | null
+  target_user_name: string | null
+  target_tier_name: string | null
   metadata: Record<string, unknown> | null
   logged_at: string
 }
