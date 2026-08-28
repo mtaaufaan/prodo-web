@@ -2,6 +2,7 @@ import { apiClient } from '@/lib/api'
 
 import type {
   CreateGroupAdminFormValues,
+  ErasureRequestEntry,
   GroupAdmin,
   PlatformAnomalies,
   PlatformAuditLogEntry,
@@ -108,4 +109,20 @@ export function getTrends(period: 7 | 30 | 90) {
 
 export function getAnomalies() {
   return apiClient.get<PlatformAnomalies>('/api/v1/platform/anomalies')
+}
+
+// listErasureRequests/executeErasureRequest/rejectErasureRequest -- S4P-30/31,
+// US-060, halaman "Right to Erasure".
+export function listErasureRequests() {
+  return apiClient.get<ErasureRequestEntry[]>('/api/v1/platform/erasure-requests')
+}
+
+// executeErasureRequest -- confirmation harus persis "KONFIRMASI" (konfirmasi
+// dua langkah, ditegakkan juga di backend -- lihat ErasureConfirmModal).
+export function executeErasureRequest(id: string, confirmation: string) {
+  return apiClient.post<{ status: string }>(`/api/v1/platform/erasure-requests/${id}/execute`, { confirmation })
+}
+
+export function rejectErasureRequest(id: string) {
+  return apiClient.post<{ status: string }>(`/api/v1/platform/erasure-requests/${id}/reject`)
 }

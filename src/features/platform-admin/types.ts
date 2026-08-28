@@ -165,3 +165,17 @@ export interface PlatformAnomalies {
   storage: PlatformStorageAnomaly[]
   contract_end: PlatformContractEndingAnomaly[]
 }
+
+// ErasureRequestStatus/ErasureRequestEntry -- GET /platform/erasure-requests
+// (S4P-30, US-060). status DONE/REJECTED punya processed_at, PENDING null.
+export type ErasureRequestStatus = 'PENDING' | 'DONE' | 'REJECTED'
+
+export interface ErasureRequestEntry {
+  id: string
+  subject: string
+  org: string
+  requested_by: string
+  status: ErasureRequestStatus
+  requested_at: string
+  processed_at: string | null
+}
