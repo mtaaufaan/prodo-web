@@ -1,33 +1,19 @@
+import ReactECharts from 'echarts-for-react'
+
 import type { PlatformTrendPoint } from '@/features/platform-admin/types'
 
-// TrendLineChart -- S4P-27, US-072. SVG native (bukan Apache ECharts) --
-// pola sama dan alasan sama dengan TierDistributionChart.tsx (IG-22):
-// `npm install echarts` masih gagal di mesin ini (masalah jaringan, bukan
-// keputusan arsitektur). Ganti ke ECharts begitu install berhasil ATAU
-// begitu chart pertama yang benar-benar butuh interaktivitas ECharts
-// mulai dikerjakan (Gantt/Workload, S5+).
-const WIDTH = 640
-const HEIGHT = 200
-const PAD_LEFT = 32
-const PAD_BOTTOM = 24
-const PAD_TOP = 12
-const PAD_RIGHT = 12
-
+// TrendLineChart -- S4P-27, US-072. Migrasi ke Apache ECharts
+// (docs/tech-stack.md) 2026-08-28 -- menutup IG-22, lihat catatan
+// migrasi di TierDistributionChart.tsx (chart pertama yang di-migrasi).
+// SVG native dipakai sementara sejak H9 karena `npm install echarts`
+// waktu itu gagal (masalah jaringan korporat intermiten, retry berhasil).
 const GA_COLOR = 'oklch(0.7 0.19 45)'
 const ORG_COLOR = 'oklch(0.78 0.12 165)'
-
-function pathFor(points: PlatformTrendPoint[], key: 'new_ga_count' | 'new_org_count', max: number): string {
-  const plotW = WIDTH - PAD_LEFT - PAD_RIGHT
-  const plotH = HEIGHT - PAD_TOP - PAD_BOTTOM
-  const stepX = points.length > 1 ? plotW / (points.length - 1) : 0
-  return points
-    .map((p, i) => {
-      const x = PAD_LEFT + i * stepX
-      const y = PAD_TOP + plotH - (max > 0 ? (p[key] / max) * plotH : 0)
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
-    })
-    .join(' ')
-}
+const MONO_FONT = 'IBM Plex Mono, monospace'
+const AXIS_LINE_COLOR = 'oklch(0.3 0.008 60)'
+const SPLIT_LINE_COLOR = 'oklch(0.26 0.008 60)'
+const TEXT_DIM = 'oklch(0.5 0.01 70)'
+const TEXT_MUTED = 'oklch(0.62 0.01 70)'
 
 function formatShortDate(iso: string): string {
   const d = new Date(iso)
@@ -37,49 +23,58 @@ function formatShortDate(iso: string): string {
 export default function TrendLineChart({ points }: { points: PlatformTrendPoint[] }) {
   if (points.length === 0) return null
 
-  const max = Math.max(1, ...points.map((p) => Math.max(p.new_ga_count, p.new_org_count)))
-  const gaPath = pathFor(points, 'new_ga_count', max)
-  const orgPath = pathFor(points, 'new_org_count', max)
-  const first = points[0]
-  const last = points[points.length - 1]
+  const option = {
+    tooltip: { trigger: 'axis' as const },
+    legend: {
+      data: ['GA BARU', 'ORG BARU'],
+      top: 0,
+      right: 0,
+      itemWidth: 10,
+      itemHeight: 10,
+      textStyle: { color: TEXT_MUTED, fontFamily: MONO_FONT, fontSize: 9.5 },
+    },
+    grid: { left: 30, right: 12, top: 34, bottom: 26, containLabel: false },
+    xAxis: {
+      type: 'category' as const,
+      data: points.map((p) => formatShortDate(p.date)),
+      boundaryGap: false,
+      axisLine: { lineStyle: { color: AXIS_LINE_COLOR } },
+      axisTick: { show: false },
+      axisLabel: { color: TEXT_DIM, fontFamily: MONO_FONT, fontSize: 8.5, interval: Math.ceil(points.length / 8) },
+    },
+    yAxis: {
+      type: 'value' as const,
+      minInterval: 1,
+      splitLine: { lineStyle: { color: SPLIT_LINE_COLOR } },
+      axisLine: { show: false },
+      axisLabel: { color: TEXT_DIM, fontFamily: MONO_FONT, fontSize: 8 },
+    },
+    series: [
+      {
+        name: 'GA BARU',
+        type: 'line' as const,
+        data: points.map((p) => p.new_ga_count),
+        color: GA_COLOR,
+        symbol: 'none' as const,
+        lineStyle: { width: 2 },
+      },
+      {
+        name: 'ORG BARU',
+        type: 'line' as const,
+        data: points.map((p) => p.new_org_count),
+        color: ORG_COLOR,
+        symbol: 'none' as const,
+        lineStyle: { width: 2 },
+      },
+    ],
+  }
 
   return (
     <div className="border border-pa-border p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
-          Tren Registrasi GA &amp; Aktivasi Organisasi
-        </div>
-        <div className="flex gap-3 font-mono text-[9.5px]">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: GA_COLOR }} />
-            <span className="text-text-muted">GA BARU</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: ORG_COLOR }} />
-            <span className="text-text-muted">ORG BARU</span>
-          </span>
-        </div>
+      <div className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
+        Tren Registrasi GA &amp; Aktivasi Organisasi
       </div>
-      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full" role="img" aria-label="Tren registrasi Group Admin dan aktivasi organisasi">
-        {[0, 0.5, 1].map((f) => {
-          const y = PAD_TOP + (HEIGHT - PAD_TOP - PAD_BOTTOM) * f
-          return <line key={f} x1={PAD_LEFT} y1={y} x2={WIDTH - PAD_RIGHT} y2={y} stroke="oklch(0.26 0.008 60)" strokeWidth={1} />
-        })}
-        <text x={PAD_LEFT - 6} y={PAD_TOP + 4} textAnchor="end" className="fill-text-dim font-mono text-[8px]">
-          {max}
-        </text>
-        <text x={PAD_LEFT - 6} y={HEIGHT - PAD_BOTTOM} textAnchor="end" className="fill-text-dim font-mono text-[8px]">
-          0
-        </text>
-        <path d={orgPath} fill="none" stroke={ORG_COLOR} strokeWidth={2} />
-        <path d={gaPath} fill="none" stroke={GA_COLOR} strokeWidth={2} />
-        <text x={PAD_LEFT} y={HEIGHT - 6} className="fill-text-dim font-mono text-[8.5px]">
-          {formatShortDate(first.date)}
-        </text>
-        <text x={WIDTH - PAD_RIGHT} y={HEIGHT - 6} textAnchor="end" className="fill-text-dim font-mono text-[8.5px]">
-          {formatShortDate(last.date)}
-        </text>
-      </svg>
+      <ReactECharts option={option} style={{ height: 220 }} opts={{ renderer: 'svg' }} />
     </div>
   )
 }
