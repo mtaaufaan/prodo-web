@@ -6,7 +6,10 @@ import {
   createTier,
   deactivateTier,
   deleteTier,
+  getAnomalies,
   getGroupAdmin,
+  getHealthMetrics,
+  getTrends,
   listAuditLogs,
   listGroupAdmins,
   listServiceTiers,
@@ -147,4 +150,19 @@ export function useAuditLogs(filter: PlatformAuditLogFilter) {
     queryKey: ['platform-audit-logs', filter],
     queryFn: () => listAuditLogs(filter),
   })
+}
+
+// useHealthMetrics/useTrends/useAnomalies -- S4P-24/25/26, US-072,
+// halaman "Dashboard Kesehatan Platform". staleTime pendek (bukan 0)
+// supaya berpindah rentang tren bolak-balik tidak selalu refetch.
+export function useHealthMetrics() {
+  return useQuery({ queryKey: ['platform-health-metrics'], queryFn: () => getHealthMetrics(), staleTime: 30_000 })
+}
+
+export function useTrends(period: 7 | 30 | 90) {
+  return useQuery({ queryKey: ['platform-trends', period], queryFn: () => getTrends(period), staleTime: 30_000 })
+}
+
+export function useAnomalies() {
+  return useQuery({ queryKey: ['platform-anomalies'], queryFn: () => getAnomalies(), staleTime: 30_000 })
 }
