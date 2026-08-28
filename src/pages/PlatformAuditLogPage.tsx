@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { formatAuditNarrative } from '@/features/platform-admin/auditNarrative'
 import { exportAuditLogsCSV } from '@/features/platform-admin/api'
 import { useAuditLogs } from '@/features/platform-admin/hooks'
 import type { PlatformAuditLogEntry } from '@/features/platform-admin/types'
@@ -181,7 +182,10 @@ function AuditLogRow({ entry }: { entry: PlatformAuditLogEntry }) {
   return (
     <tr className="border-b border-line last:border-0">
       <td className="whitespace-nowrap py-2.5 pl-3.5 pr-4 font-mono text-[10.5px] text-text-dim">{time}</td>
-      <td className="py-2.5 pr-4 font-mono text-[11px] text-text-body">{entry.action}</td>
+      <td className="py-2.5 pr-4 text-[12.5px] text-text-body">
+        {formatAuditNarrative(entry)}
+        <div className="mt-0.5 font-mono text-[9px] text-text-dim">{entry.action}</div>
+      </td>
       <td className="py-2.5 pr-4 font-mono text-[10.5px] text-text-muted">
         {entry.entity_type}
         {entry.entity_id && <span className="text-text-dim"> · {entry.entity_id.slice(0, 8)}</span>}
