@@ -6,14 +6,17 @@ import {
   createTier,
   deactivateTier,
   deleteTier,
+  executeErasureRequest,
   getAnomalies,
   getGroupAdmin,
   getHealthMetrics,
   getTrends,
   listAuditLogs,
+  listErasureRequests,
   listGroupAdmins,
   listServiceTiers,
   reactivateTier,
+  rejectErasureRequest,
   resendActivation,
   unarchiveTier,
   updateGroupAdmin,
@@ -165,4 +168,28 @@ export function useTrends(period: 7 | 30 | 90) {
 
 export function useAnomalies() {
   return useQuery({ queryKey: ['platform-anomalies'], queryFn: () => getAnomalies(), staleTime: 30_000 })
+}
+
+// useErasureRequests/useExecuteErasureRequest/useRejectErasureRequest --
+// S4P-30/31, US-060, halaman "Right to Erasure".
+const erasureRequestsKey = ['platform-erasure-requests'] as const
+
+export function useErasureRequests() {
+  return useQuery({ queryKey: erasureRequestsKey, queryFn: () => listErasureRequests() })
+}
+
+export function useExecuteErasureRequest() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, confirmation }: { id: string; confirmation: string }) => executeErasureRequest(id, confirmation),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: erasureRequestsKey }),
+  })
+}
+
+export function useRejectErasureRequest() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => rejectErasureRequest(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: erasureRequestsKey }),
+  })
 }

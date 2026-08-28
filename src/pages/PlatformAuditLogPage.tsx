@@ -37,6 +37,8 @@ const ACTION_OPTIONS = [
   { value: 'ip_allowlist.added', label: 'IP Allowlist Ditambahkan' },
   { value: 'ip_allowlist.removed', label: 'IP Allowlist Dihapus' },
   { value: 'user.login', label: 'Login Platform Admin' },
+  { value: 'erasure.executed', label: 'Erasure Dieksekusi' },
+  { value: 'erasure.rejected', label: 'Erasure Ditolak' },
 ]
 
 function PlatformAuditLogPageContent() {

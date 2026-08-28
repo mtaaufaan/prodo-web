@@ -8,6 +8,7 @@ import Activate from '@/pages/Activate'
 import ActivateMfaSetup from '@/pages/ActivateMfaSetup'
 import CrossOrgMembershipsPage from '@/pages/CrossOrgMembershipsPage'
 import DesignPage from '@/pages/DesignPage'
+import ErasureRequestsPage from '@/pages/ErasureRequestsPage'
 import Forbidden from '@/pages/Forbidden'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
@@ -78,6 +79,8 @@ export default function AppRouter() {
             <Route path="/platform/audit-logs" element={<PlatformAuditLogPage />} />
             {/* S4P-27, US-072: KPI, tren, dan alert anomali. */}
             <Route path="/platform/dashboard" element={<PlatformDashboardPage />} />
+            {/* S4P-33, US-060: antrian Right to Erasure. */}
+            <Route path="/platform/erasure-requests" element={<ErasureRequestsPage />} />
           </Route>
         </Route>
         {/* S3-07, US-007: Platform Admin (semua org) atau Group Admin (org

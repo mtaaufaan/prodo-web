@@ -43,4 +43,16 @@ describe('formatAuditNarrative', () => {
     const msg = formatAuditNarrative(entry({ action: 'user.login', actor_display_name: 'PA Name' }))
     expect(msg).not.toContain('PA Name')
   })
+
+  it('names the erasure subject when executed', () => {
+    const msg = formatAuditNarrative(entry({ action: 'erasure.executed', target_user_name: 'User [REDACTED]' }))
+    expect(msg).toContain('User [REDACTED]')
+    expect(msg).toContain('Erasure')
+  })
+
+  it('names the erasure subject when rejected', () => {
+    const msg = formatAuditNarrative(entry({ action: 'erasure.rejected', target_user_name: 'Farhan H.' }))
+    expect(msg).toContain('Farhan H.')
+    expect(msg).toContain('Menolak')
+  })
 })
