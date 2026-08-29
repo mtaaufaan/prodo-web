@@ -63,11 +63,13 @@ export function formatAuditNarrative(entry: PlatformAuditLogEntry): string {
     case 'tier.deleted':
       return `Menghapus permanen tier ${target} dari katalog.`
     case 'platform_settings.session_timeout_changed':
-      return 'Mengubah batas waktu idle sesi global untuk seluruh akun Platform Admin.'
+      return 'Mengubah batas waktu idle sesi untuk akun sendiri.'
+    case 'platform_settings.ip_allowlist_enabled_changed':
+      return 'Mengubah status aktif/nonaktif enforcement IP Allowlist (berlaku untuk semua akun Platform Admin).'
     case 'ip_allowlist.added':
-      return 'Menambahkan entri baru ke daftar IP yang diizinkan.'
+      return 'Menambahkan entri baru ke daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).'
     case 'ip_allowlist.removed':
-      return 'Menghapus satu entri dari daftar IP yang diizinkan.'
+      return 'Menghapus satu entri dari daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).'
     case 'erasure.executed':
       return `Mengeksekusi Right to Erasure untuk ${target} (pseudonymization, revoke sesi, hapus MFA).`
     case 'erasure.rejected':
