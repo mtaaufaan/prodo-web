@@ -158,6 +158,10 @@ export interface PlatformAuditLogEntry {
   // supaya kalimat naratif benar (lihat auditNarrative.ts).
   target_user_role: string | null
   target_tier_name: string | null
+  // actor_ip -- 2026-08-29, permintaan user: audit trail perlu info asal
+  // request. NULL untuk entry lama sebelum kolom ini dipopulasikan.
+  // metadata.request_path (format "METHOD /path") disuntikkan bersamaan.
+  actor_ip: string | null
   metadata: Record<string, unknown> | null
   logged_at: string
 }

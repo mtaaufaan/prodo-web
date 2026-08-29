@@ -195,7 +195,7 @@ function PlatformAuditLogPageContent() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-pa-header text-left">
-                {['Waktu', 'Aksi', 'Entitas', 'Pelaku'].map((h) => (
+                {['Waktu', 'Aksi', 'Entitas', 'Pelaku', 'Asal'].map((h) => (
                   <th key={h} className="py-2.5 pl-3.5 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
                     {h}
                   </th>
@@ -287,6 +287,12 @@ function AuditLogRow({ entry }: { entry: PlatformAuditLogEntry }) {
       </td>
       <td className="py-2.5 pr-4 font-mono text-[10.5px] text-text-muted">
         {entry.actor_display_name ?? entry.actor_email ?? '—'}
+      </td>
+      <td className="py-2.5 pr-4 font-mono text-[10.5px] text-text-muted">
+        {entry.actor_ip ?? '—'}
+        {typeof entry.metadata?.request_path === 'string' && (
+          <div className="mt-0.5 text-[9px] text-text-dim">{entry.metadata.request_path}</div>
+        )}
       </td>
     </tr>
   )
