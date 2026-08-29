@@ -69,12 +69,12 @@ function PlatformDashboardPageContent() {
       ...contractAlerts.map((a) => {
         const daysLeft = Math.ceil((new Date(a.contract_end_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         return {
-          id: `contract-${a.org_id}`,
+          id: `contract-${a.group_id}`,
           badge: 'Kontrak',
           badgeClassName: 'border-amber/60 text-amber',
           message: (
             <>
-              Organisasi <b className="text-text-bone">{a.org_name}</b> (grup {a.group_name}){' '}
+              Grup <b className="text-text-bone">{a.group_name}</b>{' '}
               {daysLeft >= 0 ? `berakhir dalam ${daysLeft} hari` : `sudah berakhir ${Math.abs(daysLeft)} hari lalu`}.
             </>
           ),

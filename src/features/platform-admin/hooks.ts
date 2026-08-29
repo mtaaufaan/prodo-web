@@ -22,6 +22,7 @@ import {
   reactivatePlatformAdmin,
   reactivateTier,
   rejectErasureRequest,
+  renewGroupContract,
   resendActivation,
   resetPlatformAdminMFA,
   unarchiveTier,
@@ -32,6 +33,7 @@ import type {
   CreateGroupAdminFormValues,
   CreatePlatformAdminFormValues,
   PlatformAuditLogFilter,
+  RenewGroupContractFormValues,
   ServiceTierFormValues,
   UpdateGroupAdminFormValues,
 } from './types'
@@ -74,6 +76,16 @@ export function useUpdateGroupAdmin(id: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (values: UpdateGroupAdminFormValues) => updateGroupAdmin(id, values),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: groupAdminKeys.all }),
+  })
+}
+
+// useRenewGroupContract -- kontrak grup (dikonfirmasi user 2026-08-29):
+// dipakai baik untuk kontrak pertama maupun perpanjangan.
+export function useRenewGroupContract(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (values: RenewGroupContractFormValues) => renewGroupContract(id, values),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: groupAdminKeys.all }),
   })
 }

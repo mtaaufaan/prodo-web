@@ -24,6 +24,10 @@ function ga(tier: GroupAdmin['tier']): GroupAdmin {
     used_org_count: 0,
     used_storage_mb: 0,
     used_member_count: 0,
+    contract_start_at: null,
+    subscription_period: null,
+    contract_end_at: null,
+    invoice_number: null,
   }
 }
 

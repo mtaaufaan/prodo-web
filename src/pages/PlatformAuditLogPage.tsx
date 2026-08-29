@@ -7,8 +7,7 @@ import { useAuditLogs } from '@/features/platform-admin/hooks'
 import type { PlatformAuditLogEntry } from '@/features/platform-admin/types'
 
 const paFieldFont = 'font-mono text-[12.5px]'
-const selectClassName =
-  `flex h-9 w-full rounded-none border border-line bg-input-bg px-2.5 py-2 ${paFieldFont} text-text-body focus-visible:outline-none focus-visible:border-signal`
+const selectClassName = `flex h-9 w-full rounded-none border border-line bg-input-bg px-2.5 py-2 ${paFieldFont} text-text-body focus-visible:outline-none focus-visible:border-signal`
 
 // ACTION_OPTIONS -- kode aksi nyata yang sudah dicatat account_repository.go
 // (S4P-20/21). Desain "PA Audit Trail" menampilkan kalimat siap-baca per
@@ -26,6 +25,8 @@ const ACTION_OPTIONS = [
   { value: 'user.deleted', label: 'GA Dihapus' },
   { value: 'user.activation_resent', label: 'Invitation Dikirim Ulang' },
   { value: 'group.transferred', label: 'Grup Ditransfer' },
+  { value: 'group.contract_created', label: 'Kontrak Grup Dibuat' },
+  { value: 'group.contract_renewed', label: 'Kontrak Grup Diperpanjang' },
   { value: 'tier.created', label: 'Tier Ditambahkan' },
   { value: 'tier.updated', label: 'Tier Diperbarui' },
   { value: 'tier.deactivated', label: 'Tier Dinonaktifkan' },
@@ -33,7 +34,10 @@ const ACTION_OPTIONS = [
   { value: 'tier.archived', label: 'Tier Di-archive' },
   { value: 'tier.unarchived', label: 'Tier Dipulihkan' },
   { value: 'tier.deleted', label: 'Tier Dihapus' },
-  { value: 'platform_settings.session_timeout_changed', label: 'Session Timeout Diubah' },
+  {
+    value: 'platform_settings.session_timeout_changed',
+    label: 'Session Timeout Diubah',
+  },
   { value: 'ip_allowlist.added', label: 'IP Allowlist Ditambahkan' },
   { value: 'ip_allowlist.removed', label: 'IP Allowlist Dihapus' },
   { value: 'user.login', label: 'Login Platform Admin' },
@@ -254,8 +258,8 @@ function PlatformAuditLogPageContent() {
       )}
 
       <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
-        Jejak audit level platform bersifat append-only: perubahan tier, registrasi dan suspend Group Admin, transfer
-        grup, pengaturan keamanan, dan login Platform Admin. Record tidak dapat diubah atau dihapus.
+        Jejak audit level platform bersifat append-only: perubahan tier, registrasi dan suspend Group Admin, transfer grup,
+        pengaturan keamanan, dan login Platform Admin. Record tidak dapat diubah atau dihapus.
       </p>
     </div>
   )

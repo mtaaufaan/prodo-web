@@ -11,15 +11,18 @@ import { cn } from '@/lib/utils'
 import {
   useCreateGroupAdmin,
   useGroupAdminDetail,
+  useRenewGroupContract,
   useResendActivation,
   useServiceTiers,
   useUpdateGroupAdmin,
 } from '@/features/platform-admin/hooks'
 import {
   createGroupAdminSchema,
+  renewGroupContractSchema,
   updateGroupAdminSchema,
   type CreateGroupAdminFormValues,
   type GroupAdmin,
+  type RenewGroupContractFormValues,
   type ServiceTier,
   type UpdateGroupAdminFormValues,
 } from '@/features/platform-admin/types'
@@ -58,6 +61,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
   const updateGroupAdmin = useUpdateGroupAdmin(groupAdminId ?? '')
   const resendActivation = useResendActivation()
   const [resendSent, setResendSent] = useState(false)
+  const [renewOpen, setRenewOpen] = useState(false)
 
   const createForm = useForm<CreateGroupAdminFormValues>({
     resolver: zodResolver(createGroupAdminSchema),
@@ -70,6 +74,9 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
       phone: '',
       tier_id: '',
       storage_quota_gb: 20,
+      contract_start_at: '',
+      contract_subscription_period: '',
+      contract_invoice_number: '',
     },
   })
   const editForm = useForm<UpdateGroupAdminFormValues>({
@@ -114,9 +121,13 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
         phone: '',
         tier_id: '',
         storage_quota_gb: 20,
+        contract_start_at: '',
+        contract_subscription_period: '',
+        contract_invoice_number: '',
       })
     }
     setResendSent(false)
+    setRenewOpen(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, groupAdminId])
 
@@ -186,6 +197,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
   const errorMessage = apiError && !quotaBelowUsageMessage ? apiError.message : null
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-[460px]">
         <DialogHeader>
@@ -315,6 +327,85 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
 
               {isView && detail.data && <UsagePanel groupAdmin={detail.data} />}
 
+              {isAdd && (
+                <div className="space-y-1.5 border border-line bg-bg-deep p-3">
+                  <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Kontrak Awal (Opsional)</div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ga-contract-start">Tanggal Mulai</Label>
+                      <Input
+                        id="ga-contract-start"
+                        type="date"
+                        className={paFieldFont}
+                        {...createForm.register('contract_start_at')}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ga-contract-period">Masa Langganan</Label>
+                      <select
+                        id="ga-contract-period"
+                        className={selectClassName}
+                        {...createForm.register('contract_subscription_period')}
+                      >
+                        <option value="">Pilih...</option>
+                        <option value="monthly">Bulanan</option>
+                        <option value="quarterly">3 Bulan</option>
+                        <option value="yearly">Tahunan</option>
+                      </select>
+                      <FieldError message={createForm.formState.errors.contract_subscription_period?.message} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ga-contract-invoice">No. Invoice</Label>
+                      <Input
+                        id="ga-contract-invoice"
+                        className={paFieldFont}
+                        {...createForm.register('contract_invoice_number')}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!isAdd && detail.data && (
+                <div className="space-y-1.5 border border-line bg-bg-deep p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Kontrak</div>
+                    {!isView && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-pa-accent font-mono text-[10px] uppercase tracking-[0.04em] text-pa-accent"
+                        onClick={() => setRenewOpen(true)}
+                      >
+                        {detail.data.contract_end_at ? 'Perpanjang Kontrak' : 'Buat Kontrak'}
+                      </Button>
+                    )}
+                  </div>
+                  {detail.data.contract_end_at ? (
+                    <div className="grid grid-cols-3 gap-2 font-mono text-[11px] text-text-body">
+                      <div>
+                        <span className="text-text-dim">Mulai: </span>
+                        {formatContractDate(detail.data.contract_start_at)}
+                      </div>
+                      <div>
+                        <span className="text-text-dim">Masa: </span>
+                        {subscriptionPeriodLabel(detail.data.subscription_period)}
+                      </div>
+                      <div>
+                        <span className="text-text-dim">Berakhir: </span>
+                        {formatContractDate(detail.data.contract_end_at)}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="font-mono text-[11px] text-text-muted">Belum ada kontrak.</p>
+                  )}
+                  {detail.data.invoice_number && (
+                    <p className="font-mono text-[10px] text-text-dim">Invoice: {detail.data.invoice_number}</p>
+                  )}
+                </div>
+              )}
+
               {!isAdd && !isView && (
                 <div className="space-y-1.5">
                   <Label htmlFor="ga-status">Status</Label>
@@ -383,6 +474,134 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
             className={cn('font-mono text-[11px]', isView && 'flex-1')}
           >
             {isView ? 'Keluar' : 'Batal'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    {!isAdd && groupAdminId && (
+      <RenewContractDialog
+        groupAdminId={groupAdminId}
+        currentEndAt={detail.data?.contract_end_at ?? null}
+        currentPeriod={detail.data?.subscription_period ?? null}
+        open={renewOpen}
+        onClose={() => setRenewOpen(false)}
+      />
+    )}
+    </>
+  )
+}
+
+// formatContractDate/subscriptionPeriodLabel -- kontrak grup (dikonfirmasi
+// user 2026-08-29), tampilan ringkas tanggal + label masa langganan.
+function formatContractDate(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+const SUBSCRIPTION_PERIOD_LABELS: Record<string, string> = {
+  monthly: 'Bulanan',
+  quarterly: '3 Bulan',
+  yearly: 'Tahunan',
+}
+
+function subscriptionPeriodLabel(period: string | null): string {
+  return period ? (SUBSCRIPTION_PERIOD_LABELS[period] ?? period) : '—'
+}
+
+// toDateInputValue -- format "YYYY-MM-DD" untuk <input type="date">.
+function toDateInputValue(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
+// RenewContractDialog -- "Perpanjang Kontrak" (dikonfirmasi user
+// 2026-08-29), dipakai baik untuk kontrak PERTAMA grup (currentEndAt
+// null, tombol pemicu berlabel "Buat Kontrak") maupun PERPANJANGAN.
+// Tanggal mulai default MAX(hari ini, kontrak aktif saat ini) -- supaya
+// tidak ada celah (gap) kalau PA telat memperpanjang, dan tidak bisa
+// mundur ke masa lalu begitu saja.
+function RenewContractDialog({
+  groupAdminId,
+  currentEndAt,
+  currentPeriod,
+  open,
+  onClose,
+}: {
+  groupAdminId: string
+  currentEndAt: string | null
+  currentPeriod: string | null
+  open: boolean
+  onClose: () => void
+}) {
+  const renew = useRenewGroupContract(groupAdminId)
+  const form = useForm<RenewGroupContractFormValues>({
+    resolver: zodResolver(renewGroupContractSchema),
+    defaultValues: {
+      start_at: '',
+      subscription_period: (currentPeriod as RenewGroupContractFormValues['subscription_period']) ?? 'monthly',
+      invoice_number: '',
+    },
+  })
+
+  useEffect(() => {
+    if (open) {
+      const today = new Date()
+      const currentEnd = currentEndAt ? new Date(currentEndAt) : null
+      const defaultStart = currentEnd && currentEnd > today ? currentEnd : today
+      form.reset({
+        start_at: toDateInputValue(defaultStart),
+        subscription_period: (currentPeriod as RenewGroupContractFormValues['subscription_period']) ?? 'monthly',
+        invoice_number: '',
+      })
+    }
+  }, [open, currentEndAt, currentPeriod, form])
+
+  const onSubmit = (values: RenewGroupContractFormValues) => {
+    renew.mutate(values, { onSuccess: onClose })
+  }
+
+  const errorMessage = renew.error instanceof ApiError ? renew.error.message : null
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-w-[380px]">
+        <DialogHeader>
+          <DialogTitle className="text-pa-accent">{currentEndAt ? 'Perpanjang Kontrak' : 'Buat Kontrak'}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3.5 px-5 py-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="renew-start-at">Tanggal Mulai</Label>
+            <Input id="renew-start-at" type="date" className={paFieldFont} {...form.register('start_at')} />
+            <FieldError message={form.formState.errors.start_at?.message} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="renew-period">Masa Langganan</Label>
+            <select id="renew-period" className={selectClassName} {...form.register('subscription_period')}>
+              <option value="monthly">Bulanan</option>
+              <option value="quarterly">3 Bulan</option>
+              <option value="yearly">Tahunan</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="renew-invoice">No. Invoice</Label>
+            <Input id="renew-invoice" className={paFieldFont} {...form.register('invoice_number')} />
+          </div>
+          {errorMessage && <p className="font-mono text-[11px] text-destructive">{errorMessage}</p>}
+        </form>
+        <DialogFooter>
+          <Button
+            type="button"
+            className="flex-1 bg-pa-accent font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-bg-deep hover:bg-pa-accent-hover"
+            disabled={renew.isPending}
+            onClick={form.handleSubmit(onSubmit)}
+          >
+            {renew.isPending ? 'Menyimpan...' : 'Simpan'}
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose} className="font-mono text-[11px]">
+            Batal
           </Button>
         </DialogFooter>
       </DialogContent>
