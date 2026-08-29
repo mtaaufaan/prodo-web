@@ -23,10 +23,8 @@ const slugSchema = z
   .min(1, 'Slug wajib diisi')
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Lowercase, alphanumeric, hyphen (mis. "acme-corp")')
 
-// ponytail: group_id di sini adalah UUID mentah yang diketik manual --
-// belum ada endpoint/UI direktori grup (group directory) di mana pun di
-// aplikasi ini, jadi tidak ada cara lain bagi GA/PA memilihnya dari daftar.
-// Ganti jadi dropdown begitu fitur group directory dibangun.
+// group_id dipilih dari dropdown direktori grup (S4P-36, menutup
+// implementation_gaps.md IG-16) -- lihat CreateOrganizationModal.
 export const createOrganizationSchema = z.object({
   group_id: z.string().min(1, 'Group ID wajib diisi'),
   name: z.string().min(1, 'Nama wajib diisi'),

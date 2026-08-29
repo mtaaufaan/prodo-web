@@ -4,6 +4,7 @@ import type {
   CreateGroupAdminFormValues,
   ErasureRequestEntry,
   GroupAdmin,
+  GroupDirectoryEntry,
   PlatformAnomalies,
   PlatformAuditLogEntry,
   PlatformAuditLogFilter,
@@ -125,4 +126,11 @@ export function executeErasureRequest(id: string, confirmation: string) {
 
 export function rejectErasureRequest(id: string) {
   return apiClient.post<{ status: string }>(`/api/v1/platform/erasure-requests/${id}/reject`)
+}
+
+// listGroups -- S4P-34/36, US-083. Dipakai GroupDirectoryPage (PA) DAN
+// picker grup di CreateOrganizationModal (PA/GA) -- otorisasi PA/GA
+// ditegakkan backend (query), bukan di sini.
+export function listGroups(q?: string) {
+  return apiClient.get<GroupDirectoryEntry[]>('/api/v1/platform/groups', { params: q ? { q } : undefined })
 }

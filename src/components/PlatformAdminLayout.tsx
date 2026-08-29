@@ -29,7 +29,7 @@ function useNavItems() {
   const { t } = useTranslation()
   return [
     { icon: '◉', label: t('platformAdminLayout.nav.groupAdmins'), to: '/platform/group-admins' },
-    { icon: '▤', label: t('platformAdminLayout.nav.groupDirectory'), to: null },
+    { icon: '▤', label: t('platformAdminLayout.nav.groupDirectory'), to: '/platform/groups' },
     { icon: '▦', label: t('platformAdminLayout.nav.tiers'), to: '/platform/tiers' },
     { icon: '⌗', label: t('platformAdminLayout.nav.erasure'), to: '/platform/erasure-requests' },
     { icon: '☰', label: t('platformAdminLayout.nav.auditTrail'), to: '/platform/audit-logs' },

@@ -10,6 +10,7 @@ import CrossOrgMembershipsPage from '@/pages/CrossOrgMembershipsPage'
 import DesignPage from '@/pages/DesignPage'
 import ErasureRequestsPage from '@/pages/ErasureRequestsPage'
 import Forbidden from '@/pages/Forbidden'
+import GroupDirectoryPage from '@/pages/GroupDirectoryPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
@@ -81,6 +82,9 @@ export default function AppRouter() {
             <Route path="/platform/dashboard" element={<PlatformDashboardPage />} />
             {/* S4P-33, US-060: antrian Right to Erasure. */}
             <Route path="/platform/erasure-requests" element={<ErasureRequestsPage />} />
+            {/* S4P-35, US-083: direktori grup (halaman konsol PA, hanya
+                Platform Admin -- lihat komentar GroupDirectoryPage). */}
+            <Route path="/platform/groups" element={<GroupDirectoryPage />} />
           </Route>
         </Route>
         {/* S3-07, US-007: Platform Admin (semua org) atau Group Admin (org

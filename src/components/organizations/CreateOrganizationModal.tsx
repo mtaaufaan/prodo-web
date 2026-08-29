@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useCreateOrganization } from '@/features/organizations/hooks'
 import { createOrganizationSchema, type CreateOrganizationFormValues } from '@/features/organizations/types'
+import { useGroups } from '@/features/platform-admin/hooks'
 import { ApiError } from '@/lib/api'
 
 interface CreateOrganizationModalProps {
@@ -17,9 +18,12 @@ interface CreateOrganizationModalProps {
 // S3-07, US-007 (GA Add Organization.dc.html) -- versi minimal: name/slug/
 // group_id saja, TANPA domain/logo/quota/retention/language dari desain
 // penuh (kolom-kolom itu belum ada di DATABASE_SCHEMA.md §5.7). group_id
-// wajib diketik manual -- lihat catatan ponytail di types.ts.
+// dipilih dari dropdown direktori grup (S4P-36, menutup
+// implementation_gaps.md IG-16) -- GET /platform/groups otomatis
+// ter-scope ke grup milik sendiri untuk GA, semua grup untuk PA.
 export default function CreateOrganizationModal({ open, onClose }: CreateOrganizationModalProps) {
   const createOrganization = useCreateOrganization()
+  const groups = useGroups('')
   const form = useForm<CreateOrganizationFormValues>({
     resolver: zodResolver(createOrganizationSchema),
     defaultValues: { group_id: '', name: '', slug: '' },
@@ -45,8 +49,20 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 px-5 py-5">
           <div className="space-y-2">
-            <Label htmlFor="group_id">Group ID</Label>
-            <Input id="group_id" placeholder="UUID grup pemilik" {...form.register('group_id')} />
+            <Label htmlFor="group_id">Grup Pemilik</Label>
+            <select
+              id="group_id"
+              {...form.register('group_id')}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="">{groups.isLoading ? 'Memuat grup...' : 'Pilih grup...'}</option>
+              {groups.data?.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name} ({g.tier})
+                </option>
+              ))}
+            </select>
+            {groups.isError && <p className="text-[11px] text-destructive">Gagal memuat daftar grup.</p>}
             {form.formState.errors.group_id && (
               <p className="text-[11px] text-destructive">{form.formState.errors.group_id.message}</p>
             )}

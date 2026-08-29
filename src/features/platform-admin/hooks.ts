@@ -14,6 +14,7 @@ import {
   listAuditLogs,
   listErasureRequests,
   listGroupAdmins,
+  listGroups,
   listServiceTiers,
   reactivateTier,
   rejectErasureRequest,
@@ -192,4 +193,11 @@ export function useRejectErasureRequest() {
     mutationFn: (id: string) => rejectErasureRequest(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: erasureRequestsKey }),
   })
+}
+
+// useGroups -- S4P-34/36, US-083. staleTime 30s: dipakai juga sebagai
+// sumber picker CreateOrganizationModal, jangan refetch tiap keystroke
+// modal dibuka-tutup.
+export function useGroups(query: string) {
+  return useQuery({ queryKey: ['platform-groups', query], queryFn: () => listGroups(query), staleTime: 30_000 })
 }
