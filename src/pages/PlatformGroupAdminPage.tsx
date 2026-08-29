@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import GroupAdminFormModal, { type GroupAdminFormMode } from '@/components/GroupAdminFormModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
@@ -6,6 +6,33 @@ import TierDistributionChart from '@/components/TierDistributionChart'
 import { cn } from '@/lib/utils'
 import { useGroupAdminList } from '@/features/platform-admin/hooks'
 import type { GroupAdmin } from '@/features/platform-admin/types'
+
+const GA_PAGE_SIZE = 10
+const NEAR_QUOTA_THRESHOLD = 0.8
+
+// usageRatio -- rasio pemakaian tertinggi di antara org/storage/member
+// terhadap batas tier (null kalau GA belum punya grup -- tidak ada tier
+// untuk dibandingkan). Dipakai untuk card "Mendekati Kuota" (>=80%,
+// threshold sama dengan anomali storage Health Dashboard, dikonfirmasi
+// user 2026-08-29) dan untuk urutan default grid.
+function usageRatio(ga: GroupAdmin): number | null {
+  if (ga.group_id == null) return null
+  const orgRatio = ga.tier_max_org > 0 ? ga.used_org_count / ga.tier_max_org : 0
+  const quotaGB = ga.storage_quota_gb ?? ga.tier_max_storage_gb
+  const storageRatio = quotaGB > 0 ? ga.used_storage_mb / 1024 / quotaGB : 0
+  const memberRatio = ga.tier_max_members > 0 ? ga.used_member_count / ga.tier_max_members : 0
+  return Math.max(orgRatio, storageRatio, memberRatio)
+}
+
+function MetricCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="border border-pa-border p-4">
+      <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">{label}</div>
+      <div className="mt-2 text-2xl font-bold">{value}</div>
+      {sub && <div className="mt-1 font-mono text-[9.5px] text-text-muted">{sub}</div>}
+    </div>
+  )
+}
 
 // S1-12, US-073, diperluas S4P-06 sesuai desain "PA Group Admins": kolom
 // Tier/Sisa Org/Sisa Kuota/Sisa Member/Tanggal Daftar, aksi Lihat/Ubah
@@ -22,9 +49,49 @@ import type { GroupAdmin } from '@/features/platform-admin/types'
 function PlatformGroupAdminPageContent() {
   const list = useGroupAdminList()
   const [modal, setModal] = useState<{ mode: GroupAdminFormMode; id: string | null } | null>(null)
+  const [page, setPage] = useState(1)
+
+  // Urutan (dikonfirmasi user): status butuh perhatian dulu (SUSPENDED/
+  // TIDAK AKTIF sebelum AKTIF), lalu di antara yang setara diurutkan
+  // dari sisa kuota paling menipis dulu (usageRatio tertinggi).
+  const sortedGAs = useMemo(() => {
+    const data = list.data ?? []
+    return [...data].sort((a, b) => {
+      const aNeeds = a.status !== 'AKTIF'
+      const bNeeds = b.status !== 'AKTIF'
+      if (aNeeds !== bNeeds) return aNeeds ? -1 : 1
+      return (usageRatio(b) ?? -1) - (usageRatio(a) ?? -1)
+    })
+  }, [list.data])
+
+  const nearQuotaCount = sortedGAs.filter((ga) => (usageRatio(ga) ?? 0) >= NEAR_QUOTA_THRESHOLD).length
+  const aktifCount = sortedGAs.filter((ga) => ga.status === 'AKTIF').length
+
+  const totalPages = Math.max(1, Math.ceil(sortedGAs.length / GA_PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pagedGAs = sortedGAs.slice((currentPage - 1) * GA_PAGE_SIZE, currentPage * GA_PAGE_SIZE)
+
+  const pageInputRef = useRef<HTMLInputElement>(null)
+  const goToPage = (raw: string) => {
+    const n = parseInt(raw, 10)
+    if (!Number.isFinite(n)) return
+    setPage(Math.min(totalPages, Math.max(1, n)))
+  }
 
   return (
     <div className="space-y-3.5 p-6">
+      {list.data && list.data.length > 0 && (
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+          <MetricCard
+            label="Total Group Admin"
+            value={String(list.data.length)}
+            sub={`${aktifCount} aktif · ${list.data.length - aktifCount} tidak aktif`}
+          />
+          <TierDistributionChart groupAdmins={list.data} />
+          <MetricCard label="Mendekati Kuota" value={String(nearQuotaCount)} sub="≥80% dari batas tier" />
+        </div>
+      )}
+
       <div className="flex items-center gap-3.5">
         <div className="flex-1" />
         <button
@@ -40,11 +107,6 @@ function PlatformGroupAdminPageContent() {
       {list.isError && <p className="font-mono text-sm text-destructive">Gagal memuat daftar Group Admin.</p>}
       {list.data && list.data.length === 0 && <p className="font-mono text-sm text-text-muted">Belum ada Group Admin.</p>}
       {list.data && list.data.length > 0 && (
-        <div className="max-w-xs">
-          <TierDistributionChart groupAdmins={list.data} />
-        </div>
-      )}
-      {list.data && list.data.length > 0 && (
         <div className="overflow-x-auto border border-pa-border">
           <table className="w-full text-sm">
             <thead>
@@ -59,7 +121,7 @@ function PlatformGroupAdminPageContent() {
               </tr>
             </thead>
             <tbody>
-              {list.data.map((ga) => (
+              {pagedGAs.map((ga) => (
                 <GroupAdminRow
                   key={ga.id}
                   groupAdmin={ga}
@@ -69,6 +131,50 @@ function PlatformGroupAdminPageContent() {
               ))}
             </tbody>
           </table>
+          {sortedGAs.length > GA_PAGE_SIZE && (
+            <div className="flex items-center justify-between border-t border-pa-border px-4 py-2.5">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
+              >
+                ← Sebelumnya
+              </button>
+              <span className="flex items-center gap-1.5 font-mono text-[10px] text-text-dim">
+                Halaman
+                <input
+                  key={currentPage}
+                  ref={pageInputRef}
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  defaultValue={currentPage}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') goToPage(e.currentTarget.value)
+                  }}
+                  className="w-11 border border-line-strong bg-input-bg px-1 py-0.5 text-center font-mono text-[10px] text-text-body focus-visible:border-signal focus-visible:outline-none"
+                  aria-label="Nomor halaman"
+                />
+                / {totalPages}
+                <button
+                  type="button"
+                  onClick={() => goToPage(pageInputRef.current?.value ?? '')}
+                  className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-text-muted"
+                >
+                  Ke
+                </button>
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
+              >
+                Berikutnya →
+              </button>
+            </div>
+          )}
         </div>
       )}
 
