@@ -13,8 +13,38 @@ import type { PlatformAuditLogEntry } from './types'
 // tidak error) supaya lupa menambah entri di sini tidak pernah membuat
 // halaman ini rusak -- tapi fallback-nya kurang informatif, jadi jangan
 // mengandalkannya sebagai penyelesaian permanen.
+// tierNameFromMetadata -- snapshot nama tier di metadata.tier_name (diisi
+// writeAuditLog/logTierAudit di account_repository.go), dipakai sebagai
+// fallback saat target_tier_name null. Bug ditemukan user (2026-08-29):
+// target_tier_name di-resolve lewat LIVE JOIN ke service_tiers -- begitu
+// tier itu dihapus, SEMUA entry lama (termasuk tier.created) ikut
+// menampilkan "target tidak diketahui" walau baru saja dibuat. Snapshot
+// immutable ini tidak rusak oleh penghapusan tier di kemudian hari.
+function tierNameFromMetadata(entry: PlatformAuditLogEntry): string | null {
+  const name = entry.metadata?.tier_name
+  return typeof name === 'string' ? name : null
+}
+
 function targetOf(entry: PlatformAuditLogEntry): string {
-  return entry.target_user_name ?? entry.target_tier_name ?? 'target tidak diketahui'
+  return entry.target_user_name ?? entry.target_tier_name ?? tierNameFromMetadata(entry) ?? 'target tidak diketahui'
+}
+
+// stateBool/stateNumber/metaString -- pembaca aman untuk state_before/
+// state_after/metadata (2026-08-29, permintaan user: perubahan satu nilai
+// skalar perlu menyertakan nilai sebelum-sesudah). Mengembalikan null
+// kalau field tidak ada (entry lama sebelum kolom ini dipopulasikan) --
+// pemanggil jatuh ke kalimat generik lama.
+function stateBool(state: Record<string, unknown> | null, key: string): boolean | null {
+  const v = state?.[key]
+  return typeof v === 'boolean' ? v : null
+}
+function stateNumber(state: Record<string, unknown> | null, key: string): number | null {
+  const v = state?.[key]
+  return typeof v === 'number' ? v : null
+}
+function metaString(entry: PlatformAuditLogEntry, key: string): string | null {
+  const v = entry.metadata?.[key]
+  return typeof v === 'string' ? v : null
 }
 
 // targetRoleLabel -- S4P-40: user.invited/user.suspended/user.reactivated
@@ -57,23 +87,57 @@ export function formatAuditNarrative(entry: PlatformAuditLogEntry): string {
     case 'tier.updated':
       return `Mengubah komponen tier ${target}.`
     case 'tier.deactivated':
-      return `Menonaktifkan tier ${target}.`
-    case 'tier.reactivated':
-      return `Mengaktifkan kembali tier ${target}.`
+    case 'tier.reactivated': {
+      const before = stateBool(entry.state_before, 'deactivated')
+      const after = stateBool(entry.state_after, 'deactivated')
+      if (before !== null && after !== null) {
+        const label = (v: boolean) => (v ? 'nonaktif' : 'aktif')
+        return `Mengubah status tier ${target} dari ${label(before)} menjadi ${label(after)}.`
+      }
+      return entry.action === 'tier.deactivated' ? `Menonaktifkan tier ${target}.` : `Mengaktifkan kembali tier ${target}.`
+    }
     case 'tier.archived':
-      return `Meng-archive tier ${target}.`
-    case 'tier.unarchived':
-      return `Memulihkan tier ${target} dari arsip.`
+    case 'tier.unarchived': {
+      const before = stateBool(entry.state_before, 'archived')
+      const after = stateBool(entry.state_after, 'archived')
+      if (before !== null && after !== null) {
+        const label = (v: boolean) => (v ? 'diarsipkan' : 'tidak diarsipkan')
+        return `Mengubah status arsip tier ${target} dari ${label(before)} menjadi ${label(after)}.`
+      }
+      return entry.action === 'tier.archived' ? `Meng-archive tier ${target}.` : `Memulihkan tier ${target} dari arsip.`
+    }
     case 'tier.deleted':
       return `Menghapus permanen tier ${target} dari katalog.`
-    case 'platform_settings.session_timeout_changed':
+    case 'platform_settings.session_timeout_changed': {
+      const before = stateNumber(entry.state_before, 'idle_timeout_seconds')
+      const after = stateNumber(entry.state_after, 'idle_timeout_seconds')
+      if (after !== null) {
+        const beforeLabel = before !== null ? `${before / 60} menit` : 'default global'
+        return `Mengubah batas waktu idle sesi dari ${beforeLabel} menjadi ${after / 60} menit.`
+      }
       return 'Mengubah batas waktu idle sesi untuk akun sendiri.'
-    case 'platform_settings.ip_allowlist_enabled_changed':
+    }
+    case 'platform_settings.ip_allowlist_enabled_changed': {
+      const before = stateBool(entry.state_before, 'enabled')
+      const after = stateBool(entry.state_after, 'enabled')
+      if (before !== null && after !== null) {
+        const label = (v: boolean) => (v ? 'aktif' : 'nonaktif')
+        return `Mengubah status enforcement IP Allowlist dari ${label(before)} menjadi ${label(after)} (berlaku untuk semua akun Platform Admin).`
+      }
       return 'Mengubah status aktif/nonaktif enforcement IP Allowlist (berlaku untuk semua akun Platform Admin).'
-    case 'ip_allowlist.added':
-      return 'Menambahkan entri baru ke daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).'
-    case 'ip_allowlist.removed':
-      return 'Menghapus satu entri dari daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).'
+    }
+    case 'ip_allowlist.added': {
+      const cidr = metaString(entry, 'cidr')
+      return cidr
+        ? `Menambahkan CIDR ${cidr} ke daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).`
+        : 'Menambahkan entri baru ke daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).'
+    }
+    case 'ip_allowlist.removed': {
+      const cidr = metaString(entry, 'cidr')
+      return cidr
+        ? `Menghapus CIDR ${cidr} dari daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).`
+        : 'Menghapus satu entri dari daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).'
+    }
     case 'erasure.executed':
       return `Mengeksekusi Right to Erasure untuk ${target} (pseudonymization, revoke sesi, hapus MFA).`
     case 'erasure.rejected':
