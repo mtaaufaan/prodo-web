@@ -17,7 +17,8 @@
       "erasure": "Right to Erasure",
       "auditTrail": "Platform Audit Trail",
       "dashboard": "Dashboard Kesehatan",
-      "securitySettings": "Pengaturan Keamanan"
+      "securitySettings": "Pengaturan Keamanan",
+      "adminAccounts": "Kelola Akun Platform Admin"
     }
   }
 }

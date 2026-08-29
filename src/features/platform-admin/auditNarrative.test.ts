@@ -14,6 +14,7 @@ function entry(overrides: Partial<PlatformAuditLogEntry>): PlatformAuditLogEntry
     entity_type: 'user',
     entity_id: 'ga-1',
     target_user_name: null,
+    target_user_role: null,
     target_tier_name: null,
     metadata: null,
     logged_at: '2026-08-28T08:07:47Z',
@@ -54,5 +55,23 @@ describe('formatAuditNarrative', () => {
     const msg = formatAuditNarrative(entry({ action: 'erasure.rejected', target_user_name: 'Farhan H.' }))
     expect(msg).toContain('Farhan H.')
     expect(msg).toContain('Menolak')
+  })
+
+  it('says Group Admin for user.suspended when target role is group_admin', () => {
+    const msg = formatAuditNarrative(entry({ action: 'user.suspended', target_user_name: 'Farhan H.', target_user_role: 'group_admin' }))
+    expect(msg).toContain('Group Admin')
+  })
+
+  it('says Platform Admin for user.suspended when target role is platform_admin', () => {
+    const msg = formatAuditNarrative(entry({ action: 'user.suspended', target_user_name: 'Rina S.', target_user_role: 'platform_admin' }))
+    expect(msg).toContain('Platform Admin')
+    expect(msg).not.toContain('Group Admin')
+  })
+
+  it('names the Platform Admin target and explains the effect for user.mfa_reset', () => {
+    const msg = formatAuditNarrative(entry({ action: 'user.mfa_reset', target_user_name: 'Rina S.', target_user_role: 'platform_admin' }))
+    expect(msg).toContain('Rina S.')
+    expect(msg).toContain('Platform Admin')
+    expect(msg).toContain('setup ulang')
   })
 })

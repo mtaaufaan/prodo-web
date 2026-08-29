@@ -17,7 +17,8 @@
       "erasure": "Right to Erasure",
       "auditTrail": "Platform Audit Trail",
       "dashboard": "Health Dashboard",
-      "securitySettings": "Security Settings"
+      "securitySettings": "Security Settings",
+      "adminAccounts": "Manage Platform Admins"
     }
   }
 }

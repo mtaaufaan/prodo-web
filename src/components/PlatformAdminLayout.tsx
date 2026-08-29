@@ -35,6 +35,7 @@ function useNavItems() {
     { icon: '☰', label: t('platformAdminLayout.nav.auditTrail'), to: '/platform/audit-logs' },
     { icon: '◫', label: t('platformAdminLayout.nav.dashboard'), to: '/platform/dashboard' },
     { icon: '⚙', label: t('platformAdminLayout.nav.securitySettings'), to: '/platform/security-settings' },
+    { icon: '⚉', label: t('platformAdminLayout.nav.adminAccounts'), to: '/platform/admins' },
   ]
 }
 
