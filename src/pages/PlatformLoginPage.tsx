@@ -452,7 +452,7 @@ export default function PlatformLoginPage() {
               <div>SCOPE · METADATA PLATFORM SAJA — TIDAK ADA AKSES KONTEN ORGANISASI</div>
               <div>MFA · TERVERIFIKASI</div>
             </div>
-            <button type="button" onClick={() => navigate('/platform/group-admins')} style={buttonStyle}>
+            <button type="button" onClick={() => navigate('/platform/dashboard')} style={buttonStyle}>
               MASUK KE PLATFORM CONSOLE →
             </button>
           </>
