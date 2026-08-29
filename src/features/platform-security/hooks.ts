@@ -1,6 +1,12 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { addIPAllowlistEntry, deleteIPAllowlistEntry, getSecuritySettings, updateSessionTimeoutSeconds } from './api'
+import {
+  addIPAllowlistEntry,
+  deleteIPAllowlistEntry,
+  getSecuritySettings,
+  updateIPAllowlistEnabled,
+  updateSessionTimeoutSeconds,
+} from './api'
 
 export const securitySettingsKeys = {
   all: ['platform-security-settings'] as const,
@@ -28,6 +34,14 @@ export function useAddIPAllowlistEntry() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (cidr: string) => addIPAllowlistEntry(cidr),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: securitySettingsKeys.all }),
+  })
+}
+
+export function useUpdateIPAllowlistEnabled() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (enabled: boolean) => updateIPAllowlistEnabled(enabled),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: securitySettingsKeys.all }),
   })
 }
