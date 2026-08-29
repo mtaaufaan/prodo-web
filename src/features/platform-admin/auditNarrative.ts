@@ -17,17 +17,29 @@ function targetOf(entry: PlatformAuditLogEntry): string {
   return entry.target_user_name ?? entry.target_tier_name ?? 'target tidak diketahui'
 }
 
+// targetRoleLabel -- S4P-40: user.invited/user.suspended/user.reactivated
+// dipakai BERSAMA untuk Group Admin (S4P-02/S1-05) dan Platform Admin
+// (S4P-37/38). target_user_role membedakan keduanya supaya kalimat tidak
+// salah sebut role. Default "Group Admin" kalau role tidak diketahui
+// (baris lama sebelum kolom ini ada, atau entity_type bukan 'user').
+function targetRoleLabel(entry: PlatformAuditLogEntry): string {
+  return entry.target_user_role === 'platform_admin' ? 'Platform Admin' : 'Group Admin'
+}
+
 export function formatAuditNarrative(entry: PlatformAuditLogEntry): string {
   const target = targetOf(entry)
+  const roleLabel = targetRoleLabel(entry)
   switch (entry.action) {
     case 'user.invited':
-      return `Mengundang Group Admin baru — ${target}.`
+      return `Mengundang ${roleLabel} baru — ${target}.`
     case 'user.updated':
       return `Memperbarui data Group Admin ${target}.`
     case 'user.suspended':
-      return `Menon-aktifkan (suspend) akun Group Admin ${target}.`
+      return `Menon-aktifkan (suspend) akun ${roleLabel} ${target}.`
     case 'user.reactivated':
-      return `Mengaktifkan kembali akun Group Admin ${target}.`
+      return `Mengaktifkan kembali akun ${roleLabel} ${target}.`
+    case 'user.mfa_reset':
+      return `Mereset MFA akun ${roleLabel} ${target} — wajib setup ulang saat login berikutnya.`
     case 'user.deleted':
       return `Menghapus permanen akun Group Admin ${target}.`
     case 'user.activation_resent':

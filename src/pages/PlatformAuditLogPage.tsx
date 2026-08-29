@@ -39,6 +39,7 @@ const ACTION_OPTIONS = [
   { value: 'user.login', label: 'Login Platform Admin' },
   { value: 'erasure.executed', label: 'Erasure Dieksekusi' },
   { value: 'erasure.rejected', label: 'Erasure Ditolak' },
+  { value: 'user.mfa_reset', label: 'MFA Direset' },
 ]
 
 function PlatformAuditLogPageContent() {

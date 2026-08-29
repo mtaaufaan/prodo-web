@@ -2,9 +2,11 @@ import { apiClient } from '@/lib/api'
 
 import type {
   CreateGroupAdminFormValues,
+  CreatePlatformAdminFormValues,
   ErasureRequestEntry,
   GroupAdmin,
   GroupDirectoryEntry,
+  PlatformAdminAccount,
   PlatformAnomalies,
   PlatformAuditLogEntry,
   PlatformAuditLogFilter,
@@ -133,4 +135,27 @@ export function rejectErasureRequest(id: string) {
 // ditegakkan backend (query), bukan di sini.
 export function listGroups(q?: string) {
   return apiClient.get<GroupDirectoryEntry[]>('/api/v1/platform/groups', { params: q ? { q } : undefined })
+}
+
+// listPlatformAdmins/createPlatformAdmin/deactivatePlatformAdmin/
+// reactivatePlatformAdmin/resetPlatformAdminMFA -- S4P-37/38/39/40,
+// US-084, halaman "Kelola Akun Platform Admin".
+export function listPlatformAdmins() {
+  return apiClient.get<PlatformAdminAccount[]>('/api/v1/platform/admins')
+}
+
+export function createPlatformAdmin(values: CreatePlatformAdminFormValues) {
+  return apiClient.post<{ id: string }>('/api/v1/platform/admins', values)
+}
+
+export function deactivatePlatformAdmin(id: string) {
+  return apiClient.put<{ id: string; suspended: boolean }>(`/api/v1/platform/admins/${id}/deactivate`)
+}
+
+export function reactivatePlatformAdmin(id: string) {
+  return apiClient.put<{ id: string; suspended: boolean }>(`/api/v1/platform/admins/${id}/reactivate`)
+}
+
+export function resetPlatformAdminMFA(id: string) {
+  return apiClient.post<{ id: string; mfa_reset: boolean }>(`/api/v1/platform/admins/${id}/reset-mfa`)
 }
