@@ -40,6 +40,7 @@ const ACTION_OPTIONS = [
   },
   { value: 'ip_allowlist.added', label: 'IP Allowlist Ditambahkan' },
   { value: 'ip_allowlist.removed', label: 'IP Allowlist Dihapus' },
+  { value: 'platform_settings.ip_allowlist_enabled_changed', label: 'IP Allowlist Diaktifkan/Dinonaktifkan' },
   { value: 'user.login', label: 'Login Platform Admin' },
   { value: 'erasure.executed', label: 'Erasure Dieksekusi' },
   { value: 'erasure.rejected', label: 'Erasure Ditolak' },
@@ -235,7 +236,7 @@ function PlatformAuditLogPageContent() {
                   className="w-11 border border-line-strong bg-input-bg px-1 py-0.5 text-center font-mono text-[10px] text-text-body focus-visible:border-signal focus-visible:outline-none"
                   aria-label="Nomor halaman"
                 />
-                / {totalPages}
+                / {totalPages} · {filteredEntries.length} data
                 <button
                   type="button"
                   onClick={() => goToPage(pageInputRef.current?.value ?? '')}
