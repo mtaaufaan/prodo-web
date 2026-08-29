@@ -35,19 +35,71 @@ instance.interceptors.request.use((config) => {
   return config
 })
 
+// access_token cuma berlaku 5 menit (Keycloak) -- decode jti-nya sendiri
+// (tanpa verifikasi, cuma dipakai sbg kunci lookup opaque di endpoint
+// refresh) supaya tidak perlu simpan jti terpisah di useAuthStore.
+function decodeJti(accessToken: string): string | null {
+  try {
+    const payload = accessToken.split('.')[1]
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
+    return JSON.parse(json).jti ?? null
+  } catch {
+    return null
+  }
+}
+
+function clearSessionWithToast() {
+  useAuthStore.getState().clearSession()
+  useUIStore.getState().showToast('Sesi Anda telah diakhiri.')
+}
+
+// Dedup refresh -- kalau beberapa request 401 bersamaan, cuma satu panggilan
+// /auth/refresh yang jalan, sisanya menunggu promise yang sama.
+let refreshPromise: Promise<string | null> | null = null
+
+function refreshAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const { accessToken, refreshToken } = useAuthStore.getState()
+      const jti = accessToken ? decodeJti(accessToken) : null
+      if (!refreshToken || !jti) return null
+      try {
+        const res = await axios.post('/api/v1/auth/refresh', { refresh_token: refreshToken, jti })
+        const data = res.data?.data
+        useAuthStore.getState().setSession({
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          user: useAuthStore.getState().user!,
+        })
+        return data.access_token as string
+      } catch {
+        return null
+      }
+    })().finally(() => {
+      refreshPromise = null
+    })
+  }
+  return refreshPromise
+}
+
 instance.interceptors.response.use(
   (response) => response.data?.data ?? response.data,
-  (error) => {
+  async (error) => {
     const body = error?.response?.data as ApiErrorBody | undefined
-    // Token ditolak (expired/invalid) saat request TERAUTENTIKASI --
-    // bersihkan sesi supaya AuthGuard (reaktif ke store) redirect balik
-    // ke /login alih-alih diam-diam terus gagal dengan token basi. Ini juga
-    // jalur yang sama saat sesi di-revoke server-side (S1-33/34/35 --
-    // middleware balas TOKEN_EXPIRED begitu jti masuk blacklist), jadi
-    // toast S1-37 dipicu di sini juga, bukan cuma untuk expiry alami.
-    if (error?.response?.status === 401 && useAuthStore.getState().accessToken) {
-      useAuthStore.getState().clearSession()
-      useUIStore.getState().showToast('Sesi Anda telah diakhiri.')
+    const original = error?.config
+    // Token ditolak (expired/invalid) saat request TERAUTENTIKASI -- coba
+    // refresh SEKALI dan ulangi request asli sebelum menyerah. Kalau
+    // refresh sendiri gagal (refresh_token juga basi/sesi di-revoke server-
+    // side, mis. jti masuk blacklist S1-33/34/35), baru bersihkan sesi
+    // supaya AuthGuard redirect balik ke /login (toast S1-37).
+    if (error?.response?.status === 401 && useAuthStore.getState().accessToken && original && !original._retried) {
+      original._retried = true
+      const newToken = await refreshAccessToken()
+      if (newToken) {
+        original.headers.Authorization = `Bearer ${newToken}`
+        return instance(original)
+      }
+      clearSessionWithToast()
     }
     if (body?.error) {
       return Promise.reject(new ApiError(body.error.code, body.error.message, body.error.details))
