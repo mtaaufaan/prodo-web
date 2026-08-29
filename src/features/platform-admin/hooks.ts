@@ -3,7 +3,9 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import {
   archiveTier,
   createGroupAdmin,
+  createPlatformAdmin,
   createTier,
+  deactivatePlatformAdmin,
   deactivateTier,
   deleteTier,
   executeErasureRequest,
@@ -15,15 +17,24 @@ import {
   listErasureRequests,
   listGroupAdmins,
   listGroups,
+  listPlatformAdmins,
   listServiceTiers,
+  reactivatePlatformAdmin,
   reactivateTier,
   rejectErasureRequest,
   resendActivation,
+  resetPlatformAdminMFA,
   unarchiveTier,
   updateGroupAdmin,
   updateTier,
 } from './api'
-import type { CreateGroupAdminFormValues, PlatformAuditLogFilter, ServiceTierFormValues, UpdateGroupAdminFormValues } from './types'
+import type {
+  CreateGroupAdminFormValues,
+  CreatePlatformAdminFormValues,
+  PlatformAuditLogFilter,
+  ServiceTierFormValues,
+  UpdateGroupAdminFormValues,
+} from './types'
 
 export const groupAdminKeys = {
   all: ['group-admins'] as const,
@@ -200,4 +211,45 @@ export function useRejectErasureRequest() {
 // modal dibuka-tutup.
 export function useGroups(query: string) {
   return useQuery({ queryKey: ['platform-groups', query], queryFn: () => listGroups(query), staleTime: 30_000 })
+}
+
+// usePlatformAdmins/useCreatePlatformAdmin/useDeactivatePlatformAdmin/
+// useReactivatePlatformAdmin/useResetPlatformAdminMFA -- S4P-37/38/39/40,
+// US-084.
+const platformAdminsKey = ['platform-admins'] as const
+
+export function usePlatformAdmins() {
+  return useQuery({ queryKey: platformAdminsKey, queryFn: () => listPlatformAdmins() })
+}
+
+export function useCreatePlatformAdmin() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (values: CreatePlatformAdminFormValues) => createPlatformAdmin(values),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: platformAdminsKey }),
+  })
+}
+
+export function useDeactivatePlatformAdmin() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deactivatePlatformAdmin(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: platformAdminsKey }),
+  })
+}
+
+export function useReactivatePlatformAdmin() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => reactivatePlatformAdmin(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: platformAdminsKey }),
+  })
+}
+
+export function useResetPlatformAdminMFA() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => resetPlatformAdminMFA(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: platformAdminsKey }),
+  })
 }

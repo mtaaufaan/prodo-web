@@ -116,6 +116,11 @@ export interface PlatformAuditLogEntry {
   entity_type: string
   entity_id: string | null
   target_user_name: string | null
+  // target_user_role -- S4P-40: action code seperti user.suspended/
+  // user.invited/user.reactivated/user.mfa_reset dipakai bersama untuk
+  // Group Admin dan Platform Admin -- field ini membedakan target-nya
+  // supaya kalimat naratif benar (lihat auditNarrative.ts).
+  target_user_role: string | null
   target_tier_name: string | null
   metadata: Record<string, unknown> | null
   logged_at: string
@@ -165,6 +170,26 @@ export interface PlatformAnomalies {
   storage: PlatformStorageAnomaly[]
   contract_end: PlatformContractEndingAnomaly[]
 }
+
+// PlatformAdminAccount -- satu baris GET /platform/admins (S4P-40,
+// US-084).
+export interface PlatformAdminAccount {
+  id: string
+  email: string
+  display_name: string
+  is_active: boolean
+  suspended_at: string | null
+  last_login_at: string | null
+  created_at: string
+}
+
+// createPlatformAdminSchema -- S4P-37/40. Tidak ada grup/tier/kuota
+// seperti Group Admin -- Platform Admin cuma email + display_name.
+export const createPlatformAdminSchema = z.object({
+  email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid'),
+  display_name: z.string().min(1, 'Nama wajib diisi'),
+})
+export type CreatePlatformAdminFormValues = z.infer<typeof createPlatformAdminSchema>
 
 // GroupDirectoryEntry -- GET /platform/groups (S4P-34, US-083). Platform
 // Admin melihat semua grup; Group Admin cuma grup yang dia kelola sendiri.

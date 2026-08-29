@@ -15,6 +15,7 @@ import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
 import OrganizationManagementPage from '@/pages/OrganizationManagementPage'
+import PlatformAdminAccountsPage from '@/pages/PlatformAdminAccountsPage'
 import PlatformAuditLogPage from '@/pages/PlatformAuditLogPage'
 import PlatformDashboardPage from '@/pages/PlatformDashboardPage'
 import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
@@ -76,6 +77,8 @@ export default function AppRouter() {
             <Route path="/platform/tiers" element={<PlatformTiersPage />} />
             {/* S4P-18, US-070: panel keamanan (session timeout global + IP allowlist self-service). */}
             <Route path="/platform/security-settings" element={<PlatformSecuritySettingsPage />} />
+            {/* S4P-40, US-084: kelola akun Platform Admin lain. */}
+            <Route path="/platform/admins" element={<PlatformAdminAccountsPage />} />
             {/* S4P-23, US-071: jejak audit level platform (append-only). */}
             <Route path="/platform/audit-logs" element={<PlatformAuditLogPage />} />
             {/* S4P-27, US-072: KPI, tren, dan alert anomali. */}
