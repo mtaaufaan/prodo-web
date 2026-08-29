@@ -16,6 +16,7 @@ function entry(overrides: Partial<PlatformAuditLogEntry>): PlatformAuditLogEntry
     target_user_name: null,
     target_user_role: null,
     target_tier_name: null,
+    actor_ip: null,
     metadata: null,
     logged_at: '2026-08-28T08:07:47Z',
     ...overrides,
