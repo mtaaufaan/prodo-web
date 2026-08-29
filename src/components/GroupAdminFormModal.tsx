@@ -1,13 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
-import { cn } from '@/lib/utils'
+import { cn, localeForLanguage } from '@/lib/utils'
 import {
   useCreateGroupAdmin,
   useGroupAdminDetail,
@@ -52,6 +53,8 @@ const selectClassName =
 // backend), dan copy desainnya sendiri berlabel "khusus demo, di
 // produksi PA cuma kirim invitation link".
 export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose }: GroupAdminFormModalProps) {
+  const { t, i18n } = useTranslation()
+  const locale = localeForLanguage(i18n.language)
   const isAdd = mode === 'add'
   const isView = mode === 'view'
 
@@ -147,15 +150,15 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
   // tidak diam-diam memindahkan GA ke tier lain hanya karena tier
   // lamanya tidak lagi muncul di daftar assignable.
   const tierOptions: { id: string; name: string }[] = (() => {
-    const base = (tiers.data ?? []).map((t) => ({ id: t.id, name: t.name }))
-    if (!isAdd && detail.data?.tier_id && detail.data.tier && !base.some((t) => t.id === detail.data?.tier_id)) {
+    const base = (tiers.data ?? []).map((item) => ({ id: item.id, name: item.name }))
+    if (!isAdd && detail.data?.tier_id && detail.data.tier && !base.some((item) => item.id === detail.data?.tier_id)) {
       base.push({ id: detail.data.tier_id, name: detail.data.tier })
     }
     return base
   })()
 
   const applyTierDefault = (tierId: string, setValue: (v: number) => void) => {
-    const found = tiers.data?.find((t) => t.id === tierId)
+    const found = tiers.data?.find((item) => item.id === tierId)
     if (found) setValue(found.max_storage_gb)
   }
 
@@ -171,7 +174,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
       const usedGB = Math.ceil(detail.data.used_storage_mb / 1024)
       if (values.storage_quota_gb < usedGB) {
         editForm.setError('storage_quota_gb', {
-          message: `Plafon minimal ${usedGB} GB — grup ini sudah memakai ${usedGB} GB. Turunkan alokasi organisasinya terlebih dahulu.`,
+          message: t('groupAdminFormModal.validation.quotaBelowUsage', { usedGB }),
         })
         return
       }
@@ -183,7 +186,11 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
     resendActivation.mutate(groupAdminId, { onSuccess: () => setResendSent(true) })
   }
 
-  const title = isAdd ? 'Tambah Group Admin' : isView ? 'Detail Group Admin' : 'Ubah Group Admin'
+  const title = isAdd
+    ? t('groupAdminFormModal.title.add')
+    : isView
+      ? t('groupAdminFormModal.title.view')
+      : t('groupAdminFormModal.title.edit')
   const apiError =
     createGroupAdmin.error instanceof ApiError
       ? createGroupAdmin.error
@@ -205,8 +212,10 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
         </DialogHeader>
 
         <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-5 py-4">
-          {!isAdd && detail.isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
-          {!isAdd && detail.isError && <p className="font-mono text-sm text-destructive">Gagal memuat detail Group Admin.</p>}
+          {!isAdd && detail.isLoading && <p className="font-mono text-sm text-text-muted">{t('groupAdminFormModal.loading')}</p>}
+          {!isAdd && detail.isError && (
+            <p className="font-mono text-sm text-destructive">{t('groupAdminFormModal.loadError')}</p>
+          )}
 
           {(isAdd || detail.data) && (
             <form
@@ -214,7 +223,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
               className="space-y-3.5"
             >
               <div className="space-y-1.5">
-                <Label htmlFor="ga-display-name">Nama Group Admin</Label>
+                <Label htmlFor="ga-display-name">{t('groupAdminFormModal.fields.displayName')}</Label>
                 <Input
                   id="ga-display-name"
                   className={paFieldFont}
@@ -226,7 +235,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="ga-group-name">Nama Perusahaan / Grup</Label>
+                  <Label htmlFor="ga-group-name">{t('groupAdminFormModal.fields.groupName')}</Label>
                   <Input
                     id="ga-group-name"
                     className={paFieldFont}
@@ -236,7 +245,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                   <FieldError message={(isAdd ? createForm : editForm).formState.errors.group_name?.message} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="ga-job-title">Jabatan PIC</Label>
+                  <Label htmlFor="ga-job-title">{t('groupAdminFormModal.fields.jobTitle')}</Label>
                   <Input
                     id="ga-job-title"
                     className={paFieldFont}
@@ -247,7 +256,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="ga-address">Alamat Perusahaan</Label>
+                <Label htmlFor="ga-address">{t('groupAdminFormModal.fields.address')}</Label>
                 <textarea
                   id="ga-address"
                   disabled={isView}
@@ -258,7 +267,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="ga-email">Email</Label>
+                  <Label htmlFor="ga-email">{t('groupAdminFormModal.fields.email')}</Label>
                   {isAdd ? (
                     <>
                       <Input id="ga-email" type="email" className={paFieldFont} {...createForm.register('email')} />
@@ -267,10 +276,12 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                   ) : (
                     <Input id="ga-email" type="email" className={paFieldFont} disabled defaultValue={detail.data?.email ?? ''} />
                   )}
-                  {!isAdd && <p className="font-mono text-[10px] text-text-dim">Email tidak dapat diubah setelah akun dibuat.</p>}
+                  {!isAdd && (
+                    <p className="font-mono text-[10px] text-text-dim">{t('groupAdminFormModal.fields.emailImmutableHint')}</p>
+                  )}
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="ga-phone">No. Telepon (PIC)</Label>
+                  <Label htmlFor="ga-phone">{t('groupAdminFormModal.fields.phone')}</Label>
                   <Input
                     id="ga-phone"
                     className={paFieldFont}
@@ -282,7 +293,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="ga-tier">Tier</Label>
+                  <Label htmlFor="ga-tier">{t('groupAdminFormModal.fields.tier')}</Label>
                   <select
                     id="ga-tier"
                     disabled={isView}
@@ -295,16 +306,16 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                           onChange: (e) => applyTierDefault(e.target.value, (v) => editForm.setValue('storage_quota_gb', v)),
                         }))}
                   >
-                    {tierOptions.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name.toUpperCase()}
+                    {tierOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.name.toUpperCase()}
                       </option>
                     ))}
                   </select>
                   <FieldError message={(isAdd ? createForm : editForm).formState.errors.tier_id?.message} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="ga-plafon">Plafon Storage Grup (GB)</Label>
+                  <Label htmlFor="ga-plafon">{t('groupAdminFormModal.fields.storageQuota')}</Label>
                   <Input
                     id="ga-plafon"
                     type="number"
@@ -329,10 +340,12 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
 
               {isAdd && (
                 <div className="space-y-1.5 border border-line bg-bg-deep p-3">
-                  <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Kontrak Awal (Opsional)</div>
+                  <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
+                    {t('groupAdminFormModal.contract.initialHeading')}
+                  </div>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="space-y-1.5">
-                      <Label htmlFor="ga-contract-start">Tanggal Mulai</Label>
+                      <Label htmlFor="ga-contract-start">{t('groupAdminFormModal.contract.startDate')}</Label>
                       <Input
                         id="ga-contract-start"
                         type="date"
@@ -341,21 +354,21 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="ga-contract-period">Masa Langganan</Label>
+                      <Label htmlFor="ga-contract-period">{t('groupAdminFormModal.contract.subscriptionPeriod.label')}</Label>
                       <select
                         id="ga-contract-period"
                         className={selectClassName}
                         {...createForm.register('contract_subscription_period')}
                       >
-                        <option value="">Pilih...</option>
-                        <option value="monthly">Bulanan</option>
-                        <option value="quarterly">3 Bulan</option>
-                        <option value="yearly">Tahunan</option>
+                        <option value="">{t('groupAdminFormModal.contract.subscriptionPeriod.placeholder')}</option>
+                        <option value="monthly">{t('groupAdminFormModal.contract.subscriptionPeriod.monthly')}</option>
+                        <option value="quarterly">{t('groupAdminFormModal.contract.subscriptionPeriod.quarterly')}</option>
+                        <option value="yearly">{t('groupAdminFormModal.contract.subscriptionPeriod.yearly')}</option>
                       </select>
                       <FieldError message={createForm.formState.errors.contract_subscription_period?.message} />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="ga-contract-invoice">No. Invoice</Label>
+                      <Label htmlFor="ga-contract-invoice">{t('groupAdminFormModal.contract.invoiceNumber')}</Label>
                       <Input
                         id="ga-contract-invoice"
                         className={paFieldFont}
@@ -369,7 +382,9 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
               {!isAdd && detail.data && (
                 <div className="space-y-1.5 border border-line bg-bg-deep p-3">
                   <div className="flex items-center justify-between">
-                    <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Kontrak</div>
+                    <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
+                      {t('groupAdminFormModal.contract.heading')}
+                    </div>
                     {!isView && (
                       <Button
                         type="button"
@@ -378,41 +393,45 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                         className="border-pa-accent font-mono text-[10px] uppercase tracking-[0.04em] text-pa-accent"
                         onClick={() => setRenewOpen(true)}
                       >
-                        {detail.data.contract_end_at ? 'Perpanjang Kontrak' : 'Buat Kontrak'}
+                        {detail.data.contract_end_at
+                          ? t('groupAdminFormModal.contract.renewButton')
+                          : t('groupAdminFormModal.contract.createButton')}
                       </Button>
                     )}
                   </div>
                   {detail.data.contract_end_at ? (
                     <div className="grid grid-cols-3 gap-2 font-mono text-[11px] text-text-body">
                       <div>
-                        <span className="text-text-dim">Mulai: </span>
-                        {formatContractDate(detail.data.contract_start_at)}
+                        <span className="text-text-dim">{t('groupAdminFormModal.contract.startLabel')}</span>
+                        {formatContractDate(detail.data.contract_start_at, locale)}
                       </div>
                       <div>
-                        <span className="text-text-dim">Masa: </span>
-                        {subscriptionPeriodLabel(detail.data.subscription_period)}
+                        <span className="text-text-dim">{t('groupAdminFormModal.contract.periodLabel')}</span>
+                        {subscriptionPeriodLabel(t, detail.data.subscription_period)}
                       </div>
                       <div>
-                        <span className="text-text-dim">Berakhir: </span>
-                        {formatContractDate(detail.data.contract_end_at)}
+                        <span className="text-text-dim">{t('groupAdminFormModal.contract.endLabel')}</span>
+                        {formatContractDate(detail.data.contract_end_at, locale)}
                       </div>
                     </div>
                   ) : (
-                    <p className="font-mono text-[11px] text-text-muted">Belum ada kontrak.</p>
+                    <p className="font-mono text-[11px] text-text-muted">{t('groupAdminFormModal.contract.none')}</p>
                   )}
                   {detail.data.invoice_number && (
-                    <p className="font-mono text-[10px] text-text-dim">Invoice: {detail.data.invoice_number}</p>
+                    <p className="font-mono text-[10px] text-text-dim">
+                      {t('groupAdminFormModal.contract.invoicePrefix', { number: detail.data.invoice_number })}
+                    </p>
                   )}
                 </div>
               )}
 
               {!isAdd && !isView && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="ga-status">Status</Label>
+                  <Label htmlFor="ga-status">{t('groupAdminFormModal.fields.status')}</Label>
                   <select id="ga-status" className={selectClassName} {...editForm.register('status')}>
-                    <option value="">Tidak diubah</option>
-                    <option value="AKTIF">AKTIF</option>
-                    <option value="SUSPENDED">SUSPENDED</option>
+                    <option value="">{t('groupAdminFormModal.status.unchanged')}</option>
+                    <option value="AKTIF">{t('groupAdminFormModal.status.active')}</option>
+                    <option value="SUSPENDED">{t('groupAdminFormModal.status.suspended')}</option>
                   </select>
                 </div>
               )}
@@ -420,11 +439,13 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
               {mode === 'edit' && (
                 <div className="flex items-center gap-2.5 border border-amber/40 bg-amber/10 px-3 py-2.5">
                   <div className="flex-1">
-                    <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-amber">Invitation Link</div>
+                    <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-amber">
+                      {t('groupAdminFormModal.invitation.heading')}
+                    </div>
                     <div className="mt-0.5 font-mono text-[9px] text-text-dim">
                       {resendSent
-                        ? '✓ Invitation link terkirim ulang ke email Group Admin.'
-                        : 'Kirim ulang invitation link aktivasi akun.'}
+                        ? t('groupAdminFormModal.invitation.resent')
+                        : t('groupAdminFormModal.invitation.prompt')}
                     </div>
                   </div>
                   <Button
@@ -435,7 +456,9 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                     disabled={resendActivation.isPending}
                     onClick={handleResend}
                   >
-                    {resendActivation.isPending ? 'Mengirim...' : 'Kirim Invitation Link'}
+                    {resendActivation.isPending
+                      ? t('groupAdminFormModal.invitation.sending')
+                      : t('groupAdminFormModal.invitation.sendButton')}
                   </Button>
                 </div>
               )}
@@ -443,8 +466,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
               {errorMessage && <p className="font-mono text-[11px] text-destructive">{errorMessage}</p>}
 
               <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
-                Kuota global mengikuti plafon tier dan tidak dapat diubah manual -- Group Admin membagi alokasi ke
-                tiap organisasi di dalam plafon ini.
+                {t('groupAdminFormModal.footer.quotaNote')}
               </p>
             </form>
           )}
@@ -460,11 +482,11 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
             >
               {isAdd
                 ? createGroupAdmin.isPending
-                  ? 'Menambahkan...'
-                  : 'Tambahkan'
+                  ? t('groupAdminFormModal.actions.adding')
+                  : t('groupAdminFormModal.actions.add')
                 : updateGroupAdmin.isPending
-                  ? 'Menyimpan...'
-                  : 'Simpan Perubahan'}
+                  ? t('groupAdminFormModal.actions.saving')
+                  : t('groupAdminFormModal.actions.saveChanges')}
             </Button>
           )}
           <Button
@@ -473,7 +495,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
             onClick={onClose}
             className={cn('font-mono text-[11px]', isView && 'flex-1')}
           >
-            {isView ? 'Keluar' : 'Batal'}
+            {isView ? t('groupAdminFormModal.actions.exit') : t('groupAdminFormModal.actions.cancel')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -493,23 +515,23 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
 
 // formatContractDate/subscriptionPeriodLabel -- kontrak grup (dikonfirmasi
 // user 2026-08-29), tampilan ringkas tanggal + label masa langganan.
-function formatContractDate(iso: string | null): string {
+function formatContractDate(iso: string | null, locale: string): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('id-ID', {
+  return new Date(iso).toLocaleDateString(locale, {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
   })
 }
 
-const SUBSCRIPTION_PERIOD_LABELS: Record<string, string> = {
-  monthly: 'Bulanan',
-  quarterly: '3 Bulan',
-  yearly: 'Tahunan',
-}
-
-function subscriptionPeriodLabel(period: string | null): string {
-  return period ? (SUBSCRIPTION_PERIOD_LABELS[period] ?? period) : '—'
+function subscriptionPeriodLabel(t: (key: string) => string, period: string | null): string {
+  if (!period) return '—'
+  const labels: Record<string, string> = {
+    monthly: t('groupAdminFormModal.contract.subscriptionPeriod.monthly'),
+    quarterly: t('groupAdminFormModal.contract.subscriptionPeriod.quarterly'),
+    yearly: t('groupAdminFormModal.contract.subscriptionPeriod.yearly'),
+  }
+  return labels[period] ?? period
 }
 
 // toDateInputValue -- format "YYYY-MM-DD" untuk <input type="date">.
@@ -536,6 +558,7 @@ function RenewContractDialog({
   open: boolean
   onClose: () => void
 }) {
+  const { t } = useTranslation()
   const renew = useRenewGroupContract(groupAdminId)
   const form = useForm<RenewGroupContractFormValues>({
     resolver: zodResolver(renewGroupContractSchema),
@@ -569,24 +592,28 @@ function RenewContractDialog({
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-[380px]">
         <DialogHeader>
-          <DialogTitle className="text-pa-accent">{currentEndAt ? 'Perpanjang Kontrak' : 'Buat Kontrak'}</DialogTitle>
+          <DialogTitle className="text-pa-accent">
+            {currentEndAt
+              ? t('groupAdminFormModal.contract.renewButton')
+              : t('groupAdminFormModal.contract.createButton')}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3.5 px-5 py-4">
           <div className="space-y-1.5">
-            <Label htmlFor="renew-start-at">Tanggal Mulai</Label>
+            <Label htmlFor="renew-start-at">{t('groupAdminFormModal.contract.startDate')}</Label>
             <Input id="renew-start-at" type="date" className={paFieldFont} {...form.register('start_at')} />
             <FieldError message={form.formState.errors.start_at?.message} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="renew-period">Masa Langganan</Label>
+            <Label htmlFor="renew-period">{t('groupAdminFormModal.contract.subscriptionPeriod.label')}</Label>
             <select id="renew-period" className={selectClassName} {...form.register('subscription_period')}>
-              <option value="monthly">Bulanan</option>
-              <option value="quarterly">3 Bulan</option>
-              <option value="yearly">Tahunan</option>
+              <option value="monthly">{t('groupAdminFormModal.contract.subscriptionPeriod.monthly')}</option>
+              <option value="quarterly">{t('groupAdminFormModal.contract.subscriptionPeriod.quarterly')}</option>
+              <option value="yearly">{t('groupAdminFormModal.contract.subscriptionPeriod.yearly')}</option>
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="renew-invoice">No. Invoice</Label>
+            <Label htmlFor="renew-invoice">{t('groupAdminFormModal.contract.invoiceNumber')}</Label>
             <Input id="renew-invoice" className={paFieldFont} {...form.register('invoice_number')} />
           </div>
           {errorMessage && <p className="font-mono text-[11px] text-destructive">{errorMessage}</p>}
@@ -598,10 +625,10 @@ function RenewContractDialog({
             disabled={renew.isPending}
             onClick={form.handleSubmit(onSubmit)}
           >
-            {renew.isPending ? 'Menyimpan...' : 'Simpan'}
+            {renew.isPending ? t('groupAdminFormModal.actions.saving') : t('groupAdminFormModal.renewContract.save')}
           </Button>
           <Button type="button" variant="outline" onClick={onClose} className="font-mono text-[11px]">
-            Batal
+            {t('groupAdminFormModal.actions.cancel')}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -618,19 +645,35 @@ function FieldError({ message }: { message?: string }) {
 }
 
 function TierFactsPanel({ tierId, tiers }: { tierId: string; tiers?: ServiceTier[] }) {
-  const tier = tiers?.find((t) => t.id === tierId)
+  const { t, i18n } = useTranslation()
+  const locale = localeForLanguage(i18n.language)
+  const tier = tiers?.find((item) => item.id === tierId)
   if (!tier) return null
   return (
     <div className="flex flex-col gap-1.5 border border-line bg-bg-deep p-3">
       <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
-        Paket Tier {tier.name.toUpperCase()} (Otomatis)
+        {t('groupAdminFormModal.tierFacts.heading', { tier: tier.name.toUpperCase() })}
       </div>
       {[
-        ['Rentang Retensi', `${tier.min_retention_days}–${tier.max_retention_days} hari`],
-        ['Rate Webhook · SSO', `${tier.webhook_rate} event/mnt · SSO ${tier.sso_enabled ? 'AKTIF' : 'TIDAK'}`],
-        ['Jumlah Organisasi', String(tier.max_org)],
-        ['Kuota Global (Total Grup)', `${tier.max_storage_gb} GB`],
-        ['Maks Member', tier.max_members.toLocaleString('id-ID')],
+        [
+          t('groupAdminFormModal.tierFacts.retentionRange'),
+          t('groupAdminFormModal.tierFacts.retentionRangeValue', {
+            min: tier.min_retention_days,
+            max: tier.max_retention_days,
+          }),
+        ],
+        [
+          t('groupAdminFormModal.tierFacts.webhookRate'),
+          t('groupAdminFormModal.tierFacts.webhookRateValue', {
+            rate: tier.webhook_rate,
+            sso: tier.sso_enabled
+              ? t('groupAdminFormModal.common.on')
+              : t('groupAdminFormModal.common.off'),
+          }),
+        ],
+        [t('groupAdminFormModal.tierFacts.orgCount'), String(tier.max_org)],
+        [t('groupAdminFormModal.tierFacts.globalQuota'), `${tier.max_storage_gb} GB`],
+        [t('groupAdminFormModal.tierFacts.maxMembers'), tier.max_members.toLocaleString(locale)],
       ].map(([label, value]) => (
         <div key={label} className="flex items-center gap-2.5">
           <span className="font-mono text-[10.5px] text-text-muted">{label}</span>
@@ -642,15 +685,22 @@ function TierFactsPanel({ tierId, tiers }: { tierId: string; tiers?: ServiceTier
 }
 
 function UsagePanel({ groupAdmin }: { groupAdmin: GroupAdmin }) {
+  const { t, i18n } = useTranslation()
+  const locale = localeForLanguage(i18n.language)
   const plafon = groupAdmin.storage_quota_gb ?? groupAdmin.tier_max_storage_gb
   const usedGB = (groupAdmin.used_storage_mb / 1024).toFixed(1)
   return (
     <div className="flex flex-col gap-1.5 border border-mint/40 bg-mint/10 p-3">
-      <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-mint">Pemanfaatan Saat Ini</div>
+      <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-mint">
+        {t('groupAdminFormModal.usage.heading')}
+      </div>
       {[
-        ['Organisasi Terpakai', `${groupAdmin.used_org_count} / ${groupAdmin.tier_max_org} org`],
-        ['Kuota Global Terpakai', `${usedGB} / ${plafon} GB`],
-        ['Member Terpakai', `${groupAdmin.used_member_count.toLocaleString('id-ID')} / ${groupAdmin.tier_max_members.toLocaleString('id-ID')}`],
+        [t('groupAdminFormModal.usage.orgUsed'), `${groupAdmin.used_org_count} / ${groupAdmin.tier_max_org} org`],
+        [t('groupAdminFormModal.usage.quotaUsed'), `${usedGB} / ${plafon} GB`],
+        [
+          t('groupAdminFormModal.usage.membersUsed'),
+          `${groupAdmin.used_member_count.toLocaleString(locale)} / ${groupAdmin.tier_max_members.toLocaleString(locale)}`,
+        ],
       ].map(([label, value]) => (
         <div key={label} className="flex items-center gap-2.5">
           <span className="font-mono text-[10.5px] text-text-muted">{label}</span>

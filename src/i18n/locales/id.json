@@ -20,5 +20,449 @@
       "securitySettings": "Pengaturan Keamanan",
       "adminAccounts": "Kelola Akun Platform Admin"
     }
+  },
+  "auditNarrative": {
+    "unknownTarget": "target tidak diketahui",
+    "roles": { "platformAdmin": "Platform Admin", "groupAdmin": "Group Admin" },
+    "userInvited": "Mengundang {{role}} baru — {{target}}.",
+    "userUpdated": "Memperbarui data Group Admin {{target}}.",
+    "userSuspended": "Menon-aktifkan (suspend) akun {{role}} {{target}}.",
+    "userReactivated": "Mengaktifkan kembali akun {{role}} {{target}}.",
+    "userMfaReset": "Mereset MFA akun {{role}} {{target}} — wajib setup ulang saat login berikutnya.",
+    "userDeleted": "Menghapus permanen akun Group Admin {{target}}.",
+    "userActivationResent": "Mengirim ulang link aktivasi ke Group Admin {{target}}.",
+    "userLogin": "Berhasil login (password + verifikasi MFA).",
+    "groupTransferred": "Memindahkan pengelolaan grup dari {{target}} ke Group Admin lain.",
+    "groupContractCreated": "Membuat kontrak awal untuk grup milik {{target}}.",
+    "groupContractRenewed": "Memperpanjang kontrak grup milik {{target}}.",
+    "tierCreated": "Menambahkan tier baru {{target}} ke katalog.",
+    "tierUpdated": "Mengubah komponen tier {{target}}.",
+    "tierStatusChanged": "Mengubah status tier {{target}} dari {{before}} menjadi {{after}}.",
+    "tierDeactivated": "Menonaktifkan tier {{target}}.",
+    "tierReactivated": "Mengaktifkan kembali tier {{target}}.",
+    "tierArchiveStatusChanged": "Mengubah status arsip tier {{target}} dari {{before}} menjadi {{after}}.",
+    "tierArchived": "Meng-archive tier {{target}}.",
+    "tierUnarchived": "Memulihkan tier {{target}} dari arsip.",
+    "tierDeleted": "Menghapus permanen tier {{target}} dari katalog.",
+    "labels": { "active": "aktif", "inactive": "nonaktif", "archived": "diarsipkan", "notArchived": "tidak diarsipkan" },
+    "sessionTimeoutChanged": "Mengubah batas waktu idle sesi dari {{before}} menjadi {{after}}.",
+    "sessionTimeoutChangedGeneric": "Mengubah batas waktu idle sesi untuk akun sendiri.",
+    "sessionTimeoutDefaultGlobal": "default global",
+    "sessionTimeoutMinutes_other": "{{count}} menit",
+    "ipAllowlistEnabledChanged": "Mengubah status enforcement IP Allowlist dari {{before}} menjadi {{after}} (berlaku untuk semua akun Platform Admin).",
+    "ipAllowlistEnabledChangedGeneric": "Mengubah status aktif/nonaktif enforcement IP Allowlist (berlaku untuk semua akun Platform Admin).",
+    "ipAllowlistAdded": "Menambahkan CIDR {{cidr}} ke daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).",
+    "ipAllowlistAddedGeneric": "Menambahkan entri baru ke daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).",
+    "ipAllowlistRemoved": "Menghapus CIDR {{cidr}} dari daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).",
+    "ipAllowlistRemovedGeneric": "Menghapus satu entri dari daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).",
+    "erasureExecuted": "Mengeksekusi Right to Erasure untuk {{target}} (pseudonymization, revoke sesi, hapus MFA).",
+    "erasureRejected": "Menolak permintaan Right to Erasure untuk {{target}}.",
+    "genericFallback": "Melakukan aksi \"{{action}}\" pada {{entityType}}."
+  },
+  "platformDashboardPage": {
+    "eyebrow": "Kesehatan Platform · Realtime",
+    "subtitle": "Ringkasan lintas seluruh Group Admin dan organisasi",
+    "loading": "Memuat...",
+    "errorMetrics": "Gagal memuat health metrics.",
+    "metrics": {
+      "activeGroupAdmins": "Group Admin Aktif",
+      "activeOrganizations": "Organisasi Aktif",
+      "totalStorageUsed": "Total Storage Terpakai",
+      "tierDistribution": "Distribusi Tier",
+      "noGroups": "Belum ada grup."
+    },
+    "periodPicker": { "days": "{{count}} HARI" },
+    "trends": { "loading": "Memuat tren...", "error": "Gagal memuat tren." },
+    "anomalies": {
+      "title": "Alert Anomali",
+      "count": "{{count}} kejadian",
+      "error": "Gagal memuat anomali.",
+      "empty": "Tidak ada anomali terdeteksi saat ini.",
+      "badgeStorageCritical": "Storage · Kritis",
+      "badgeStorageWarning": "Storage · Peringatan",
+      "badgeContract": "Kontrak",
+      "groupLabel": "Grup",
+      "storageUsage": "memakai {{used}} GB dari plafon {{quota}} GB ({{pct}}%).",
+      "contractExpiresIn": "berakhir dalam {{days}} hari.",
+      "contractExpiredAgo": "sudah berakhir {{days}} hari lalu."
+    },
+    "pagination": {
+      "previous": "← Sebelumnya",
+      "next": "Berikutnya →",
+      "pageLabel": "Halaman",
+      "go": "Ke",
+      "pageNumberAriaLabel": "Nomor halaman"
+    }
+  },
+  "trendLineChart": {
+    "title": "Tren Registrasi GA & Aktivasi Organisasi",
+    "newGa": "GA BARU",
+    "newOrg": "ORG BARU"
+  },
+  "platformGroupAdminPage": {
+    "metrics": {
+      "totalGroupAdmins": { "label": "Total Group Admin", "sub": "{{active}} aktif · {{inactive}} tidak aktif" },
+      "nearQuota": { "label": "Mendekati Kuota", "sub": "≥80% dari batas tier" }
+    },
+    "addButton": "Tambah Group Admin",
+    "loading": "Memuat...",
+    "error": "Gagal memuat daftar Group Admin.",
+    "empty": "Belum ada Group Admin.",
+    "table": {
+      "headers": {
+        "groupAdmin": "Group Admin",
+        "tier": "Tier",
+        "remainingOrg": "Sisa Org",
+        "remainingQuota": "Sisa Kuota",
+        "remainingMembers": "Sisa Member",
+        "contractEnd": "Kontrak Berakhir",
+        "registeredDate": "Tanggal Daftar",
+        "status": "Status"
+      },
+      "units": { "org": "{{count}} org" }
+    },
+    "pagination": { "previous": "Sebelumnya", "next": "Berikutnya", "page": "Halaman", "go": "Ke", "pageInputAriaLabel": "Nomor halaman" },
+    "actions": { "view": "Lihat", "edit": "Ubah" },
+    "status": { "active": "AKTIF", "suspended": "SUSPENDED", "inactive": "TIDAK AKTIF" }
+  },
+  "tierDistributionChart": { "title": "Distribusi Tier", "tooltipUnit": "{{count}} GA" },
+  "platformAdminAccountsPage": {
+    "eyebrow": "Kelola Akun Platform Admin",
+    "accountsCount": "{{count}} akun tercatat",
+    "actions": { "addAdmin": "Tambah Platform Admin", "activate": "AKTIFKAN", "deactivate": "NONAKTIFKAN", "resetMfa": "RESET MFA" },
+    "status": { "inactive": "✕ NONAKTIF", "pendingActivation": "MENUNGGU AKTIVASI", "active": "✓ AKTIF" },
+    "you": "(ANDA)",
+    "loading": "Memuat...",
+    "loadError": "Gagal memuat daftar Platform Admin.",
+    "actionError": "Aksi gagal, coba lagi.",
+    "emptyState": "Belum ada akun Platform Admin.",
+    "table": { "headers": { "name": "Nama", "status": "Status", "lastLogin": "Login Terakhir", "actions": "Aksi" } },
+    "pagination": { "previous": "Sebelumnya", "next": "Berikutnya", "page": "Halaman", "go": "Ke", "pageNumberAriaLabel": "Nomor halaman" },
+    "modal": {
+      "title": "Tambah Platform Admin",
+      "emailLabel": "Email",
+      "nameLabel": "Nama",
+      "cancel": "Batal",
+      "submitting": "Membuat...",
+      "submit": "Kirim Undangan"
+    }
+  },
+  "platformSecuritySettingsPage": {
+    "sessionTimeout": {
+      "title": "Session Timeout Platform Admin",
+      "description": "Berlaku hanya untuk akun Anda sendiri. Sesi tidak diperpanjang oleh aktivitas (non-sliding) -- berakhir tepat pada waktu tetap sejak login. Minimum {{minutes}} menit.",
+      "loading": "Memuat...",
+      "loadError": "Gagal memuat pengaturan keamanan.",
+      "idleTimeoutLabel": "Idle timeout (menit)",
+      "minValidation": "Minimal {{minutes}} menit.",
+      "save": "Simpan",
+      "saving": "Menyimpan...",
+      "saved": "Tersimpan"
+    },
+    "ipAllowlist": {
+      "title": "IP Allowlist",
+      "description": "Berlaku untuk SEMUA akun Platform Admin. Kosong atau nonaktif berarti login diperbolehkan dari IP mana pun.",
+      "enableCheckbox": "Aktifkan IP Allowlist",
+      "cidrLabel": "CIDR (mis. 10.0.0.0/24)",
+      "add": "Tambah",
+      "adding": "Menambah...",
+      "empty": "Belum ada entry -- login tidak dibatasi IP.",
+      "table": { "headers": { "cidr": "CIDR" }, "delete": "Hapus", "deleting": "Menghapus..." },
+      "pagination": {
+        "previous": "← Sebelumnya",
+        "next": "Berikutnya →",
+        "page": "Halaman",
+        "go": "Ke",
+        "pageNumberAriaLabel": "Nomor halaman"
+      }
+    }
+  },
+  "platformTiersPage": {
+    "eyebrow": "Katalog Tier · Ditetapkan Platform Admin",
+    "summaryShown": "{{count}} tier ditampilkan — plafon storage, batas org & member, rentang retensi",
+    "summaryActive": "{{count}} tier aktif — plafon storage, batas org & member, rentang retensi",
+    "showArchived": "Tampilkan Arsip",
+    "addTierButton": "+ Tambah Tier",
+    "close": "Tutup",
+    "loading": "Memuat...",
+    "loadError": "Gagal memuat katalog tier.",
+    "table": {
+      "headers": {
+        "tier": "Tier",
+        "quota": "Kuota Global",
+        "maxOrg": "Maks Org",
+        "maxMembers": "Maks Member",
+        "retention": "Retensi Min–Maks",
+        "webhookRate": "Rate Webhook",
+        "sso": "SSO",
+        "actions": "Aksi"
+      }
+    },
+    "noticeDeactivated": "Tier {{name}} dinonaktifkan.",
+    "noticeReactivated": "Tier {{name}} diaktifkan kembali.",
+    "noticeArchived": "Tier {{name}} di-archive.",
+    "noticeUnarchived": "Tier {{name}} dipulihkan dari arsip.",
+    "noticeCreated": "Tier {{name}} ditambahkan ke katalog dan langsung dapat dipilih saat mendaftarkan Group Admin.",
+    "noticeUpdated": "Komponen tier {{name}} diperbarui — berlaku ke seluruh Group Admin di tier ini.",
+    "noticeDeleted": "Tier {{name}} dihapus dari katalog.",
+    "legend": {
+      "quotaLabel": "KUOTA GLOBAL",
+      "quotaText": "= plafon penyimpanan satu grup, bukan per-organisasi. Group Admin membagi plafon ini ke tiap org dan tidak dapat melampauinya.",
+      "retentionLabel": "RETENSI MIN–MAKS",
+      "retentionText": "= rentang lama penyimpanan data operasional setelah organisasi dinonaktifkan. Group Admin memilih nilai di dalam rentang ini per organisasi.",
+      "webhookSsoLabel": "RATE WEBHOOK & SSO",
+      "webhookSsoText": "= batas event keluar per menit per organisasi dan ketersediaan SSO. Perubahan komponen tier berlaku ke seluruh Group Admin di tier tersebut."
+    },
+    "deleteDialog": {
+      "title": "Hapus Tier dari Katalog",
+      "confirmPrefix": "Hapus tier",
+      "confirmSuffix": "dari katalog?",
+      "warning": "Tier yang dihapus tidak lagi dapat dipilih saat mendaftarkan Group Admin baru. Aksi ini tidak dapat dibatalkan.",
+      "confirmButton": "Hapus Tier",
+      "confirmButtonPending": "Menghapus..."
+    },
+    "row": {
+      "customTier": "TIER KUSTOM",
+      "standardTier": "TIER STANDAR",
+      "deactivatedTag": "NONAKTIF",
+      "archivedTag": "ARSIP",
+      "orgCount": "{{count}} org",
+      "retentionDays": "{{min}}–{{max}} hari",
+      "webhookPerMinute": "{{rate}} /mnt",
+      "ssoActive": "AKTIF",
+      "ssoInactive": "TIDAK",
+      "actionManage": "Kelola",
+      "actionActivate": "Aktifkan",
+      "actionDeactivate": "Nonaktifkan",
+      "actionUnarchive": "Pulihkan",
+      "actionArchive": "Archive",
+      "actionDelete": "Hapus"
+    },
+    "form": {
+      "addTitle": "Tambah Tier",
+      "editTitle": "Kelola Komponen Tier {{name}}",
+      "nameLabel": "Nama Tier",
+      "namePlaceholder": "mis. GOLD",
+      "storageLabel": "Kuota Global (GB)",
+      "maxOrgLabel": "Maks Organisasi",
+      "maxMembersLabel": "Maks Member",
+      "minRetentionLabel": "Retensi Min (Hari)",
+      "maxRetentionLabel": "Retensi Maks (Hari)",
+      "webhookRateLabel": "Rate Webhook (/mnt)",
+      "ssoLabel": "Single Sign-On (SAML / OIDC)",
+      "ssoOptionUnavailable": "TIDAK TERSEDIA",
+      "ssoOptionActive": "AKTIF",
+      "impactWarning": "⚠ DAMPAK — Plafon tier turun dari {{oldValue}} GB ke {{newValue}} GB. Group Admin di tier ini yang alokasinya sudah di atas {{newValue}} GB akan berstatus over-allocated dan harus merapikan alokasi organisasinya.",
+      "footerNote": "Perubahan berlaku ke seluruh Group Admin di tier ini.",
+      "submitAdd": "Tambahkan Tier",
+      "submitEdit": "Simpan Perubahan",
+      "savingButton": "Menyimpan..."
+    }
+  },
+  "erasureRequestsPage": {
+    "eyebrow": "Right to Erasure · UU PDP Pasal 43",
+    "requestCount": "{{count}} permintaan tercatat",
+    "loading": "Memuat...",
+    "loadError": "Gagal memuat antrian erasure.",
+    "genericError": "Gagal memproses permintaan. Coba lagi.",
+    "table": {
+      "headers": {
+        "subject": "Subjek Data",
+        "organization": "Organisasi",
+        "requestedBy": "Diajukan Oleh",
+        "requestedAt": "Tgl Request",
+        "actions": "Aksi"
+      }
+    },
+    "status": { "done": "SELESAI", "rejected": "DIBATALKAN" },
+    "processedLabel": { "rejected": "Dibatalkan", "executed": "Dieksekusi" },
+    "actions": { "execute": "EKSEKUSI", "reject": "BATALKAN" },
+    "emptyState": "Belum ada permintaan erasure.",
+    "footerNote": "Eksekusi = pseudonymization pada data akun (identitas → token anonim) + revoke sesi + hapus MFA. Record aktivitas organisasi tetap dipertahankan."
+  },
+  "erasureConfirmModal": {
+    "step1": {
+      "titleExecute": "Konfirmasi Right to Erasure",
+      "titleReject": "Batalkan Permintaan Erasure",
+      "promptExecute": "Eksekusi penghapusan data untuk",
+      "promptReject": "Batalkan permintaan penghapusan data untuk",
+      "warningExecute": "Tindakan ini melakukan pseudonymization pada data akun (identitas → token anonim), merevoke seluruh sesi aktif, dan menghapus MFA. Tidak dapat dibatalkan.",
+      "warningReject": "Permintaan ditolak dan tidak akan diproses. Pemohon akan diberi tahu. Tindakan tercatat di audit trail."
+    },
+    "step2": { "confirmationInputLabel": "Ketik \"{{phrase}}\" untuk melanjutkan" },
+    "buttons": { "cancel": "Keluar", "processing": "Memproses...", "confirmExecute": "Ya, Eksekusi", "confirmReject": "Ya, Batalkan" }
+  },
+  "platformLoginPage": {
+    "header": {
+      "eyebrow": "Platform Admin — Akses Terbatas",
+      "title": "PRODO Platform Console",
+      "description": "Akses lintas-organisasi. Tidak menampilkan data task/workspace/project manapun. MFA wajib."
+    },
+    "card": { "brandLabel": "PRODO PLATFORM ADMIN" },
+    "step1": {
+      "stepLabel": "STEP 1 / 2",
+      "title": "Identitas Platform Admin",
+      "emailLabel": "EMAIL PLATFORM",
+      "emailPlaceholder": "admin@prodo-platform.io",
+      "passwordLabel": "PASSWORD",
+      "passwordPlaceholder": "••••••••",
+      "submitButton": "LANJUT KE VERIFIKASI MFA →",
+      "submitButtonLoading": "MEMPROSES...",
+      "ssoNote": "SSO tidak tersedia untuk akun Platform Admin — kredensial dikelola langsung oleh tim operasional PRODO. Percobaan login dicatat di Platform Audit Trail."
+    },
+    "errors": { "credentialsRequired": "Email dan password wajib diisi." },
+    "mfaSetup": {
+      "stepLabel": "STEP 2 / 2 · WAJIB",
+      "title": "Setup Multi-Faktor (Login Pertama)",
+      "description": "Akun ini belum pernah setup MFA. Pindai QR dengan authenticator app, lalu masukkan kode 6 digit.",
+      "qrAlt": "QR code setup MFA",
+      "manualKey": "Kunci manual: {{secret}}",
+      "submitButton": "AKTIFKAN MFA & MASUK",
+      "submitButtonLoading": "MEMVERIFIKASI..."
+    },
+    "otpPlaceholder": "000000",
+    "mfaDisableNote": "MFA tidak dapat dinonaktifkan untuk akun Platform Admin.",
+    "backupCodes": {
+      "title": "Simpan Kode Cadangan",
+      "description": "Sepuluh kode sekali pakai untuk masuk bila perangkat authenticator hilang. Kode ini TIDAK akan ditampilkan lagi.",
+      "ackLabel": "Saya sudah menyimpan kode cadangan di tempat aman.",
+      "continueButton": "LANJUT"
+    },
+    "verifyOtp": {
+      "stepLabel": "STEP 2 / 2 · WAJIB",
+      "title": "Verifikasi Multi-Faktor",
+      "description": "Masukkan 6 digit kode dari authenticator app Anda.",
+      "error": "Kode salah atau kedaluwarsa. Coba lagi.",
+      "submitButton": "VERIFIKASI & MASUK",
+      "submitButtonLoading": "MEMVERIFIKASI...",
+      "backLink": "← KEMBALI"
+    },
+    "success": {
+      "title": "Akses Platform Console diberikan",
+      "sessionTimeout": "Session timeout: 10 menit idle · sliding disabled",
+      "role": "ROLE · PLATFORM ADMIN",
+      "scope": "SCOPE · METADATA PLATFORM SAJA — TIDAK ADA AKSES KONTEN ORGANISASI",
+      "mfaVerified": "MFA · TERVERIFIKASI",
+      "continueButton": "MASUK KE PLATFORM CONSOLE →"
+    },
+    "footer": { "notAdmin": "BUKAN PLATFORM ADMIN?", "regularLoginLink": "GUNAKAN HALAMAN LOGIN BIASA →" }
+  },
+  "platformAuditLogPage": {
+    "subtitle": "Jejak Audit Level Platform · Append-Only",
+    "eventsShown": "{{count}} kejadian ditampilkan",
+    "exporting": "Mengekspor...",
+    "exportCsv": "⬇ Export CSV",
+    "exportError": "Gagal mengekspor CSV. Coba lagi.",
+    "loading": "Memuat...",
+    "loadError": "Gagal memuat jejak audit.",
+    "emptyState": "Tidak ada kejadian yang cocok dengan filter.",
+    "footer": "Jejak audit level platform bersifat append-only: perubahan tier, registrasi dan suspend Group Admin, transfer grup, pengaturan keamanan, dan login Platform Admin. Record tidak dapat diubah atau dihapus.",
+    "filters": {
+      "actionType": "Jenis Aksi",
+      "actor": "Pelaku",
+      "actorPlaceholder": "email atau nama",
+      "fromDate": "Dari Tanggal",
+      "toDate": "Sampai Tanggal"
+    },
+    "table": { "headers": { "time": "Waktu", "action": "Aksi", "entity": "Entitas", "actor": "Pelaku", "origin": "Asal" } },
+    "pagination": {
+      "previous": "Sebelumnya",
+      "next": "Berikutnya",
+      "page": "Halaman",
+      "go": "Ke",
+      "dataCount": "{{count}} data",
+      "pageNumberAriaLabel": "Nomor halaman"
+    },
+    "actionOptions": {
+      "all": "SEMUA AKSI",
+      "userInvited": "GA Diundang",
+      "userUpdated": "GA Diperbarui",
+      "userSuspended": "GA Disuspend",
+      "userReactivated": "GA Diaktifkan Kembali",
+      "userDeleted": "GA Dihapus",
+      "userActivationResent": "Invitation Dikirim Ulang",
+      "groupTransferred": "Grup Ditransfer",
+      "groupContractCreated": "Kontrak Grup Dibuat",
+      "groupContractRenewed": "Kontrak Grup Diperpanjang",
+      "tierCreated": "Tier Ditambahkan",
+      "tierUpdated": "Tier Diperbarui",
+      "tierDeactivated": "Tier Dinonaktifkan",
+      "tierReactivated": "Tier Diaktifkan Kembali",
+      "tierArchived": "Tier Di-archive",
+      "tierUnarchived": "Tier Dipulihkan",
+      "tierDeleted": "Tier Dihapus",
+      "sessionTimeoutChanged": "Session Timeout Diubah",
+      "ipAllowlistAdded": "IP Allowlist Ditambahkan",
+      "ipAllowlistRemoved": "IP Allowlist Dihapus",
+      "ipAllowlistEnabledChanged": "IP Allowlist Diaktifkan/Dinonaktifkan",
+      "userLogin": "Login Platform Admin",
+      "erasureExecuted": "Erasure Dieksekusi",
+      "erasureRejected": "Erasure Ditolak",
+      "userMfaReset": "MFA Direset"
+    }
+  },
+  "groupAdminFormModal": {
+    "title": { "add": "Tambah Group Admin", "edit": "Ubah Group Admin", "view": "Detail Group Admin" },
+    "loading": "Memuat...",
+    "loadError": "Gagal memuat detail Group Admin.",
+    "fields": {
+      "displayName": "Nama Group Admin",
+      "groupName": "Nama Perusahaan / Grup",
+      "jobTitle": "Jabatan PIC",
+      "address": "Alamat Perusahaan",
+      "email": "Email",
+      "emailImmutableHint": "Email tidak dapat diubah setelah akun dibuat.",
+      "phone": "No. Telepon (PIC)",
+      "tier": "Tier",
+      "storageQuota": "Plafon Storage Grup (GB)",
+      "status": "Status"
+    },
+    "validation": {
+      "quotaBelowUsage": "Plafon minimal {{usedGB}} GB — grup ini sudah memakai {{usedGB}} GB. Turunkan alokasi organisasinya terlebih dahulu."
+    },
+    "contract": {
+      "initialHeading": "Kontrak Awal (Opsional)",
+      "startDate": "Tanggal Mulai",
+      "subscriptionPeriod": { "label": "Masa Langganan", "placeholder": "Pilih...", "monthly": "Bulanan", "quarterly": "3 Bulan", "yearly": "Tahunan" },
+      "invoiceNumber": "No. Invoice",
+      "heading": "Kontrak",
+      "renewButton": "Perpanjang Kontrak",
+      "createButton": "Buat Kontrak",
+      "startLabel": "Mulai: ",
+      "periodLabel": "Masa: ",
+      "endLabel": "Berakhir: ",
+      "none": "Belum ada kontrak.",
+      "invoicePrefix": "Invoice: {{number}}"
+    },
+    "status": { "unchanged": "Tidak diubah", "active": "AKTIF", "suspended": "SUSPENDED" },
+    "invitation": {
+      "heading": "Invitation Link",
+      "resent": "✓ Invitation link terkirim ulang ke email Group Admin.",
+      "prompt": "Kirim ulang invitation link aktivasi akun.",
+      "sending": "Mengirim...",
+      "sendButton": "Kirim Invitation Link"
+    },
+    "footer": {
+      "quotaNote": "Kuota global mengikuti plafon tier dan tidak dapat diubah manual -- Group Admin membagi alokasi ke tiap organisasi di dalam plafon ini."
+    },
+    "actions": { "adding": "Menambahkan...", "add": "Tambahkan", "saving": "Menyimpan...", "saveChanges": "Simpan Perubahan", "exit": "Keluar", "cancel": "Batal" },
+    "renewContract": { "save": "Simpan" },
+    "common": { "on": "AKTIF", "off": "TIDAK" },
+    "tierFacts": {
+      "heading": "Paket Tier {{tier}} (Otomatis)",
+      "retentionRange": "Rentang Retensi",
+      "retentionRangeValue": "{{min}}–{{max}} hari",
+      "webhookRate": "Rate Webhook · SSO",
+      "webhookRateValue": "{{rate}} event/mnt · SSO {{sso}}",
+      "orgCount": "Jumlah Organisasi",
+      "globalQuota": "Kuota Global (Total Grup)",
+      "maxMembers": "Maks Member"
+    },
+    "usage": {
+      "heading": "Pemanfaatan Saat Ini",
+      "orgUsed": "Organisasi Terpakai",
+      "quotaUsed": "Kuota Global Terpakai",
+      "membersUsed": "Member Terpakai"
+    }
   }
 }

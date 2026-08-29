@@ -1,4 +1,5 @@
 import ReactECharts from 'echarts-for-react'
+import { useTranslation } from 'react-i18next'
 
 import type { GroupAdmin } from '@/features/platform-admin/types'
 
@@ -47,6 +48,7 @@ const TEXT_MUTED = 'oklch(0.62 0.01 70)'
 const TEXT_BONE = 'oklch(0.93 0.01 80)'
 
 export default function TierDistributionChart({ groupAdmins }: { groupAdmins: GroupAdmin[] }) {
+  const { t } = useTranslation()
   const counts = aggregateByTier(groupAdmins)
   const tiers = Object.keys(counts)
   const total = tiers.reduce((sum, tier) => sum + counts[tier], 0)
@@ -61,7 +63,10 @@ export default function TierDistributionChart({ groupAdmins }: { groupAdmins: Gr
   })
 
   const option = {
-    tooltip: { trigger: 'item' as const, valueFormatter: (v: number) => `${v} GA` },
+    tooltip: {
+      trigger: 'item' as const,
+      valueFormatter: (v: number) => t('tierDistributionChart.tooltipUnit', { count: v }),
+    },
     legend: {
       orient: 'vertical' as const,
       right: 0,
@@ -96,7 +101,7 @@ export default function TierDistributionChart({ groupAdmins }: { groupAdmins: Gr
   return (
     <div className="border border-pa-border p-3">
       <div className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
-        Distribusi Tier
+        {t('tierDistributionChart.title')}
       </div>
       <ReactECharts option={option} style={{ height: 130 }} opts={{ renderer: 'svg' }} />
     </div>
