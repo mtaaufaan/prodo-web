@@ -72,7 +72,16 @@ export interface GroupAdmin {
   used_org_count: number
   used_storage_mb: number
   used_member_count: number
+
+  // Kontrak aktif grup (dikonfirmasi user 2026-08-29): null kalau grup
+  // belum pernah punya kontrak sama sekali.
+  contract_start_at: string | null
+  subscription_period: SubscriptionPeriod | null
+  contract_end_at: string | null
+  invoice_number: string | null
 }
+
+export type SubscriptionPeriod = 'monthly' | 'quarterly' | 'yearly'
 
 // groupAdminFormSchema -- dipakai bersama Tambah dan Ubah (email cuma
 // wajib/bisa diisi saat Tambah, lihat createGroupAdminSchema/
@@ -89,10 +98,37 @@ const groupAdminFormSchema = z.object({
   storage_quota_gb: z.coerce.number().int().positive('Plafon storage wajib lebih besar dari 0 GB'),
 })
 
-export const createGroupAdminSchema = groupAdminFormSchema.extend({
-  email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid'),
-})
+// subscriptionPeriodSchema -- kontrak grup (dikonfirmasi user 2026-08-29):
+// monthly/quarterly/yearly, sama persis dengan enum backend
+// (domain.ErrInvalidSubscriptionPeriod).
+const subscriptionPeriodSchema = z.enum(['monthly', 'quarterly', 'yearly'])
+
+export const createGroupAdminSchema = groupAdminFormSchema
+  .extend({
+    email: z.string().min(1, 'Email wajib diisi').email('Format email tidak valid'),
+    // Kontrak awal OPSIONAL saat Tambah -- kosong berarti grup dibuat
+    // tanpa kontrak dulu, bisa ditambah belakangan lewat "Perpanjang
+    // Kontrak". Kalau contract_start_at diisi, subscription_period wajib.
+    contract_start_at: z.string().optional(),
+    contract_subscription_period: z.union([subscriptionPeriodSchema, z.literal('')]).optional(),
+    contract_invoice_number: z.string().optional(),
+  })
+  .refine((v) => !v.contract_start_at || !!v.contract_subscription_period, {
+    message: 'Masa langganan wajib dipilih kalau tanggal mulai kontrak diisi',
+    path: ['contract_subscription_period'],
+  })
 export type CreateGroupAdminFormValues = z.infer<typeof createGroupAdminSchema>
+
+// renewGroupContractSchema -- form "Perpanjang Kontrak" (dikonfirmasi
+// user 2026-08-29), dipakai baik untuk kontrak pertama grup maupun
+// perpanjangan -- ketiganya wajib (beda dari saat Tambah GA yang
+// opsional).
+export const renewGroupContractSchema = z.object({
+  start_at: z.string().min(1, 'Tanggal mulai wajib diisi'),
+  subscription_period: subscriptionPeriodSchema,
+  invoice_number: z.string().optional(),
+})
+export type RenewGroupContractFormValues = z.infer<typeof renewGroupContractSchema>
 
 // updateGroupAdminSchema -- TANPA email (sengaja read-only saat Ubah,
 // mengubah identitas Keycloak di luar scope task ini). status opsional --
@@ -160,9 +196,11 @@ export interface PlatformStorageAnomaly {
   severity: 'warning' | 'critical'
 }
 
+// PlatformContractEndingAnomaly -- dibalik jadi per-GRUP 2026-08-29
+// (dikonfirmasi user): kontrak adalah hubungan komersial Platform Admin
+// <-> Group Admin, bukan properti organisasi.
 export interface PlatformContractEndingAnomaly {
-  org_id: string
-  org_name: string
+  group_id: string
   group_name: string
   contract_end_at: string
 }

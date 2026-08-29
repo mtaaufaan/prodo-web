@@ -111,7 +111,7 @@ function PlatformGroupAdminPageContent() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-pa-header text-left">
-                {['Group Admin', 'Tier', 'Sisa Org', 'Sisa Kuota', 'Sisa Member', 'Tanggal Daftar', 'Status', ''].map(
+                {['Group Admin', 'Tier', 'Sisa Org', 'Sisa Kuota', 'Sisa Member', 'Kontrak Berakhir', 'Tanggal Daftar', 'Status', ''].map(
                   (h) => (
                     <th key={h} className="py-2.5 pl-3.5 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
                       {h}
@@ -234,6 +234,11 @@ function GroupAdminRow({
       </td>
       <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">
         {sisaMember != null ? sisaMember.toLocaleString('id-ID') : '—'}
+      </td>
+      <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">
+        {groupAdmin.contract_end_at
+          ? new Date(groupAdmin.contract_end_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+          : '—'}
       </td>
       <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">
         {new Date(groupAdmin.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}

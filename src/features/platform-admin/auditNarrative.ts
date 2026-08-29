@@ -48,6 +48,10 @@ export function formatAuditNarrative(entry: PlatformAuditLogEntry): string {
       return 'Berhasil login (password + verifikasi MFA).'
     case 'group.transferred':
       return `Memindahkan pengelolaan grup dari ${target} ke Group Admin lain.`
+    case 'group.contract_created':
+      return `Membuat kontrak awal untuk grup milik ${target}.`
+    case 'group.contract_renewed':
+      return `Memperpanjang kontrak grup milik ${target}.`
     case 'tier.created':
       return `Menambahkan tier baru ${target} ke katalog.`
     case 'tier.updated':
