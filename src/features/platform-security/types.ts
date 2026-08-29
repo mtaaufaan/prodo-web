@@ -8,6 +8,7 @@ export interface IPAllowlistEntry {
 
 export interface SecuritySettings {
   session_idle_timeout_seconds: number
+  ip_allowlist_enabled: boolean
   ip_allowlist: IPAllowlistEntry[]
 }
 
