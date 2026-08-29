@@ -51,17 +51,21 @@ function PlatformDashboardPageContent() {
 
   const anomalyRows = useMemo<AnomalyRow[]>(
     () => [
-      ...storageAlerts.map((a) => ({
-        id: `storage-${a.group_id}`,
-        badge: 'Storage',
-        badgeClassName: 'border-red/60 text-red',
-        message: (
-          <>
-            Grup <b className="text-text-bone">{a.group_name}</b> memakai {(a.used_mb / 1024).toFixed(1)} GB dari plafon{' '}
-            {a.quota_gb} GB.
-          </>
-        ),
-      })),
+      ...storageAlerts.map((a) => {
+        const pct = a.quota_gb > 0 ? Math.round((a.used_mb / 1024 / a.quota_gb) * 100) : 0
+        const isCritical = a.severity === 'critical'
+        return {
+          id: `storage-${a.group_id}`,
+          badge: isCritical ? 'Storage · Kritis' : 'Storage · Peringatan',
+          badgeClassName: isCritical ? 'border-red/60 text-red' : 'border-amber/60 text-amber',
+          message: (
+            <>
+              Grup <b className="text-text-bone">{a.group_name}</b> memakai {(a.used_mb / 1024).toFixed(1)} GB dari plafon{' '}
+              {a.quota_gb} GB ({pct}%).
+            </>
+          ),
+        }
+      }),
       ...contractAlerts.map((a) => {
         const daysLeft = Math.ceil((new Date(a.contract_end_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         return {
