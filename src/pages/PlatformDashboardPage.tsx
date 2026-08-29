@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import TrendLineChart from '@/components/TrendLineChart'
@@ -90,6 +90,18 @@ function PlatformDashboardPageContent() {
     currentAnomalyPage * ANOMALY_PAGE_SIZE,
   )
 
+  // goToAnomalyPage -- lompat langsung ke nomor halaman yang diketik
+  // (dikonfirmasi user). Input non-angka diabaikan; di luar rentang
+  // dibatasi ke halaman valid terdekat (1 atau totalAnomalyPages), bukan
+  // ditolak dengan error -- lompat ke batas terdekat lebih masuk akal
+  // untuk kontrol paging daripada memblokir aksi user.
+  const anomalyPageInputRef = useRef<HTMLInputElement>(null)
+  const goToAnomalyPage = (raw: string) => {
+    const n = parseInt(raw, 10)
+    if (!Number.isFinite(n)) return
+    setAnomalyPage(Math.min(totalAnomalyPages, Math.max(1, n)))
+  }
+
   return (
     <div className="space-y-3.5 p-6">
       <div>
@@ -176,8 +188,29 @@ function PlatformDashboardPageContent() {
             >
               ← Sebelumnya
             </button>
-            <span className="font-mono text-[10px] text-text-dim">
-              Halaman {currentAnomalyPage} / {totalAnomalyPages}
+            <span className="flex items-center gap-1.5 font-mono text-[10px] text-text-dim">
+              Halaman
+              <input
+                key={currentAnomalyPage}
+                ref={anomalyPageInputRef}
+                type="number"
+                min={1}
+                max={totalAnomalyPages}
+                defaultValue={currentAnomalyPage}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') goToAnomalyPage(e.currentTarget.value)
+                }}
+                className="w-11 border border-line-strong bg-input-bg px-1 py-0.5 text-center font-mono text-[10px] text-text-body focus-visible:border-signal focus-visible:outline-none"
+                aria-label="Nomor halaman"
+              />
+              / {totalAnomalyPages}
+              <button
+                type="button"
+                onClick={() => goToAnomalyPage(anomalyPageInputRef.current?.value ?? '')}
+                className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-text-muted"
+              >
+                Ke
+              </button>
             </span>
             <button
               type="button"
