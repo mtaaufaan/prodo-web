@@ -162,6 +162,13 @@ export interface PlatformAuditLogEntry {
   // request. NULL untuk entry lama sebelum kolom ini dipopulasikan.
   // metadata.request_path (format "METHOD /path") disuntikkan bersamaan.
   actor_ip: string | null
+  // state_before/state_after -- 2026-08-29, permintaan user: perubahan
+  // satu nilai skalar (session timeout, IP allowlist enabled, status
+  // tier) perlu menyertakan nilai sebelum-sesudah. null untuk action yang
+  // tidak relevan (perubahan multi-field diwakilkan nama/kode unik di
+  // metadata, bukan diff per-field).
+  state_before: Record<string, unknown> | null
+  state_after: Record<string, unknown> | null
   metadata: Record<string, unknown> | null
   logged_at: string
 }

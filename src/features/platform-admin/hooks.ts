@@ -172,10 +172,21 @@ export function useDeleteTier() {
 // useAuditLogs -- S4P-22, US-071. Query key menyertakan filter supaya
 // tiap kombinasi filter di-cache terpisah (ganti filter -> fetch baru,
 // bukan menyaring hasil lama di klien).
+//
+// staleTime: 0 (override default global 60 detik di query-client.ts) --
+// bug ditemukan user (2026-08-29): entry baru (tambah IP allowlist, hapus
+// tier, dst) tidak muncul saat membuka halaman ini kalau dibuka <60 detik
+// sebelumnya, karena TIDAK ADA mutation di file ini yang meng-invalidate
+// query 'platform-audit-logs' (mutation-nya tersebar di banyak fitur
+// lain -- tier, IP allowlist, GA, PA account, erasure, session settings
+// -- meng-invalidate dari satu-satu tidak praktis dan gampang lupa kalau
+// nambah action baru). Halaman audit trail memang harus selalu fetch
+// ulang begitu dibuka, baru butuh manual refresh sebelum fix ini.
 export function useAuditLogs(filter: PlatformAuditLogFilter) {
   return useQuery({
     queryKey: ['platform-audit-logs', filter],
     queryFn: () => listAuditLogs(filter),
+    staleTime: 0,
   })
 }
 
