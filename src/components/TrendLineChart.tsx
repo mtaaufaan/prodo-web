@@ -1,4 +1,5 @@
 import ReactECharts from 'echarts-for-react'
+import { useTranslation } from 'react-i18next'
 
 import type { PlatformTrendPoint } from '@/features/platform-admin/types'
 
@@ -21,12 +22,16 @@ function formatShortDate(iso: string): string {
 }
 
 export default function TrendLineChart({ points }: { points: PlatformTrendPoint[] }) {
+  const { t } = useTranslation()
   if (points.length === 0) return null
+
+  const gaLabel = t('trendLineChart.newGa')
+  const orgLabel = t('trendLineChart.newOrg')
 
   const option = {
     tooltip: { trigger: 'axis' as const },
     legend: {
-      data: ['GA BARU', 'ORG BARU'],
+      data: [gaLabel, orgLabel],
       top: 0,
       right: 0,
       itemWidth: 10,
@@ -51,7 +56,7 @@ export default function TrendLineChart({ points }: { points: PlatformTrendPoint[
     },
     series: [
       {
-        name: 'GA BARU',
+        name: gaLabel,
         type: 'line' as const,
         data: points.map((p) => p.new_ga_count),
         color: GA_COLOR,
@@ -59,7 +64,7 @@ export default function TrendLineChart({ points }: { points: PlatformTrendPoint[
         lineStyle: { width: 2 },
       },
       {
-        name: 'ORG BARU',
+        name: orgLabel,
         type: 'line' as const,
         data: points.map((p) => p.new_org_count),
         color: ORG_COLOR,
@@ -72,7 +77,7 @@ export default function TrendLineChart({ points }: { points: PlatformTrendPoint[
   return (
     <div className="border border-pa-border p-3">
       <div className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
-        Tren Registrasi GA &amp; Aktivasi Organisasi
+        {t('trendLineChart.title')}
       </div>
       <ReactECharts option={option} style={{ height: 220 }} opts={{ renderer: 'svg' }} />
     </div>

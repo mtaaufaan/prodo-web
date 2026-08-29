@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -31,6 +32,7 @@ export default function ErasureConfirmModal({
   isPending: boolean
   errorMessage: string | null
 }) {
+  const { t } = useTranslation()
   const [typed, setTyped] = useState('')
   const isExecute = mode === 'execute'
   const canConfirm = isExecute ? typed === CONFIRMATION_PHRASE : true
@@ -50,24 +52,22 @@ export default function ErasureConfirmModal({
       <DialogContent className="max-w-[440px]">
         <DialogHeader>
           <DialogTitle className="text-destructive">
-            {isExecute ? 'Konfirmasi Right to Erasure' : 'Batalkan Permintaan Erasure'}
+            {isExecute ? t('erasureConfirmModal.step1.titleExecute') : t('erasureConfirmModal.step1.titleReject')}
           </DialogTitle>
         </DialogHeader>
 
         <p className="text-[13px] leading-relaxed text-text-body">
-          {isExecute ? 'Eksekusi penghapusan data untuk' : 'Batalkan permintaan penghapusan data untuk'}{' '}
+          {isExecute ? t('erasureConfirmModal.step1.promptExecute') : t('erasureConfirmModal.step1.promptReject')}{' '}
           <b className="text-text-bone">{subject}</b>?
         </p>
         <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
-          {isExecute
-            ? 'Tindakan ini melakukan pseudonymization pada data akun (identitas → token anonim), merevoke seluruh sesi aktif, dan menghapus MFA. Tidak dapat dibatalkan.'
-            : 'Permintaan ditolak dan tidak akan diproses. Pemohon akan diberi tahu. Tindakan tercatat di audit trail.'}
+          {isExecute ? t('erasureConfirmModal.step1.warningExecute') : t('erasureConfirmModal.step1.warningReject')}
         </p>
 
         {isExecute && (
           <div className="space-y-1.5 pt-1">
             <Label htmlFor="erasure-confirm-input" className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
-              Ketik &quot;{CONFIRMATION_PHRASE}&quot; untuk melanjutkan
+              {t('erasureConfirmModal.step2.confirmationInputLabel', { phrase: CONFIRMATION_PHRASE })}
             </Label>
             <Input
               id="erasure-confirm-input"
@@ -83,10 +83,14 @@ export default function ErasureConfirmModal({
 
         <DialogFooter>
           <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>
-            Keluar
+            {t('erasureConfirmModal.buttons.cancel')}
           </Button>
           <Button type="button" variant="destructive" onClick={onConfirm} disabled={!canConfirm || isPending}>
-            {isPending ? 'Memproses...' : isExecute ? 'Ya, Eksekusi' : 'Ya, Batalkan'}
+            {isPending
+              ? t('erasureConfirmModal.buttons.processing')
+              : isExecute
+                ? t('erasureConfirmModal.buttons.confirmExecute')
+                : t('erasureConfirmModal.buttons.confirmReject')}
           </Button>
         </DialogFooter>
       </DialogContent>

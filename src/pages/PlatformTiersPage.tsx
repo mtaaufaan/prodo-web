@@ -1,13 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
-import { cn } from '@/lib/utils'
+import { cn, localeForLanguage } from '@/lib/utils'
 import {
   useArchiveTier,
   useCreateTier,
@@ -48,6 +49,7 @@ const formDefaults: ServiceTierFormValues = {
 // keputusan lifecycle 2-state independen ini dikonfirmasi user (S4 H7),
 // tidak ada di file desain karena desainnya lebih tua dari keputusan itu.
 function PlatformTiersPageContent() {
+  const { t } = useTranslation()
   const [showArchived, setShowArchived] = useState(false)
   const tiers = useServiceTiers(showArchived)
   const createTier = useCreateTier()
@@ -68,28 +70,41 @@ function PlatformTiersPageContent() {
     return () => clearTimeout(timer)
   }, [notice])
 
+  const tableHeaders = [
+    t('platformTiersPage.table.headers.tier'),
+    t('platformTiersPage.table.headers.quota'),
+    t('platformTiersPage.table.headers.maxOrg'),
+    t('platformTiersPage.table.headers.maxMembers'),
+    t('platformTiersPage.table.headers.retention'),
+    t('platformTiersPage.table.headers.webhookRate'),
+    t('platformTiersPage.table.headers.sso'),
+    t('platformTiersPage.table.headers.actions'),
+  ]
+
   return (
     <div className="space-y-3.5 p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
-            Katalog Tier · Ditetapkan Platform Admin
+            {t('platformTiersPage.eyebrow')}
           </div>
           <div className="mt-1.5 text-base font-bold">
-            {tiers.data?.length ?? 0} tier {showArchived ? 'ditampilkan' : 'aktif'} — plafon storage, batas org &amp; member, rentang retensi
+            {showArchived
+              ? t('platformTiersPage.summaryShown', { count: tiers.data?.length ?? 0 })
+              : t('platformTiersPage.summaryActive', { count: tiers.data?.length ?? 0 })}
           </div>
         </div>
         <div className="flex items-center gap-3.5">
           <label className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted">
             <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-            Tampilkan Arsip
+            {t('platformTiersPage.showArchived')}
           </label>
           <button
             type="button"
             onClick={() => setModal({ mode: 'add', tier: null })}
             className="inline-flex items-center gap-2 border border-pa-accent px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-pa-accent"
           >
-            + Tambah Tier
+            {t('platformTiersPage.addTierButton')}
           </button>
         </div>
       </div>
@@ -101,22 +116,22 @@ function PlatformTiersPageContent() {
             type="button"
             onClick={() => setNotice('')}
             className="absolute right-2 top-2 font-mono text-[11px] opacity-60"
-            aria-label="Tutup"
+            aria-label={t('platformTiersPage.close')}
           >
             ✕
           </button>
         </div>
       )}
 
-      {tiers.isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
-      {tiers.isError && <p className="font-mono text-sm text-destructive">Gagal memuat katalog tier.</p>}
+      {tiers.isLoading && <p className="font-mono text-sm text-text-muted">{t('platformTiersPage.loading')}</p>}
+      {tiers.isError && <p className="font-mono text-sm text-destructive">{t('platformTiersPage.loadError')}</p>}
 
       {tiers.data && tiers.data.length > 0 && (
         <div className="overflow-x-auto border border-pa-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-pa-header text-left">
-                {['Tier', 'Kuota Global', 'Maks Org', 'Maks Member', 'Retensi Min–Maks', 'Rate Webhook', 'SSO', 'Aksi'].map((h) => (
+                {tableHeaders.map((h) => (
                   <th key={h} className="py-2.5 pl-3.5 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
                     {h}
                   </th>
@@ -129,10 +144,26 @@ function PlatformTiersPageContent() {
                   key={tier.id}
                   tier={tier}
                   onEdit={() => setModal({ mode: 'edit', tier })}
-                  onDeactivate={() => deactivateTier.mutate(tier.id, { onSuccess: () => setNotice(`Tier ${tier.name.toUpperCase()} dinonaktifkan.`) })}
-                  onReactivate={() => reactivateTier.mutate(tier.id, { onSuccess: () => setNotice(`Tier ${tier.name.toUpperCase()} diaktifkan kembali.`) })}
-                  onArchive={() => archiveTier.mutate(tier.id, { onSuccess: () => setNotice(`Tier ${tier.name.toUpperCase()} di-archive.`) })}
-                  onUnarchive={() => unarchiveTier.mutate(tier.id, { onSuccess: () => setNotice(`Tier ${tier.name.toUpperCase()} dipulihkan dari arsip.`) })}
+                  onDeactivate={() =>
+                    deactivateTier.mutate(tier.id, {
+                      onSuccess: () => setNotice(t('platformTiersPage.noticeDeactivated', { name: tier.name.toUpperCase() })),
+                    })
+                  }
+                  onReactivate={() =>
+                    reactivateTier.mutate(tier.id, {
+                      onSuccess: () => setNotice(t('platformTiersPage.noticeReactivated', { name: tier.name.toUpperCase() })),
+                    })
+                  }
+                  onArchive={() =>
+                    archiveTier.mutate(tier.id, {
+                      onSuccess: () => setNotice(t('platformTiersPage.noticeArchived', { name: tier.name.toUpperCase() })),
+                    })
+                  }
+                  onUnarchive={() =>
+                    unarchiveTier.mutate(tier.id, {
+                      onSuccess: () => setNotice(t('platformTiersPage.noticeUnarchived', { name: tier.name.toUpperCase() })),
+                    })
+                  }
                   onDelete={() => setDeleteTarget(tier)}
                 />
               ))}
@@ -143,13 +174,13 @@ function PlatformTiersPageContent() {
 
       <div className="flex flex-col gap-2.5 border border-line-subtle p-3.5 font-mono text-[10px] leading-relaxed text-text-muted">
         <div>
-          <span className="text-amber">KUOTA GLOBAL</span> = plafon penyimpanan satu grup, bukan per-organisasi. Group Admin membagi plafon ini ke tiap org dan tidak dapat melampauinya.
+          <span className="text-amber">{t('platformTiersPage.legend.quotaLabel')}</span> {t('platformTiersPage.legend.quotaText')}
         </div>
         <div>
-          <span className="text-amber">RETENSI MIN–MAKS</span> = rentang lama penyimpanan data operasional setelah organisasi dinonaktifkan. Group Admin memilih nilai di dalam rentang ini per organisasi.
+          <span className="text-amber">{t('platformTiersPage.legend.retentionLabel')}</span> {t('platformTiersPage.legend.retentionText')}
         </div>
         <div>
-          <span className="text-amber">RATE WEBHOOK &amp; SSO</span> = batas event keluar per menit per organisasi dan ketersediaan SSO. Perubahan komponen tier berlaku ke seluruh Group Admin di tier tersebut.
+          <span className="text-amber">{t('platformTiersPage.legend.webhookSsoLabel')}</span> {t('platformTiersPage.legend.webhookSsoText')}
         </div>
       </div>
 
@@ -162,8 +193,8 @@ function PlatformTiersPageContent() {
           onSuccess={(name) =>
             setNotice(
               modal.mode === 'add'
-                ? `Tier ${name.toUpperCase()} ditambahkan ke katalog dan langsung dapat dipilih saat mendaftarkan Group Admin.`
-                : `Komponen tier ${name.toUpperCase()} diperbarui — berlaku ke seluruh Group Admin di tier ini.`,
+                ? t('platformTiersPage.noticeCreated', { name: name.toUpperCase() })
+                : t('platformTiersPage.noticeUpdated', { name: name.toUpperCase() }),
             )
           }
         />
@@ -173,15 +204,16 @@ function PlatformTiersPageContent() {
         <Dialog open onOpenChange={(next) => !next && setDeleteTarget(null)}>
           <DialogContent className="max-w-[440px]">
             <DialogHeader>
-              <DialogTitle className="text-pa-accent">Hapus Tier dari Katalog</DialogTitle>
+              <DialogTitle className="text-pa-accent">{t('platformTiersPage.deleteDialog.title')}</DialogTitle>
             </DialogHeader>
             <div className="px-5 py-4">
               <p className="text-[13px] leading-relaxed text-text-body">
-                Hapus tier <b className="text-text-bone">{deleteTarget.name.toUpperCase()}</b> dari katalog?
+                {t('platformTiersPage.deleteDialog.confirmPrefix')}{' '}
+                <b className="text-text-bone">{deleteTarget.name.toUpperCase()}</b>{' '}
+                {t('platformTiersPage.deleteDialog.confirmSuffix')}
               </p>
               <p className="mt-2.5 font-mono text-[9.5px] leading-relaxed text-text-dim">
-                Tier yang dihapus tidak lagi dapat dipilih saat mendaftarkan Group Admin baru. Aksi ini tidak dapat
-                dibatalkan.
+                {t('platformTiersPage.deleteDialog.warning')}
               </p>
               {deleteTier.error instanceof ApiError && (
                 <p className="mt-2.5 font-mono text-[11px] text-destructive">{deleteTier.error.message}</p>
@@ -195,16 +227,16 @@ function PlatformTiersPageContent() {
                 onClick={() =>
                   deleteTier.mutate(deleteTarget.id, {
                     onSuccess: () => {
-                      setNotice(`Tier ${deleteTarget.name.toUpperCase()} dihapus dari katalog.`)
+                      setNotice(t('platformTiersPage.noticeDeleted', { name: deleteTarget.name.toUpperCase() }))
                       setDeleteTarget(null)
                     },
                   })
                 }
               >
-                {deleteTier.isPending ? 'Menghapus...' : 'Hapus Tier'}
+                {deleteTier.isPending ? t('platformTiersPage.deleteDialog.confirmButtonPending') : t('platformTiersPage.deleteDialog.confirmButton')}
               </Button>
               <Button type="button" variant="outline" className="font-mono text-[11px]" onClick={() => setDeleteTarget(null)}>
-                Tutup
+                {t('platformTiersPage.close')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -231,6 +263,8 @@ function TierRow({
   onUnarchive: () => void
   onDelete: () => void
 }) {
+  const { t, i18n } = useTranslation()
+  const locale = localeForLanguage(i18n.language)
   const isDeactivated = tier.deactivated_at != null
   const isArchived = tier.archived_at != null
   return (
@@ -238,37 +272,37 @@ function TierRow({
       <td className="py-2.5 pl-3.5 pr-4">
         <div className="text-[13px] font-bold">{tier.name.toUpperCase()}</div>
         <div className="mt-0.5 font-mono text-[8.5px] uppercase tracking-[0.08em] text-text-dim">
-          {tier.is_custom ? 'TIER KUSTOM' : 'TIER STANDAR'}
-          {isDeactivated && ' · NONAKTIF'}
-          {isArchived && ' · ARSIP'}
+          {tier.is_custom ? t('platformTiersPage.row.customTier') : t('platformTiersPage.row.standardTier')}
+          {isDeactivated && ` · ${t('platformTiersPage.row.deactivatedTag')}`}
+          {isArchived && ` · ${t('platformTiersPage.row.archivedTag')}`}
         </div>
       </td>
       <td className="py-2.5 pr-4 font-mono text-[11px] text-mint">{tier.max_storage_gb} GB</td>
-      <td className="py-2.5 pr-4 font-mono text-[11px] text-text-muted">{tier.max_org} org</td>
-      <td className="py-2.5 pr-4 font-mono text-[11px] text-text-muted">{tier.max_members.toLocaleString('id-ID')}</td>
+      <td className="py-2.5 pr-4 font-mono text-[11px] text-text-muted">{t('platformTiersPage.row.orgCount', { count: tier.max_org })}</td>
+      <td className="py-2.5 pr-4 font-mono text-[11px] text-text-muted">{tier.max_members.toLocaleString(locale)}</td>
       <td className="py-2.5 pr-4 font-mono text-[11px] text-text-muted">
-        {tier.min_retention_days}–{tier.max_retention_days} hari
+        {t('platformTiersPage.row.retentionDays', { min: tier.min_retention_days, max: tier.max_retention_days })}
       </td>
-      <td className="py-2.5 pr-4 font-mono text-[11px] text-text-muted">{tier.webhook_rate} /mnt</td>
+      <td className="py-2.5 pr-4 font-mono text-[11px] text-text-muted">{t('platformTiersPage.row.webhookPerMinute', { rate: tier.webhook_rate })}</td>
       <td className={cn('py-2.5 pr-4 font-mono text-[10px]', tier.sso_enabled ? 'text-mint' : 'text-text-dim')}>
-        {tier.sso_enabled ? 'AKTIF' : 'TIDAK'}
+        {tier.sso_enabled ? t('platformTiersPage.row.ssoActive') : t('platformTiersPage.row.ssoInactive')}
       </td>
       <td className="py-2.5 pr-4">
         <div className="flex flex-wrap gap-2">
-          <RowActionButton onClick={onEdit}>Kelola</RowActionButton>
+          <RowActionButton onClick={onEdit}>{t('platformTiersPage.row.actionManage')}</RowActionButton>
           {isDeactivated ? (
-            <RowActionButton onClick={onReactivate}>Aktifkan</RowActionButton>
+            <RowActionButton onClick={onReactivate}>{t('platformTiersPage.row.actionActivate')}</RowActionButton>
           ) : (
-            <RowActionButton onClick={onDeactivate}>Nonaktifkan</RowActionButton>
+            <RowActionButton onClick={onDeactivate}>{t('platformTiersPage.row.actionDeactivate')}</RowActionButton>
           )}
           {isArchived ? (
-            <RowActionButton onClick={onUnarchive}>Pulihkan</RowActionButton>
+            <RowActionButton onClick={onUnarchive}>{t('platformTiersPage.row.actionUnarchive')}</RowActionButton>
           ) : (
-            <RowActionButton onClick={onArchive}>Archive</RowActionButton>
+            <RowActionButton onClick={onArchive}>{t('platformTiersPage.row.actionArchive')}</RowActionButton>
           )}
           {tier.is_custom && (
             <RowActionButton danger onClick={onDelete}>
-              Hapus
+              {t('platformTiersPage.row.actionDelete')}
             </RowActionButton>
           )}
         </div>
@@ -313,6 +347,7 @@ function TierFormModal({
   createTier: ReturnType<typeof useCreateTier>
   onSuccess: (name: string) => void
 }) {
+  const { t } = useTranslation()
   const isAdd = mode === 'add'
   const updateTier = useUpdateTier(tier?.id ?? '')
 
@@ -350,14 +385,16 @@ function TierFormModal({
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
-          <DialogTitle className="text-pa-accent">{isAdd ? 'Tambah Tier' : `Kelola Komponen Tier ${tier?.name.toUpperCase()}`}</DialogTitle>
+          <DialogTitle className="text-pa-accent">
+            {isAdd ? t('platformTiersPage.form.addTitle') : t('platformTiersPage.form.editTitle', { name: tier?.name.toUpperCase() })}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-5 py-4">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3.5">
             <div className="space-y-1.5">
-              <Label htmlFor="tier-name">Nama Tier</Label>
-              <Input id="tier-name" className={paFieldFont} placeholder="mis. GOLD" {...form.register('name')} />
+              <Label htmlFor="tier-name">{t('platformTiersPage.form.nameLabel')}</Label>
+              <Input id="tier-name" className={paFieldFont} placeholder={t('platformTiersPage.form.namePlaceholder')} {...form.register('name')} />
               {form.formState.errors.name && (
                 <p className="font-mono text-[10px] text-destructive">{form.formState.errors.name.message}</p>
               )}
@@ -365,30 +402,30 @@ function TierFormModal({
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="tier-storage">Kuota Global (GB)</Label>
+                <Label htmlFor="tier-storage">{t('platformTiersPage.form.storageLabel')}</Label>
                 <Input id="tier-storage" type="number" className={paFieldFont} {...form.register('max_storage_gb')} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tier-org">Maks Organisasi</Label>
+                <Label htmlFor="tier-org">{t('platformTiersPage.form.maxOrgLabel')}</Label>
                 <Input id="tier-org" type="number" className={paFieldFont} {...form.register('max_org')} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tier-members">Maks Member</Label>
+                <Label htmlFor="tier-members">{t('platformTiersPage.form.maxMembersLabel')}</Label>
                 <Input id="tier-members" type="number" className={paFieldFont} {...form.register('max_members')} />
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="tier-min-ret">Retensi Min (Hari)</Label>
+                <Label htmlFor="tier-min-ret">{t('platformTiersPage.form.minRetentionLabel')}</Label>
                 <Input id="tier-min-ret" type="number" className={paFieldFont} {...form.register('min_retention_days')} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tier-max-ret">Retensi Maks (Hari)</Label>
+                <Label htmlFor="tier-max-ret">{t('platformTiersPage.form.maxRetentionLabel')}</Label>
                 <Input id="tier-max-ret" type="number" className={paFieldFont} {...form.register('max_retention_days')} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="tier-webhook">Rate Webhook (/mnt)</Label>
+                <Label htmlFor="tier-webhook">{t('platformTiersPage.form.webhookRateLabel')}</Label>
                 <Input id="tier-webhook" type="number" className={paFieldFont} {...form.register('webhook_rate')} />
               </div>
             </div>
@@ -399,25 +436,23 @@ function TierFormModal({
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="tier-sso">Single Sign-On (SAML / OIDC)</Label>
+              <Label htmlFor="tier-sso">{t('platformTiersPage.form.ssoLabel')}</Label>
               <select id="tier-sso" className={selectClassName} {...form.register('sso_enabled', { setValueAs: (v) => v === 'true' })}>
-                <option value="false">TIDAK TERSEDIA</option>
-                <option value="true">AKTIF</option>
+                <option value="false">{t('platformTiersPage.form.ssoOptionUnavailable')}</option>
+                <option value="true">{t('platformTiersPage.form.ssoOptionActive')}</option>
               </select>
             </div>
 
             {showImpact && (
               <div className="border border-amber/50 bg-amber/10 px-3 py-2.5 font-mono text-[10px] leading-relaxed text-amber">
-                ⚠ DAMPAK — Plafon tier turun dari {tier?.max_storage_gb} GB ke {newStorage} GB. Group Admin di tier ini
-                yang alokasinya sudah di atas {newStorage} GB akan berstatus over-allocated dan harus merapikan
-                alokasi organisasinya.
+                {t('platformTiersPage.form.impactWarning', { oldValue: tier?.max_storage_gb, newValue: newStorage })}
               </div>
             )}
 
             {errorMessage && <p className="font-mono text-[11px] text-destructive">{errorMessage}</p>}
 
             <p className="font-mono text-[9px] leading-relaxed text-text-dim">
-              Perubahan berlaku ke seluruh Group Admin di tier ini.
+              {t('platformTiersPage.form.footerNote')}
             </p>
           </form>
         </div>
@@ -429,10 +464,10 @@ function TierFormModal({
             disabled={mutation.isPending}
             onClick={form.handleSubmit(onSubmit)}
           >
-            {mutation.isPending ? 'Menyimpan...' : isAdd ? 'Tambahkan Tier' : 'Simpan Perubahan'}
+            {mutation.isPending ? t('platformTiersPage.form.savingButton') : isAdd ? t('platformTiersPage.form.submitAdd') : t('platformTiersPage.form.submitEdit')}
           </Button>
           <Button type="button" variant="outline" className="font-mono text-[11px]" onClick={onClose}>
-            Tutup
+            {t('platformTiersPage.close')}
           </Button>
         </DialogFooter>
       </DialogContent>

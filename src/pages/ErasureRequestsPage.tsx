@@ -1,18 +1,31 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import ErasureConfirmModal from '@/components/ErasureConfirmModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { useErasureRequests, useExecuteErasureRequest, useRejectErasureRequest } from '@/features/platform-admin/hooks'
 import type { ErasureRequestEntry } from '@/features/platform-admin/types'
 import { ApiError } from '@/lib/api'
+import { localeForLanguage } from '@/lib/utils'
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+function formatDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleString(locale, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function StatusBadge({ status }: { status: ErasureRequestEntry['status'] }) {
-  if (status === 'DONE') return <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-text-muted">✓ SELESAI</span>
-  if (status === 'REJECTED') return <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-text-muted">✕ DIBATALKAN</span>
+  const { t } = useTranslation()
+  if (status === 'DONE')
+    return (
+      <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-text-muted">
+        ✓ {t('erasureRequestsPage.status.done')}
+      </span>
+    )
+  if (status === 'REJECTED')
+    return (
+      <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-text-muted">
+        ✕ {t('erasureRequestsPage.status.rejected')}
+      </span>
+    )
   return null
 }
 
@@ -20,6 +33,8 @@ function StatusBadge({ status }: { status: ErasureRequestEntry['status'] }) {
 // "PA Right To Erasure" (kolom, footer) + "PA Erasure Confirm" (modal,
 // diperluas 2 langkah untuk execute -- lihat ErasureConfirmModal).
 function ErasureRequestsPageContent() {
+  const { t, i18n } = useTranslation()
+  const locale = localeForLanguage(i18n.language)
   const { data, isLoading, isError } = useErasureRequests()
   const executeMutation = useExecuteErasureRequest()
   const rejectMutation = useRejectErasureRequest()
@@ -39,7 +54,7 @@ function ErasureRequestsPageContent() {
     mutation
       .then(() => closeModal())
       .catch((err: unknown) => {
-        setModalError(err instanceof ApiError ? err.message : 'Gagal memproses permintaan. Coba lagi.')
+        setModalError(err instanceof ApiError ? err.message : t('erasureRequestsPage.genericError'))
       })
   }
 
@@ -48,19 +63,25 @@ function ErasureRequestsPageContent() {
   return (
     <div className="space-y-3.5 p-6">
       <div>
-        <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Right to Erasure · UU PDP Pasal 43</div>
-        <div className="mt-1.5 text-base font-bold">{data?.length ?? 0} permintaan tercatat</div>
+        <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">{t('erasureRequestsPage.eyebrow')}</div>
+        <div className="mt-1.5 text-base font-bold">{t('erasureRequestsPage.requestCount', { count: data?.length ?? 0 })}</div>
       </div>
 
-      {isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
-      {isError && <p className="font-mono text-sm text-destructive">Gagal memuat antrian erasure.</p>}
+      {isLoading && <p className="font-mono text-sm text-text-muted">{t('erasureRequestsPage.loading')}</p>}
+      {isError && <p className="font-mono text-sm text-destructive">{t('erasureRequestsPage.loadError')}</p>}
 
       {data && (
         <div className="overflow-x-auto border border-pa-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-pa-header text-left">
-                {['Subjek Data', 'Organisasi', 'Diajukan Oleh', 'Tgl Request', 'Aksi'].map((h) => (
+                {[
+                  t('erasureRequestsPage.table.headers.subject'),
+                  t('erasureRequestsPage.table.headers.organization'),
+                  t('erasureRequestsPage.table.headers.requestedBy'),
+                  t('erasureRequestsPage.table.headers.requestedAt'),
+                  t('erasureRequestsPage.table.headers.actions'),
+                ].map((h) => (
                   <th key={h} className="py-2.5 pl-3.5 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
                     {h}
                   </th>
@@ -75,10 +96,13 @@ function ErasureRequestsPageContent() {
                   <td className="py-3 pr-4 font-mono text-[11px] text-text-muted">{entry.requested_by}</td>
                   <td className="py-3 pr-4">
                     <div className="flex flex-col gap-0.5 font-mono text-[10.5px] text-text-dim">
-                      <span>{formatDate(entry.requested_at)}</span>
+                      <span>{formatDate(entry.requested_at, locale)}</span>
                       {entry.processed_at && (
                         <span className="text-[9px] text-text-dim">
-                          {entry.status === 'REJECTED' ? 'Dibatalkan' : 'Dieksekusi'} {formatDate(entry.processed_at)}
+                          {entry.status === 'REJECTED'
+                            ? t('erasureRequestsPage.processedLabel.rejected')
+                            : t('erasureRequestsPage.processedLabel.executed')}{' '}
+                          {formatDate(entry.processed_at, locale)}
                         </span>
                       )}
                     </div>
@@ -91,14 +115,14 @@ function ErasureRequestsPageContent() {
                           onClick={() => setModal({ mode: 'execute', entry })}
                           className="inline-flex w-fit items-center gap-1.5 border border-destructive px-3 py-1.5 font-mono text-[10px] tracking-[0.04em] text-destructive"
                         >
-                          ⌦ EKSEKUSI
+                          ⌦ {t('erasureRequestsPage.actions.execute')}
                         </button>
                         <button
                           type="button"
                           onClick={() => setModal({ mode: 'reject', entry })}
                           className="inline-flex w-fit items-center gap-1.5 border border-pa-border px-3 py-1.5 font-mono text-[10px] tracking-[0.04em] text-text-muted"
                         >
-                          ✕ BATALKAN
+                          ✕ {t('erasureRequestsPage.actions.reject')}
                         </button>
                       </div>
                     ) : (
@@ -109,14 +133,11 @@ function ErasureRequestsPageContent() {
               ))}
             </tbody>
           </table>
-          {data.length === 0 && <p className="p-4 font-mono text-[11px] text-text-muted">Belum ada permintaan erasure.</p>}
+          {data.length === 0 && <p className="p-4 font-mono text-[11px] text-text-muted">{t('erasureRequestsPage.emptyState')}</p>}
         </div>
       )}
 
-      <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
-        Eksekusi = pseudonymization pada data akun (identitas → token anonim) + revoke sesi + hapus MFA. Record aktivitas
-        organisasi tetap dipertahankan.
-      </p>
+      <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">{t('erasureRequestsPage.footerNote')}</p>
 
       {modal && (
         <ErasureConfirmModal

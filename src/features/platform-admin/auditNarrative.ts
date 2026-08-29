@@ -1,3 +1,5 @@
+import type { TFunction } from 'i18next'
+
 import type { PlatformAuditLogEntry } from './types'
 
 // formatAuditNarrative -- kalimat siap-baca per baris (feedback user
@@ -8,11 +10,18 @@ import type { PlatformAuditLogEntry } from './types'
 //
 // PENTING untuk pengembangan selanjutnya: setiap kali menambah action
 // code BARU ke account_repository.go (logAudit/logTierAudit/INSERT
-// langsung ke platform_audit_logs), tambahkan juga entrinya di sini.
+// langsung ke platform_audit_logs), tambahkan juga entrinya di sini DAN
+// key terjemahan barunya di en.json/id.json (namespace auditNarrative).
 // Action yang tidak dikenali jatuh ke fallback generik (masih tampil,
 // tidak error) supaya lupa menambah entri di sini tidak pernah membuat
 // halaman ini rusak -- tapi fallback-nya kurang informatif, jadi jangan
 // mengandalkannya sebagai penyelesaian permanen.
+//
+// t diteruskan sebagai parameter (bukan useTranslation() di dalam sini)
+// karena fungsi ini murni (dites langsung di auditNarrative.test.ts tanpa
+// render komponen) -- pemanggil (AuditLogRow di PlatformAuditLogPage.tsx)
+// yang menyediakan t dari useTranslation().
+//
 // tierNameFromMetadata -- snapshot nama tier di metadata.tier_name (diisi
 // writeAuditLog/logTierAudit di account_repository.go), dipakai sebagai
 // fallback saat target_tier_name null. Bug ditemukan user (2026-08-29):
@@ -25,8 +34,8 @@ function tierNameFromMetadata(entry: PlatformAuditLogEntry): string | null {
   return typeof name === 'string' ? name : null
 }
 
-function targetOf(entry: PlatformAuditLogEntry): string {
-  return entry.target_user_name ?? entry.target_tier_name ?? tierNameFromMetadata(entry) ?? 'target tidak diketahui'
+function targetOf(entry: PlatformAuditLogEntry, t: TFunction): string {
+  return entry.target_user_name ?? entry.target_tier_name ?? tierNameFromMetadata(entry) ?? t('auditNarrative.unknownTarget')
 }
 
 // stateBool/stateNumber/metaString -- pembaca aman untuk state_before/
@@ -52,97 +61,103 @@ function metaString(entry: PlatformAuditLogEntry, key: string): string | null {
 // (S4P-37/38). target_user_role membedakan keduanya supaya kalimat tidak
 // salah sebut role. Default "Group Admin" kalau role tidak diketahui
 // (baris lama sebelum kolom ini ada, atau entity_type bukan 'user').
-function targetRoleLabel(entry: PlatformAuditLogEntry): string {
-  return entry.target_user_role === 'platform_admin' ? 'Platform Admin' : 'Group Admin'
+function targetRoleLabel(entry: PlatformAuditLogEntry, t: TFunction): string {
+  return entry.target_user_role === 'platform_admin' ? t('auditNarrative.roles.platformAdmin') : t('auditNarrative.roles.groupAdmin')
 }
 
-export function formatAuditNarrative(entry: PlatformAuditLogEntry): string {
-  const target = targetOf(entry)
-  const roleLabel = targetRoleLabel(entry)
+export function formatAuditNarrative(entry: PlatformAuditLogEntry, t: TFunction): string {
+  const target = targetOf(entry, t)
+  const role = targetRoleLabel(entry, t)
   switch (entry.action) {
     case 'user.invited':
-      return `Mengundang ${roleLabel} baru — ${target}.`
+      return t('auditNarrative.userInvited', { role, target })
     case 'user.updated':
-      return `Memperbarui data Group Admin ${target}.`
+      return t('auditNarrative.userUpdated', { target })
     case 'user.suspended':
-      return `Menon-aktifkan (suspend) akun ${roleLabel} ${target}.`
+      return t('auditNarrative.userSuspended', { role, target })
     case 'user.reactivated':
-      return `Mengaktifkan kembali akun ${roleLabel} ${target}.`
+      return t('auditNarrative.userReactivated', { role, target })
     case 'user.mfa_reset':
-      return `Mereset MFA akun ${roleLabel} ${target} — wajib setup ulang saat login berikutnya.`
+      return t('auditNarrative.userMfaReset', { role, target })
     case 'user.deleted':
-      return `Menghapus permanen akun Group Admin ${target}.`
+      return t('auditNarrative.userDeleted', { target })
     case 'user.activation_resent':
-      return `Mengirim ulang link aktivasi ke Group Admin ${target}.`
+      return t('auditNarrative.userActivationResent', { target })
     case 'user.login':
-      return 'Berhasil login (password + verifikasi MFA).'
+      return t('auditNarrative.userLogin')
     case 'group.transferred':
-      return `Memindahkan pengelolaan grup dari ${target} ke Group Admin lain.`
+      return t('auditNarrative.groupTransferred', { target })
     case 'group.contract_created':
-      return `Membuat kontrak awal untuk grup milik ${target}.`
+      return t('auditNarrative.groupContractCreated', { target })
     case 'group.contract_renewed':
-      return `Memperpanjang kontrak grup milik ${target}.`
+      return t('auditNarrative.groupContractRenewed', { target })
     case 'tier.created':
-      return `Menambahkan tier baru ${target} ke katalog.`
+      return t('auditNarrative.tierCreated', { target })
     case 'tier.updated':
-      return `Mengubah komponen tier ${target}.`
+      return t('auditNarrative.tierUpdated', { target })
     case 'tier.deactivated':
     case 'tier.reactivated': {
       const before = stateBool(entry.state_before, 'deactivated')
       const after = stateBool(entry.state_after, 'deactivated')
       if (before !== null && after !== null) {
-        const label = (v: boolean) => (v ? 'nonaktif' : 'aktif')
-        return `Mengubah status tier ${target} dari ${label(before)} menjadi ${label(after)}.`
+        const label = (v: boolean) => (v ? t('auditNarrative.labels.inactive') : t('auditNarrative.labels.active'))
+        return t('auditNarrative.tierStatusChanged', { target, before: label(before), after: label(after) })
       }
-      return entry.action === 'tier.deactivated' ? `Menonaktifkan tier ${target}.` : `Mengaktifkan kembali tier ${target}.`
+      return entry.action === 'tier.deactivated'
+        ? t('auditNarrative.tierDeactivated', { target })
+        : t('auditNarrative.tierReactivated', { target })
     }
     case 'tier.archived':
     case 'tier.unarchived': {
       const before = stateBool(entry.state_before, 'archived')
       const after = stateBool(entry.state_after, 'archived')
       if (before !== null && after !== null) {
-        const label = (v: boolean) => (v ? 'diarsipkan' : 'tidak diarsipkan')
-        return `Mengubah status arsip tier ${target} dari ${label(before)} menjadi ${label(after)}.`
+        const label = (v: boolean) => (v ? t('auditNarrative.labels.archived') : t('auditNarrative.labels.notArchived'))
+        return t('auditNarrative.tierArchiveStatusChanged', { target, before: label(before), after: label(after) })
       }
-      return entry.action === 'tier.archived' ? `Meng-archive tier ${target}.` : `Memulihkan tier ${target} dari arsip.`
+      return entry.action === 'tier.archived'
+        ? t('auditNarrative.tierArchived', { target })
+        : t('auditNarrative.tierUnarchived', { target })
     }
     case 'tier.deleted':
-      return `Menghapus permanen tier ${target} dari katalog.`
+      return t('auditNarrative.tierDeleted', { target })
     case 'platform_settings.session_timeout_changed': {
       const before = stateNumber(entry.state_before, 'idle_timeout_seconds')
       const after = stateNumber(entry.state_after, 'idle_timeout_seconds')
       if (after !== null) {
-        const beforeLabel = before !== null ? `${before / 60} menit` : 'default global'
-        return `Mengubah batas waktu idle sesi dari ${beforeLabel} menjadi ${after / 60} menit.`
+        const beforeLabel =
+          before !== null
+            ? t('auditNarrative.sessionTimeoutMinutes', { count: before / 60 })
+            : t('auditNarrative.sessionTimeoutDefaultGlobal')
+        return t('auditNarrative.sessionTimeoutChanged', {
+          before: beforeLabel,
+          after: t('auditNarrative.sessionTimeoutMinutes', { count: after / 60 }),
+        })
       }
-      return 'Mengubah batas waktu idle sesi untuk akun sendiri.'
+      return t('auditNarrative.sessionTimeoutChangedGeneric')
     }
     case 'platform_settings.ip_allowlist_enabled_changed': {
       const before = stateBool(entry.state_before, 'enabled')
       const after = stateBool(entry.state_after, 'enabled')
       if (before !== null && after !== null) {
-        const label = (v: boolean) => (v ? 'aktif' : 'nonaktif')
-        return `Mengubah status enforcement IP Allowlist dari ${label(before)} menjadi ${label(after)} (berlaku untuk semua akun Platform Admin).`
+        const label = (v: boolean) => (v ? t('auditNarrative.labels.active') : t('auditNarrative.labels.inactive'))
+        return t('auditNarrative.ipAllowlistEnabledChanged', { before: label(before), after: label(after) })
       }
-      return 'Mengubah status aktif/nonaktif enforcement IP Allowlist (berlaku untuk semua akun Platform Admin).'
+      return t('auditNarrative.ipAllowlistEnabledChangedGeneric')
     }
     case 'ip_allowlist.added': {
       const cidr = metaString(entry, 'cidr')
-      return cidr
-        ? `Menambahkan CIDR ${cidr} ke daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).`
-        : 'Menambahkan entri baru ke daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).'
+      return cidr ? t('auditNarrative.ipAllowlistAdded', { cidr }) : t('auditNarrative.ipAllowlistAddedGeneric')
     }
     case 'ip_allowlist.removed': {
       const cidr = metaString(entry, 'cidr')
-      return cidr
-        ? `Menghapus CIDR ${cidr} dari daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).`
-        : 'Menghapus satu entri dari daftar IP yang diizinkan (berlaku untuk semua akun Platform Admin).'
+      return cidr ? t('auditNarrative.ipAllowlistRemoved', { cidr }) : t('auditNarrative.ipAllowlistRemovedGeneric')
     }
     case 'erasure.executed':
-      return `Mengeksekusi Right to Erasure untuk ${target} (pseudonymization, revoke sesi, hapus MFA).`
+      return t('auditNarrative.erasureExecuted', { target })
     case 'erasure.rejected':
-      return `Menolak permintaan Right to Erasure untuk ${target}.`
+      return t('auditNarrative.erasureRejected', { target })
     default:
-      return `Melakukan aksi "${entry.action}" pada ${entry.entity_type}.`
+      return t('auditNarrative.genericFallback', { action: entry.action, entityType: entry.entity_type })
   }
 }
