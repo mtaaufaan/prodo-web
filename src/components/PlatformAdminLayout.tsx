@@ -21,10 +21,21 @@ import { useAuthStore } from '@/store/useAuthStore'
 // itu pekerjaan i18n penuh yang terpisah.
 //
 // Item nav DIPERLUAS dari 4 tab asli desain (Group Admin Mgmt/Tier &
-// Kuota/Right to Erasure/Audit Trail) dengan Direktori Grup (US-083) dan
-// Pengaturan Keamanan (S4P-18) -- keduanya fitur nyata yang dijadwalkan
-// setelah mockup asli dibuat. Item yang halamannya belum dibangun
-// ditampilkan non-aktif ("SEGERA"), bukan link mati.
+// Kuota/Right to Erasure/Audit Trail) dengan Pengaturan Keamanan
+// (S4P-18) -- fitur nyata yang dijadwalkan setelah mockup asli dibuat.
+// Item yang halamannya belum dibangun ditampilkan non-aktif ("SEGERA"),
+// bukan link mati.
+//
+// "Direktori Grup" (US-083, /platform/groups) SENGAJA dihapus dari nav
+// PA 2026-08-29 (dikonfirmasi user) -- untuk Platform Admin, halaman ini
+// nyaris duplikat "Kelola Group Admin": skema DB group_admin_assignments
+// memang many-to-many, tapi tidak ada satu pun jalur di aplikasi yang
+// pernah mengisi lebih dari 1 grup per GA atau lebih dari 1 GA per grup
+// (cuma diisi sekali saat GA dibuat), jadi kedua halaman selalu
+// menampilkan data 1:1 yang sama, cuma dibalik sudut pandangnya. Rute
+// `/platform/groups` TETAP ada (dipakai GET /platform/groups oleh
+// CreateOrganizationModal untuk dropdown pilih grup) -- hanya link
+// navigasinya yang dicabut dari sisi PA.
 function useNavItems() {
   const { t } = useTranslation()
   return [
@@ -32,7 +43,6 @@ function useNavItems() {
     { icon: '▦', label: t('platformAdminLayout.nav.tiers'), to: '/platform/tiers' },
     { icon: '⚉', label: t('platformAdminLayout.nav.adminAccounts'), to: '/platform/admins' },
     { icon: '◉', label: t('platformAdminLayout.nav.groupAdmins'), to: '/platform/group-admins' },
-    { icon: '▤', label: t('platformAdminLayout.nav.groupDirectory'), to: '/platform/groups' },
     { icon: '⌗', label: t('platformAdminLayout.nav.erasure'), to: '/platform/erasure-requests' },
     { icon: '⚙', label: t('platformAdminLayout.nav.securitySettings'), to: '/platform/security-settings' },
     { icon: '☰', label: t('platformAdminLayout.nav.auditTrail'), to: '/platform/audit-logs' },
