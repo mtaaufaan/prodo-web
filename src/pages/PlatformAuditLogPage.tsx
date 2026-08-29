@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { formatAuditNarrative } from '@/features/platform-admin/auditNarrative'
@@ -7,8 +7,7 @@ import { useAuditLogs } from '@/features/platform-admin/hooks'
 import type { PlatformAuditLogEntry } from '@/features/platform-admin/types'
 
 const paFieldFont = 'font-mono text-[12.5px]'
-const selectClassName =
-  `flex h-9 w-full rounded-none border border-line bg-input-bg px-2.5 py-2 ${paFieldFont} text-text-body focus-visible:outline-none focus-visible:border-signal`
+const selectClassName = `flex h-9 w-full rounded-none border border-line bg-input-bg px-2.5 py-2 ${paFieldFont} text-text-body focus-visible:outline-none focus-visible:border-signal`
 
 // ACTION_OPTIONS -- kode aksi nyata yang sudah dicatat account_repository.go
 // (S4P-20/21). Desain "PA Audit Trail" menampilkan kalimat siap-baca per
@@ -26,6 +25,8 @@ const ACTION_OPTIONS = [
   { value: 'user.deleted', label: 'GA Dihapus' },
   { value: 'user.activation_resent', label: 'Invitation Dikirim Ulang' },
   { value: 'group.transferred', label: 'Grup Ditransfer' },
+  { value: 'group.contract_created', label: 'Kontrak Grup Dibuat' },
+  { value: 'group.contract_renewed', label: 'Kontrak Grup Diperpanjang' },
   { value: 'tier.created', label: 'Tier Ditambahkan' },
   { value: 'tier.updated', label: 'Tier Diperbarui' },
   { value: 'tier.deactivated', label: 'Tier Dinonaktifkan' },
@@ -33,7 +34,10 @@ const ACTION_OPTIONS = [
   { value: 'tier.archived', label: 'Tier Di-archive' },
   { value: 'tier.unarchived', label: 'Tier Dipulihkan' },
   { value: 'tier.deleted', label: 'Tier Dihapus' },
-  { value: 'platform_settings.session_timeout_changed', label: 'Session Timeout Diubah' },
+  {
+    value: 'platform_settings.session_timeout_changed',
+    label: 'Session Timeout Diubah',
+  },
   { value: 'ip_allowlist.added', label: 'IP Allowlist Ditambahkan' },
   { value: 'ip_allowlist.removed', label: 'IP Allowlist Dihapus' },
   { value: 'user.login', label: 'Login Platform Admin' },
@@ -42,6 +46,8 @@ const ACTION_OPTIONS = [
   { value: 'user.mfa_reset', label: 'MFA Direset' },
 ]
 
+const AUDIT_LOG_PAGE_SIZE = 10
+
 function PlatformAuditLogPageContent() {
   const [actionType, setActionType] = useState('')
   const [from, setFrom] = useState('')
@@ -49,6 +55,7 @@ function PlatformAuditLogPageContent() {
   const [actorQuery, setActorQuery] = useState('')
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState('')
+  const [page, setPage] = useState(1)
 
   const filter = {
     action_type: actionType || undefined,
@@ -67,6 +74,20 @@ function PlatformAuditLogPageContent() {
     if (!q) return logs.data
     return logs.data.filter((e) => e.actor_email?.toLowerCase().includes(q) || e.actor_display_name?.toLowerCase().includes(q))
   }, [logs.data, actorQuery])
+
+  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / AUDIT_LOG_PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pagedEntries = filteredEntries.slice(
+    (currentPage - 1) * AUDIT_LOG_PAGE_SIZE,
+    currentPage * AUDIT_LOG_PAGE_SIZE,
+  )
+
+  const pageInputRef = useRef<HTMLInputElement>(null)
+  const goToPage = (raw: string) => {
+    const n = parseInt(raw, 10)
+    if (!Number.isFinite(n)) return
+    setPage(Math.min(totalPages, Math.max(1, n)))
+  }
 
   const handleExport = async () => {
     setExporting(true)
@@ -110,7 +131,14 @@ function PlatformAuditLogPageContent() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         <div className="space-y-1.5">
           <label className="block font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Jenis Aksi</label>
-          <select className={selectClassName} value={actionType} onChange={(e) => setActionType(e.target.value)}>
+          <select
+            className={selectClassName}
+            value={actionType}
+            onChange={(e) => {
+              setActionType(e.target.value)
+              setPage(1)
+            }}
+          >
             {ACTION_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -125,16 +153,35 @@ function PlatformAuditLogPageContent() {
             placeholder="email atau nama"
             className={selectClassName}
             value={actorQuery}
-            onChange={(e) => setActorQuery(e.target.value)}
+            onChange={(e) => {
+              setActorQuery(e.target.value)
+              setPage(1)
+            }}
           />
         </div>
         <div className="space-y-1.5">
           <label className="block font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Dari Tanggal</label>
-          <input type="date" className={selectClassName} value={from} onChange={(e) => setFrom(e.target.value)} />
+          <input
+            type="date"
+            className={selectClassName}
+            value={from}
+            onChange={(e) => {
+              setFrom(e.target.value)
+              setPage(1)
+            }}
+          />
         </div>
         <div className="space-y-1.5">
           <label className="block font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Sampai Tanggal</label>
-          <input type="date" className={selectClassName} value={to} onChange={(e) => setTo(e.target.value)} />
+          <input
+            type="date"
+            className={selectClassName}
+            value={to}
+            onChange={(e) => {
+              setTo(e.target.value)
+              setPage(1)
+            }}
+          />
         </div>
       </div>
 
@@ -155,7 +202,7 @@ function PlatformAuditLogPageContent() {
               </tr>
             </thead>
             <tbody>
-              {filteredEntries.map((e) => (
+              {pagedEntries.map((e) => (
                 <AuditLogRow key={e.id} entry={e} />
               ))}
             </tbody>
@@ -163,12 +210,56 @@ function PlatformAuditLogPageContent() {
           {filteredEntries.length === 0 && (
             <p className="p-4 font-mono text-[11px] text-text-muted">Tidak ada kejadian yang cocok dengan filter.</p>
           )}
+          {filteredEntries.length > AUDIT_LOG_PAGE_SIZE && (
+            <div className="flex items-center justify-between border-t border-pa-border px-4 py-2.5">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
+              >
+                ← Sebelumnya
+              </button>
+              <span className="flex items-center gap-1.5 font-mono text-[10px] text-text-dim">
+                Halaman
+                <input
+                  key={currentPage}
+                  ref={pageInputRef}
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  defaultValue={currentPage}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') goToPage(e.currentTarget.value)
+                  }}
+                  className="w-11 border border-line-strong bg-input-bg px-1 py-0.5 text-center font-mono text-[10px] text-text-body focus-visible:border-signal focus-visible:outline-none"
+                  aria-label="Nomor halaman"
+                />
+                / {totalPages}
+                <button
+                  type="button"
+                  onClick={() => goToPage(pageInputRef.current?.value ?? '')}
+                  className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-text-muted"
+                >
+                  Ke
+                </button>
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
+              >
+                Berikutnya →
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
-        Jejak audit level platform bersifat append-only: perubahan tier, registrasi dan suspend Group Admin, transfer
-        grup, pengaturan keamanan, dan login Platform Admin. Record tidak dapat diubah atau dihapus.
+        Jejak audit level platform bersifat append-only: perubahan tier, registrasi dan suspend Group Admin, transfer grup,
+        pengaturan keamanan, dan login Platform Admin. Record tidak dapat diubah atau dihapus.
       </p>
     </div>
   )

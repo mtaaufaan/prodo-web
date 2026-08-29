@@ -12,6 +12,7 @@ import type {
   PlatformAuditLogFilter,
   PlatformHealthMetrics,
   PlatformTrendPoint,
+  RenewGroupContractFormValues,
   ServiceTier,
   ServiceTierFormValues,
   UpdateGroupAdminFormValues,
@@ -39,6 +40,13 @@ export function getGroupAdmin(id: string) {
 
 export function updateGroupAdmin(id: string, values: UpdateGroupAdminFormValues) {
   return apiClient.put<GroupAdmin>(`/api/v1/platform/group-admins/${id}`, values)
+}
+
+// renewGroupContract -- kontrak grup (dikonfirmasi user 2026-08-29):
+// dipakai baik untuk kontrak PERTAMA (belum pernah ada) maupun
+// PERPANJANGAN, backend yang membedakan audit action-nya.
+export function renewGroupContract(id: string, values: RenewGroupContractFormValues) {
+  return apiClient.post<{ contract_end_at: string }>(`/api/v1/platform/group-admins/${id}/renew-contract`, values)
 }
 
 // listServiceTiers -- S4P-07/11. includeArchived=false (default, dropdown
