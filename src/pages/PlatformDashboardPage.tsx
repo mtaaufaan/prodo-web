@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import TrendLineChart from '@/components/TrendLineChart'
@@ -22,9 +22,21 @@ function MetricCard({ label, value, sub }: { label: string; value: string; sub?:
 }
 
 const PERIOD_OPTIONS = [7, 30, 90] as const
+const ANOMALY_PAGE_SIZE = 10
+
+// AnomalyRow -- baris siap-render gabungan storage + contract_end, supaya
+// paginasi (dikonfirmasi user) bisa dilakukan di satu list, bukan dua
+// map terpisah.
+interface AnomalyRow {
+  id: string
+  badge: string
+  badgeClassName: string
+  message: ReactNode
+}
 
 function PlatformDashboardPageContent() {
   const [period, setPeriod] = useState<(typeof PERIOD_OPTIONS)[number]>(30)
+  const [anomalyPage, setAnomalyPage] = useState(1)
   const metrics = useHealthMetrics()
   const trends = useTrends(period)
   const anomalies = useAnomalies()
@@ -35,6 +47,48 @@ function PlatformDashboardPageContent() {
   const storageAlerts = anomalies.data?.storage ?? []
   const contractAlerts = anomalies.data?.contract_end ?? []
   const totalAlerts = storageAlerts.length + contractAlerts.length
+
+  const anomalyRows = useMemo<AnomalyRow[]>(
+    () => [
+      ...storageAlerts.map((a) => ({
+        id: `storage-${a.group_id}`,
+        badge: 'Storage',
+        badgeClassName: 'border-red/60 text-red',
+        message: (
+          <>
+            Grup <b className="text-text-bone">{a.group_name}</b> memakai {(a.used_mb / 1024).toFixed(1)} GB dari plafon{' '}
+            {a.quota_gb} GB.
+          </>
+        ),
+      })),
+      ...contractAlerts.map((a) => {
+        const daysLeft = Math.ceil((new Date(a.contract_end_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        return {
+          id: `contract-${a.org_id}`,
+          badge: 'Kontrak',
+          badgeClassName: 'border-amber/60 text-amber',
+          message: (
+            <>
+              Organisasi <b className="text-text-bone">{a.org_name}</b> (grup {a.group_name}){' '}
+              {daysLeft >= 0 ? `berakhir dalam ${daysLeft} hari` : `sudah berakhir ${Math.abs(daysLeft)} hari lalu`}.
+            </>
+          ),
+        }
+      }),
+    ],
+    // storageAlerts/contractAlerts adalah turunan langsung anomalies.data --
+    // depend ke situ saja (referensi array ?? [] baru tiap render kalau
+    // storageAlerts/contractAlerts sendiri dijadikan dep).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [anomalies.data],
+  )
+
+  const totalAnomalyPages = Math.max(1, Math.ceil(anomalyRows.length / ANOMALY_PAGE_SIZE))
+  const currentAnomalyPage = Math.min(anomalyPage, totalAnomalyPages)
+  const pagedAnomalyRows = anomalyRows.slice(
+    (currentAnomalyPage - 1) * ANOMALY_PAGE_SIZE,
+    currentAnomalyPage * ANOMALY_PAGE_SIZE,
+  )
 
   return (
     <div className="space-y-3.5 p-6">
@@ -104,30 +158,37 @@ function PlatformDashboardPageContent() {
         {anomalies.data && totalAlerts === 0 && (
           <p className="p-4 font-mono text-[11px] text-text-muted">Tidak ada anomali terdeteksi saat ini.</p>
         )}
-        {storageAlerts.map((a) => (
-          <div key={a.group_id} className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0">
-            <span className="border border-red/60 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-red">
-              Storage
+        {pagedAnomalyRows.map((row) => (
+          <div key={row.id} className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0">
+            <span className={`border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] ${row.badgeClassName}`}>
+              {row.badge}
             </span>
-            <span className="flex-1 text-[12.5px] text-text-body">
-              Grup <b className="text-text-bone">{a.group_name}</b> memakai {(a.used_mb / 1024).toFixed(1)} GB dari plafon {a.quota_gb} GB.
-            </span>
+            <span className="flex-1 text-[12.5px] text-text-body">{row.message}</span>
           </div>
         ))}
-        {contractAlerts.map((a) => {
-          const daysLeft = Math.ceil((new Date(a.contract_end_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-          return (
-            <div key={a.org_id} className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0">
-              <span className="border border-amber/60 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-amber">
-                Kontrak
-              </span>
-              <span className="flex-1 text-[12.5px] text-text-body">
-                Organisasi <b className="text-text-bone">{a.org_name}</b> (grup {a.group_name}){' '}
-                {daysLeft >= 0 ? `berakhir dalam ${daysLeft} hari` : `sudah berakhir ${Math.abs(daysLeft)} hari lalu`}.
-              </span>
-            </div>
-          )
-        })}
+        {anomalyRows.length > ANOMALY_PAGE_SIZE && (
+          <div className="flex items-center justify-between border-t border-pa-border px-4 py-2.5">
+            <button
+              type="button"
+              onClick={() => setAnomalyPage((p) => Math.max(1, p - 1))}
+              disabled={currentAnomalyPage <= 1}
+              className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
+            >
+              ← Sebelumnya
+            </button>
+            <span className="font-mono text-[10px] text-text-dim">
+              Halaman {currentAnomalyPage} / {totalAnomalyPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setAnomalyPage((p) => Math.min(totalAnomalyPages, p + 1))}
+              disabled={currentAnomalyPage >= totalAnomalyPages}
+              className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
+            >
+              Berikutnya →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
