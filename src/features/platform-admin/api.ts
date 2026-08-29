@@ -110,8 +110,8 @@ export function getTrends(period: 7 | 30 | 90) {
   return apiClient.get<PlatformTrendPoint[]>('/api/v1/platform/trends', { params: { period } })
 }
 
-export function getAnomalies() {
-  return apiClient.get<PlatformAnomalies>('/api/v1/platform/anomalies')
+export function getAnomalies(period: 7 | 30 | 90) {
+  return apiClient.get<PlatformAnomalies>('/api/v1/platform/anomalies', { params: { period } })
 }
 
 // listErasureRequests/executeErasureRequest/rejectErasureRequest -- S4P-30/31,

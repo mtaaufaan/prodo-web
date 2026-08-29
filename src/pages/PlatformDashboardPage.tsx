@@ -36,10 +36,11 @@ interface AnomalyRow {
 
 function PlatformDashboardPageContent() {
   const [period, setPeriod] = useState<(typeof PERIOD_OPTIONS)[number]>(30)
+  const [anomalyPeriod, setAnomalyPeriod] = useState<(typeof PERIOD_OPTIONS)[number]>(7)
   const [anomalyPage, setAnomalyPage] = useState(1)
   const metrics = useHealthMetrics()
   const trends = useTrends(period)
-  const anomalies = useAnomalies()
+  const anomalies = useAnomalies(anomalyPeriod)
 
   const tierEntries = metrics.data ? Object.entries(metrics.data.tier_distribution).sort((a, b) => b[1] - a[1]) : []
   const tierMax = tierEntries.length > 0 ? Math.max(...tierEntries.map(([, count]) => count)) : 0
@@ -50,17 +51,21 @@ function PlatformDashboardPageContent() {
 
   const anomalyRows = useMemo<AnomalyRow[]>(
     () => [
-      ...storageAlerts.map((a) => ({
-        id: `storage-${a.group_id}`,
-        badge: 'Storage',
-        badgeClassName: 'border-red/60 text-red',
-        message: (
-          <>
-            Grup <b className="text-text-bone">{a.group_name}</b> memakai {(a.used_mb / 1024).toFixed(1)} GB dari plafon{' '}
-            {a.quota_gb} GB.
-          </>
-        ),
-      })),
+      ...storageAlerts.map((a) => {
+        const pct = a.quota_gb > 0 ? Math.round((a.used_mb / 1024 / a.quota_gb) * 100) : 0
+        const isCritical = a.severity === 'critical'
+        return {
+          id: `storage-${a.group_id}`,
+          badge: isCritical ? 'Storage · Kritis' : 'Storage · Peringatan',
+          badgeClassName: isCritical ? 'border-red/60 text-red' : 'border-amber/60 text-amber',
+          message: (
+            <>
+              Grup <b className="text-text-bone">{a.group_name}</b> memakai {(a.used_mb / 1024).toFixed(1)} GB dari plafon{' '}
+              {a.quota_gb} GB ({pct}%).
+            </>
+          ),
+        }
+      }),
       ...contractAlerts.map((a) => {
         const daysLeft = Math.ceil((new Date(a.contract_end_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         return {
@@ -159,6 +164,25 @@ function PlatformDashboardPageContent() {
       {trends.isLoading && <p className="font-mono text-sm text-text-muted">Memuat tren...</p>}
       {trends.isError && <p className="font-mono text-sm text-destructive">Gagal memuat tren.</p>}
       {trends.data && <TrendLineChart points={trends.data} />}
+
+      <div className="flex items-center gap-2">
+        {PERIOD_OPTIONS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => {
+              setAnomalyPeriod(p)
+              setAnomalyPage(1)
+            }}
+            className={
+              'border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.06em] ' +
+              (anomalyPeriod === p ? 'border-pa-accent text-pa-accent' : 'border-line-strong text-text-muted')
+            }
+          >
+            {p} HARI
+          </button>
+        ))}
+      </div>
 
       <div className="border border-pa-border">
         <div className="flex items-center justify-between border-b border-pa-border px-4 py-2.5">
