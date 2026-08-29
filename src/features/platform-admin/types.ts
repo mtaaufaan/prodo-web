@@ -166,6 +166,16 @@ export interface PlatformAnomalies {
   contract_end: PlatformContractEndingAnomaly[]
 }
 
+// GroupDirectoryEntry -- GET /platform/groups (S4P-34, US-083). Platform
+// Admin melihat semua grup; Group Admin cuma grup yang dia kelola sendiri.
+export interface GroupDirectoryEntry {
+  id: string
+  name: string
+  tier: string
+  ga_names: string
+  org_count: number
+}
+
 // ErasureRequestStatus/ErasureRequestEntry -- GET /platform/erasure-requests
 // (S4P-30, US-060). status DONE/REJECTED punya processed_at, PENDING null.
 export type ErasureRequestStatus = 'PENDING' | 'DONE' | 'REJECTED'
