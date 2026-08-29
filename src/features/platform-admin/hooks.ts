@@ -178,8 +178,8 @@ export function useTrends(period: 7 | 30 | 90) {
   return useQuery({ queryKey: ['platform-trends', period], queryFn: () => getTrends(period), staleTime: 30_000 })
 }
 
-export function useAnomalies() {
-  return useQuery({ queryKey: ['platform-anomalies'], queryFn: () => getAnomalies(), staleTime: 30_000 })
+export function useAnomalies(period: 7 | 30 | 90) {
+  return useQuery({ queryKey: ['platform-anomalies', period], queryFn: () => getAnomalies(period), staleTime: 30_000 })
 }
 
 // useErasureRequests/useExecuteErasureRequest/useRejectErasureRequest --

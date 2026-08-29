@@ -157,6 +157,7 @@ export interface PlatformStorageAnomaly {
   group_name: string
   used_mb: number
   quota_gb: number
+  severity: 'warning' | 'critical'
 }
 
 export interface PlatformContractEndingAnomaly {
