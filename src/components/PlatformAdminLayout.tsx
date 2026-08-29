@@ -28,14 +28,14 @@ import { useAuthStore } from '@/store/useAuthStore'
 function useNavItems() {
   const { t } = useTranslation()
   return [
+    { icon: '◫', label: t('platformAdminLayout.nav.dashboard'), to: '/platform/dashboard' },
+    { icon: '▦', label: t('platformAdminLayout.nav.tiers'), to: '/platform/tiers' },
+    { icon: '⚉', label: t('platformAdminLayout.nav.adminAccounts'), to: '/platform/admins' },
     { icon: '◉', label: t('platformAdminLayout.nav.groupAdmins'), to: '/platform/group-admins' },
     { icon: '▤', label: t('platformAdminLayout.nav.groupDirectory'), to: '/platform/groups' },
-    { icon: '▦', label: t('platformAdminLayout.nav.tiers'), to: '/platform/tiers' },
     { icon: '⌗', label: t('platformAdminLayout.nav.erasure'), to: '/platform/erasure-requests' },
-    { icon: '☰', label: t('platformAdminLayout.nav.auditTrail'), to: '/platform/audit-logs' },
-    { icon: '◫', label: t('platformAdminLayout.nav.dashboard'), to: '/platform/dashboard' },
     { icon: '⚙', label: t('platformAdminLayout.nav.securitySettings'), to: '/platform/security-settings' },
-    { icon: '⚉', label: t('platformAdminLayout.nav.adminAccounts'), to: '/platform/admins' },
+    { icon: '☰', label: t('platformAdminLayout.nav.auditTrail'), to: '/platform/audit-logs' },
   ]
 }
 
