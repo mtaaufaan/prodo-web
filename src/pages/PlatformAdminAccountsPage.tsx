@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
@@ -84,6 +84,15 @@ function StatusBadge({ admin }: { admin: PlatformAdminAccount }) {
   return <span className="font-mono text-[10px] text-text-body">✓ AKTIF</span>
 }
 
+const ADMIN_PAGE_SIZE = 10
+
+// isPendingConfirmation -- "MENUNGGU AKTIVASI" (belum pernah set
+// password/MFA), beda dari nonaktif (sudah pernah aktif lalu
+// disuspend). Dikonfirmasi user 2026-08-29: grup ini tampil duluan.
+function isPendingConfirmation(a: PlatformAdminAccount): boolean {
+  return !a.suspended_at && !a.is_active
+}
+
 function PlatformAdminAccountsPageContent() {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const admins = usePlatformAdmins()
@@ -92,12 +101,38 @@ function PlatformAdminAccountsPageContent() {
   const resetMFA = useResetPlatformAdminMFA()
   const [addOpen, setAddOpen] = useState(false)
   const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null)
+  const [page, setPage] = useState(1)
 
   const runRowAction = (id: string, mutate: (id: string) => Promise<unknown>) => {
     setRowError(null)
     mutate(id).catch((err: unknown) => {
       setRowError({ id, message: err instanceof ApiError ? err.message : 'Aksi gagal, coba lagi.' })
     })
+  }
+
+  // Urutan (dikonfirmasi user): belum konfirmasi dulu, sisanya login
+  // terbaru dulu.
+  const sortedAdmins = useMemo(() => {
+    const list = admins.data ?? []
+    return [...list].sort((a, b) => {
+      const aPending = isPendingConfirmation(a)
+      const bPending = isPendingConfirmation(b)
+      if (aPending !== bPending) return aPending ? -1 : 1
+      const aTime = a.last_login_at ? new Date(a.last_login_at).getTime() : 0
+      const bTime = b.last_login_at ? new Date(b.last_login_at).getTime() : 0
+      return bTime - aTime
+    })
+  }, [admins.data])
+
+  const totalPages = Math.max(1, Math.ceil(sortedAdmins.length / ADMIN_PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pagedAdmins = sortedAdmins.slice((currentPage - 1) * ADMIN_PAGE_SIZE, currentPage * ADMIN_PAGE_SIZE)
+
+  const pageInputRef = useRef<HTMLInputElement>(null)
+  const goToPage = (raw: string) => {
+    const n = parseInt(raw, 10)
+    if (!Number.isFinite(n)) return
+    setPage(Math.min(totalPages, Math.max(1, n)))
   }
 
   return (
@@ -132,7 +167,7 @@ function PlatformAdminAccountsPageContent() {
               </tr>
             </thead>
             <tbody>
-              {admins.data.map((a) => {
+              {pagedAdmins.map((a) => {
                 const isSelf = a.id === currentUserId
                 const isPending = deactivate.isPending || reactivate.isPending || resetMFA.isPending
                 return (
@@ -186,7 +221,51 @@ function PlatformAdminAccountsPageContent() {
               })}
             </tbody>
           </table>
-          {admins.data.length === 0 && <p className="p-4 font-mono text-[11px] text-text-muted">Belum ada akun Platform Admin.</p>}
+          {sortedAdmins.length === 0 && <p className="p-4 font-mono text-[11px] text-text-muted">Belum ada akun Platform Admin.</p>}
+          {sortedAdmins.length > ADMIN_PAGE_SIZE && (
+            <div className="flex items-center justify-between border-t border-pa-border px-4 py-2.5">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
+              >
+                ← Sebelumnya
+              </button>
+              <span className="flex items-center gap-1.5 font-mono text-[10px] text-text-dim">
+                Halaman
+                <input
+                  key={currentPage}
+                  ref={pageInputRef}
+                  type="number"
+                  min={1}
+                  max={totalPages}
+                  defaultValue={currentPage}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') goToPage(e.currentTarget.value)
+                  }}
+                  className="w-11 border border-line-strong bg-input-bg px-1 py-0.5 text-center font-mono text-[10px] text-text-body focus-visible:border-signal focus-visible:outline-none"
+                  aria-label="Nomor halaman"
+                />
+                / {totalPages}
+                <button
+                  type="button"
+                  onClick={() => goToPage(pageInputRef.current?.value ?? '')}
+                  className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-text-muted"
+                >
+                  Ke
+                </button>
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
+              >
+                Berikutnya →
+              </button>
+            </div>
+          )}
         </div>
       )}
 
