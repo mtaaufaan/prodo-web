@@ -85,6 +85,8 @@ export function formatAuditNarrative(entry: PlatformAuditLogEntry, t: TFunction)
       return t('auditNarrative.userActivationResent', { target })
     case 'user.login':
       return t('auditNarrative.userLogin')
+    case 'user.backup_code_used':
+      return t('auditNarrative.userBackupCodeUsed')
     case 'group.transferred':
       return t('auditNarrative.groupTransferred', { target })
     case 'group.contract_created':
