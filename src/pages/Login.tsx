@@ -71,7 +71,12 @@ export default function Login() {
     login.mutate(
       { email: values.email, password: values.password, mfaCode: otpCode },
       {
-        onSuccess: () => navigate('/'),
+        // S1-22 cuma navigate('/') tanpa lihat role -- Group Admin (dan siapa
+        // pun) selalu mendarat di placeholder generik Home.tsx, padahal
+        // konsolnya sendiri (GroupAdminLayout, S4G-01) sudah ada di
+        // /organizations. Role member/workspace lain TETAP ke '/' -- belum
+        // ada dashboard untuk mereka (menyusul Task Core).
+        onSuccess: (result) => navigate(result.user.platform_role === 'group_admin' ? '/organizations' : '/'),
         onError: (err) => {
           if (err instanceof ApiError && err.code === 'INVALID_OTP') {
             setMfaRequired(true)
