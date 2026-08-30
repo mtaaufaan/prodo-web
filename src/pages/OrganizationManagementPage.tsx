@@ -12,13 +12,18 @@ import { cn } from '@/lib/utils'
 const GB = 1024 * 1024 * 1024
 const ORG_PAGE_SIZE = 10
 
+// bg-panel (S4G-03 fix, ditemukan user 2026-08-30): desain
+// "GA Organizations.dc.html" kartu stat punya background:oklch(0.19...)
+// -- persis token bg-panel -- BEDA dari background halaman (bg-content,
+// oklch(0.175...)). Tanpa ini kartu blend ke background halaman dan
+// tidak terbaca sebagai "card" sama sekali (cuma border tipis).
 function StatCard({ label, value, tone }: { label: string; value: string; tone?: 'mint' | 'destructive' | 'signal' }) {
   return (
-    <div className="flex-1 min-w-[130px] border border-line p-3">
+    <div className="flex-1 min-w-[130px] border border-line bg-panel p-3">
       <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">{label}</div>
       <div
         className={cn(
-          'mt-1.5 text-xl font-bold',
+          'mt-1.5 text-2xl font-bold',
           tone === 'mint' && 'text-mint',
           tone === 'destructive' && 'text-destructive',
           tone === 'signal' && 'text-signal',
@@ -92,7 +97,11 @@ function OrganizationManagementPageContent() {
         )}
 
         <div className="border border-line">
-          <div className="border-b border-line px-4 py-2.5">
+          {/* bg-raised-2 (S4G-03 fix, ditemukan user 2026-08-30): header grid
+              desain punya background:oklch(0.215...) -- persis token
+              bg-raised-2, jelas lebih terang dari background halaman --
+              sebelumnya tidak diset sama sekali jadi warnanya salah. */}
+          <div className="border-b border-line bg-raised-2 px-4 py-2.5">
             <div className="grid grid-cols-[1.4fr_0.9fr_1.3fr_0.7fr_0.65fr] gap-3 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
               <span>Organisasi</span>
               <span>WS · Member</span>
