@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import TrendLineChart from '@/components/TrendLineChart'
 import { useAnomalies, useHealthMetrics, useTrends } from '@/features/platform-admin/hooks'
+import { localeForLanguage } from '@/lib/utils'
 
 function formatBytes(bytes: number): string {
   if (bytes <= 0) return '0 GB'
@@ -35,6 +37,8 @@ interface AnomalyRow {
 }
 
 function PlatformDashboardPageContent() {
+  const { t, i18n } = useTranslation()
+  const locale = localeForLanguage(i18n.language)
   const [period, setPeriod] = useState<(typeof PERIOD_OPTIONS)[number]>(30)
   const [anomalyPeriod, setAnomalyPeriod] = useState<(typeof PERIOD_OPTIONS)[number]>(7)
   const [anomalyPage, setAnomalyPage] = useState(1)
@@ -56,12 +60,18 @@ function PlatformDashboardPageContent() {
         const isCritical = a.severity === 'critical'
         return {
           id: `storage-${a.group_id}`,
-          badge: isCritical ? 'Storage · Kritis' : 'Storage · Peringatan',
+          badge: isCritical
+            ? t('platformDashboardPage.anomalies.badgeStorageCritical')
+            : t('platformDashboardPage.anomalies.badgeStorageWarning'),
           badgeClassName: isCritical ? 'border-red/60 text-red' : 'border-amber/60 text-amber',
           message: (
             <>
-              Grup <b className="text-text-bone">{a.group_name}</b> memakai {(a.used_mb / 1024).toFixed(1)} GB dari plafon{' '}
-              {a.quota_gb} GB ({pct}%).
+              {t('platformDashboardPage.anomalies.groupLabel')} <b className="text-text-bone">{a.group_name}</b>{' '}
+              {t('platformDashboardPage.anomalies.storageUsage', {
+                used: (a.used_mb / 1024).toFixed(1),
+                quota: a.quota_gb,
+                pct,
+              })}
             </>
           ),
         }
@@ -70,12 +80,14 @@ function PlatformDashboardPageContent() {
         const daysLeft = Math.ceil((new Date(a.contract_end_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         return {
           id: `contract-${a.group_id}`,
-          badge: 'Kontrak',
+          badge: t('platformDashboardPage.anomalies.badgeContract'),
           badgeClassName: 'border-amber/60 text-amber',
           message: (
             <>
-              Grup <b className="text-text-bone">{a.group_name}</b>{' '}
-              {daysLeft >= 0 ? `berakhir dalam ${daysLeft} hari` : `sudah berakhir ${Math.abs(daysLeft)} hari lalu`}.
+              {t('platformDashboardPage.anomalies.groupLabel')} <b className="text-text-bone">{a.group_name}</b>{' '}
+              {daysLeft >= 0
+                ? t('platformDashboardPage.anomalies.contractExpiresIn', { days: daysLeft })
+                : t('platformDashboardPage.anomalies.contractExpiredAgo', { days: Math.abs(daysLeft) })}
             </>
           ),
         }
@@ -85,7 +97,7 @@ function PlatformDashboardPageContent() {
     // depend ke situ saja (referensi array ?? [] baru tiap render kalau
     // storageAlerts/contractAlerts sendiri dijadikan dep).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [anomalies.data],
+    [anomalies.data, t],
   )
 
   const totalAnomalyPages = Math.max(1, Math.ceil(anomalyRows.length / ANOMALY_PAGE_SIZE))
@@ -111,23 +123,40 @@ function PlatformDashboardPageContent() {
     <div className="space-y-3.5 p-6">
       <div>
         <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
-          Kesehatan Platform · Realtime
+          {t('platformDashboardPage.eyebrow')}
         </div>
-        <div className="mt-1.5 text-base font-bold">Ringkasan lintas seluruh Group Admin dan organisasi</div>
+        <div className="mt-1.5 text-base font-bold">{t('platformDashboardPage.subtitle')}</div>
       </div>
 
-      {metrics.isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
-      {metrics.isError && <p className="font-mono text-sm text-destructive">Gagal memuat health metrics.</p>}
+      {metrics.isLoading && <p className="font-mono text-sm text-text-muted">{t('platformDashboardPage.loading')}</p>}
+      {metrics.isError && (
+        <p className="font-mono text-sm text-destructive">{t('platformDashboardPage.errorMetrics')}</p>
+      )}
 
       {metrics.data && (
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard label="Group Admin Aktif" value={metrics.data.active_ga_count.toLocaleString('id-ID')} />
-          <MetricCard label="Organisasi Aktif" value={metrics.data.active_org_count.toLocaleString('id-ID')} />
-          <MetricCard label="Total Storage Terpakai" value={formatBytes(metrics.data.total_storage_used_bytes)} />
+          <MetricCard
+            label={t('platformDashboardPage.metrics.activeGroupAdmins')}
+            value={metrics.data.active_ga_count.toLocaleString(locale)}
+          />
+          <MetricCard
+            label={t('platformDashboardPage.metrics.activeOrganizations')}
+            value={metrics.data.active_org_count.toLocaleString(locale)}
+          />
+          <MetricCard
+            label={t('platformDashboardPage.metrics.totalStorageUsed')}
+            value={formatBytes(metrics.data.total_storage_used_bytes)}
+          />
           <div className="border border-pa-border p-4">
-            <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Distribusi Tier</div>
+            <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
+              {t('platformDashboardPage.metrics.tierDistribution')}
+            </div>
             <div className="mt-2.5 flex flex-col gap-1.5">
-              {tierEntries.length === 0 && <span className="font-mono text-[10.5px] text-text-muted">Belum ada grup.</span>}
+              {tierEntries.length === 0 && (
+                <span className="font-mono text-[10.5px] text-text-muted">
+                  {t('platformDashboardPage.metrics.noGroups')}
+                </span>
+              )}
               {tierEntries.map(([name, count]) => (
                 <div key={name} className="flex items-center gap-2">
                   <span className="w-16 flex-shrink-0 font-mono text-[9.5px] text-text-muted">{name.toUpperCase()}</span>
@@ -156,13 +185,15 @@ function PlatformDashboardPageContent() {
               (period === p ? 'border-pa-accent text-pa-accent' : 'border-line-strong text-text-muted')
             }
           >
-            {p} HARI
+            {t('platformDashboardPage.periodPicker.days', { count: p })}
           </button>
         ))}
       </div>
 
-      {trends.isLoading && <p className="font-mono text-sm text-text-muted">Memuat tren...</p>}
-      {trends.isError && <p className="font-mono text-sm text-destructive">Gagal memuat tren.</p>}
+      {trends.isLoading && <p className="font-mono text-sm text-text-muted">{t('platformDashboardPage.trends.loading')}</p>}
+      {trends.isError && (
+        <p className="font-mono text-sm text-destructive">{t('platformDashboardPage.trends.error')}</p>
+      )}
       {trends.data && <TrendLineChart points={trends.data} />}
 
       <div className="flex items-center gap-2">
@@ -179,20 +210,26 @@ function PlatformDashboardPageContent() {
               (anomalyPeriod === p ? 'border-pa-accent text-pa-accent' : 'border-line-strong text-text-muted')
             }
           >
-            {p} HARI
+            {t('platformDashboardPage.periodPicker.days', { count: p })}
           </button>
         ))}
       </div>
 
       <div className="border border-pa-border">
         <div className="flex items-center justify-between border-b border-pa-border px-4 py-2.5">
-          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Alert Anomali</span>
-          <span className="font-mono text-[10px] text-text-muted">{totalAlerts} kejadian</span>
+          <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
+            {t('platformDashboardPage.anomalies.title')}
+          </span>
+          <span className="font-mono text-[10px] text-text-muted">
+            {t('platformDashboardPage.anomalies.count', { count: totalAlerts })}
+          </span>
         </div>
-        {anomalies.isLoading && <p className="p-4 font-mono text-sm text-text-muted">Memuat...</p>}
-        {anomalies.isError && <p className="p-4 font-mono text-sm text-destructive">Gagal memuat anomali.</p>}
+        {anomalies.isLoading && <p className="p-4 font-mono text-sm text-text-muted">{t('platformDashboardPage.loading')}</p>}
+        {anomalies.isError && (
+          <p className="p-4 font-mono text-sm text-destructive">{t('platformDashboardPage.anomalies.error')}</p>
+        )}
         {anomalies.data && totalAlerts === 0 && (
-          <p className="p-4 font-mono text-[11px] text-text-muted">Tidak ada anomali terdeteksi saat ini.</p>
+          <p className="p-4 font-mono text-[11px] text-text-muted">{t('platformDashboardPage.anomalies.empty')}</p>
         )}
         {pagedAnomalyRows.map((row) => (
           <div key={row.id} className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-0">
@@ -210,10 +247,10 @@ function PlatformDashboardPageContent() {
               disabled={currentAnomalyPage <= 1}
               className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
             >
-              ← Sebelumnya
+              {t('platformDashboardPage.pagination.previous')}
             </button>
             <span className="flex items-center gap-1.5 font-mono text-[10px] text-text-dim">
-              Halaman
+              {t('platformDashboardPage.pagination.pageLabel')}
               <input
                 key={currentAnomalyPage}
                 ref={anomalyPageInputRef}
@@ -225,7 +262,7 @@ function PlatformDashboardPageContent() {
                   if (e.key === 'Enter') goToAnomalyPage(e.currentTarget.value)
                 }}
                 className="w-11 border border-line-strong bg-input-bg px-1 py-0.5 text-center font-mono text-[10px] text-text-body focus-visible:border-signal focus-visible:outline-none"
-                aria-label="Nomor halaman"
+                aria-label={t('platformDashboardPage.pagination.pageNumberAriaLabel')}
               />
               / {totalAnomalyPages}
               <button
@@ -233,7 +270,7 @@ function PlatformDashboardPageContent() {
                 onClick={() => goToAnomalyPage(anomalyPageInputRef.current?.value ?? '')}
                 className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-text-muted"
               >
-                Ke
+                {t('platformDashboardPage.pagination.go')}
               </button>
             </span>
             <button
@@ -242,7 +279,7 @@ function PlatformDashboardPageContent() {
               disabled={currentAnomalyPage >= totalAnomalyPages}
               className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
             >
-              Berikutnya →
+              {t('platformDashboardPage.pagination.next')}
             </button>
           </div>
         )}

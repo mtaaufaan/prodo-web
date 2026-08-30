@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,7 @@ const IP_ALLOWLIST_PAGE_SIZE = 10
 // PlatformGroupAdminPage yang sudah ada di codebase (token pa-*, shadcn
 // Card/Button/Input), bukan meniru layar desain yang tidak ada.
 function PlatformSecuritySettingsPageContent() {
+  const { t } = useTranslation()
   const settings = useSecuritySettings()
   const updateSessionTimeout = useUpdateSessionTimeout()
   const updateAllowlistEnabled = useUpdateIPAllowlistEnabled()
@@ -87,19 +89,18 @@ function PlatformSecuritySettingsPageContent() {
     <div className="space-y-6 p-6">
       <Card className="border-pa-border shadow-none">
         <CardHeader>
-          <CardTitle className="font-extrabold tracking-tight">Session Timeout Platform Admin</CardTitle>
+          <CardTitle className="font-extrabold tracking-tight">{t('platformSecuritySettingsPage.sessionTimeout.title')}</CardTitle>
           <CardDescription>
-            Berlaku hanya untuk akun Anda sendiri. Sesi tidak diperpanjang oleh aktivitas (non-sliding) --
-            berakhir tepat pada waktu tetap sejak login. Minimum {MIN_SESSION_TIMEOUT_MINUTES} menit.
+            {t('platformSecuritySettingsPage.sessionTimeout.description', { minutes: MIN_SESSION_TIMEOUT_MINUTES })}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {settings.isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
-          {settings.isError && <p className="text-sm text-destructive">Gagal memuat pengaturan keamanan.</p>}
+          {settings.isLoading && <p className="text-sm text-text-muted">{t('platformSecuritySettingsPage.sessionTimeout.loading')}</p>}
+          {settings.isError && <p className="text-sm text-destructive">{t('platformSecuritySettingsPage.sessionTimeout.loadError')}</p>}
           {settings.data && (
             <div className="flex items-end gap-4">
               <div className="space-y-2">
-                <Label htmlFor="session-timeout-minutes">Idle timeout (menit)</Label>
+                <Label htmlFor="session-timeout-minutes">{t('platformSecuritySettingsPage.sessionTimeout.idleTimeoutLabel')}</Label>
                 <Input
                   id="session-timeout-minutes"
                   type="number"
@@ -112,7 +113,9 @@ function PlatformSecuritySettingsPageContent() {
                   className="w-32"
                 />
                 {minutesInvalid && (
-                  <p className="text-[11px] text-destructive">Minimal {MIN_SESSION_TIMEOUT_MINUTES} menit.</p>
+                  <p className="text-[11px] text-destructive">
+                    {t('platformSecuritySettingsPage.sessionTimeout.minValidation', { minutes: MIN_SESSION_TIMEOUT_MINUTES })}
+                  </p>
                 )}
               </div>
               <Button
@@ -121,9 +124,9 @@ function PlatformSecuritySettingsPageContent() {
                 disabled={updateSessionTimeout.isPending || minutesInvalid || minutesInput === ''}
                 onClick={handleSaveTimeout}
               >
-                {updateSessionTimeout.isPending ? 'Menyimpan...' : 'Simpan'}
+                {updateSessionTimeout.isPending ? t('platformSecuritySettingsPage.sessionTimeout.saving') : t('platformSecuritySettingsPage.sessionTimeout.save')}
               </Button>
-              {timeoutSaved && <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-mint">Tersimpan</span>}
+              {timeoutSaved && <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-mint">{t('platformSecuritySettingsPage.sessionTimeout.saved')}</span>}
             </div>
           )}
           {timeoutErrorMessage && <p className="mt-2 text-[11px] text-destructive">{timeoutErrorMessage}</p>}
@@ -132,10 +135,9 @@ function PlatformSecuritySettingsPageContent() {
 
       <Card className="border-pa-border shadow-none">
         <CardHeader>
-          <CardTitle className="font-extrabold tracking-tight">IP Allowlist</CardTitle>
+          <CardTitle className="font-extrabold tracking-tight">{t('platformSecuritySettingsPage.ipAllowlist.title')}</CardTitle>
           <CardDescription>
-            Berlaku untuk SEMUA akun Platform Admin. Kosong atau nonaktif berarti login diperbolehkan dari IP
-            mana pun.
+            {t('platformSecuritySettingsPage.ipAllowlist.description')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -146,12 +148,12 @@ function PlatformSecuritySettingsPageContent() {
               disabled={updateAllowlistEnabled.isPending || !settings.data}
               onChange={(e) => updateAllowlistEnabled.mutate(e.target.checked)}
             />
-            Aktifkan IP Allowlist
+            {t('platformSecuritySettingsPage.ipAllowlist.enableCheckbox')}
           </label>
 
           <form onSubmit={form.handleSubmit(handleAddEntry)} className="grid gap-4 sm:grid-cols-[1fr_auto]">
             <div className="space-y-2">
-              <Label htmlFor="cidr">CIDR (mis. 10.0.0.0/24)</Label>
+              <Label htmlFor="cidr">{t('platformSecuritySettingsPage.ipAllowlist.cidrLabel')}</Label>
               <Input id="cidr" {...form.register('cidr')} />
               {form.formState.errors.cidr && (
                 <p className="text-[11px] text-destructive">{form.formState.errors.cidr.message}</p>
@@ -164,7 +166,7 @@ function PlatformSecuritySettingsPageContent() {
                 className="border-line-strong font-mono text-[11px] uppercase tracking-[0.08em]"
                 disabled={addEntry.isPending}
               >
-                {addEntry.isPending ? 'Menambah...' : 'Tambah'}
+                {addEntry.isPending ? t('platformSecuritySettingsPage.ipAllowlist.adding') : t('platformSecuritySettingsPage.ipAllowlist.add')}
               </Button>
             </div>
           </form>
@@ -172,13 +174,13 @@ function PlatformSecuritySettingsPageContent() {
 
           <div className="mt-6">
             {allowlistEntries.length === 0 && (
-              <p className="text-sm text-text-muted">Belum ada entry -- login tidak dibatasi IP.</p>
+              <p className="text-sm text-text-muted">{t('platformSecuritySettingsPage.ipAllowlist.empty')}</p>
             )}
             {allowlistEntries.length > 0 && (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-line text-left">
-                    <th className="py-2 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">CIDR</th>
+                    <th className="py-2 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">{t('platformSecuritySettingsPage.ipAllowlist.table.headers.cidr')}</th>
                     <th className="py-2 pr-4"></th>
                   </tr>
                 </thead>
@@ -194,7 +196,9 @@ function PlatformSecuritySettingsPageContent() {
                           disabled={deleteEntry.isPending && deleteEntry.variables === entry.id}
                           onClick={() => deleteEntry.mutate(entry.id)}
                         >
-                          {deleteEntry.isPending && deleteEntry.variables === entry.id ? 'Menghapus...' : 'Hapus'}
+                          {deleteEntry.isPending && deleteEntry.variables === entry.id
+                            ? t('platformSecuritySettingsPage.ipAllowlist.table.deleting')
+                            : t('platformSecuritySettingsPage.ipAllowlist.table.delete')}
                         </Button>
                       </td>
                     </tr>
@@ -210,10 +214,10 @@ function PlatformSecuritySettingsPageContent() {
                   disabled={currentPage <= 1}
                   className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
                 >
-                  ← Sebelumnya
+                  {t('platformSecuritySettingsPage.ipAllowlist.pagination.previous')}
                 </button>
                 <span className="flex items-center gap-1.5 font-mono text-[10px] text-text-dim">
-                  Halaman
+                  {t('platformSecuritySettingsPage.ipAllowlist.pagination.page')}
                   <input
                     key={currentPage}
                     ref={pageInputRef}
@@ -225,7 +229,7 @@ function PlatformSecuritySettingsPageContent() {
                       if (e.key === 'Enter') goToPage(e.currentTarget.value)
                     }}
                     className="w-11 border border-line-strong bg-input-bg px-1 py-0.5 text-center font-mono text-[10px] text-text-body focus-visible:border-signal focus-visible:outline-none"
-                    aria-label="Nomor halaman"
+                    aria-label={t('platformSecuritySettingsPage.ipAllowlist.pagination.pageNumberAriaLabel')}
                   />
                   / {totalPages}
                   <button
@@ -233,7 +237,7 @@ function PlatformSecuritySettingsPageContent() {
                     onClick={() => goToPage(pageInputRef.current?.value ?? '')}
                     className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-text-muted"
                   >
-                    Ke
+                    {t('platformSecuritySettingsPage.ipAllowlist.pagination.go')}
                   </button>
                 </span>
                 <button
@@ -242,7 +246,7 @@ function PlatformSecuritySettingsPageContent() {
                   disabled={currentPage >= totalPages}
                   className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
                 >
-                  Berikutnya →
+                  {t('platformSecuritySettingsPage.ipAllowlist.pagination.next')}
                 </button>
               </div>
             )}

@@ -1,10 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { formatAuditNarrative } from '@/features/platform-admin/auditNarrative'
 import { exportAuditLogsCSV } from '@/features/platform-admin/api'
 import { useAuditLogs } from '@/features/platform-admin/hooks'
 import type { PlatformAuditLogEntry } from '@/features/platform-admin/types'
+import { localeForLanguage } from '@/lib/utils'
 
 const paFieldFont = 'font-mono text-[12.5px]'
 const selectClassName = `flex h-9 w-full rounded-none border border-line bg-input-bg px-2.5 py-2 ${paFieldFont} text-text-body focus-visible:outline-none focus-visible:border-signal`
@@ -16,40 +18,47 @@ const selectClassName = `flex h-9 w-full rounded-none border border-line bg-inpu
 // scope 4 task S4P-20..23. Di sini kode aksi terstruktur (mis.
 // "tier.updated") ditampilkan apa adanya -- konsisten dengan seluruh
 // audit_logs yang sudah ada dan cocok untuk filter/export CSV.
-const ACTION_OPTIONS = [
-  { value: '', label: 'SEMUA AKSI' },
-  { value: 'user.invited', label: 'GA Diundang' },
-  { value: 'user.updated', label: 'GA Diperbarui' },
-  { value: 'user.suspended', label: 'GA Disuspend' },
-  { value: 'user.reactivated', label: 'GA Diaktifkan Kembali' },
-  { value: 'user.deleted', label: 'GA Dihapus' },
-  { value: 'user.activation_resent', label: 'Invitation Dikirim Ulang' },
-  { value: 'group.transferred', label: 'Grup Ditransfer' },
-  { value: 'group.contract_created', label: 'Kontrak Grup Dibuat' },
-  { value: 'group.contract_renewed', label: 'Kontrak Grup Diperpanjang' },
-  { value: 'tier.created', label: 'Tier Ditambahkan' },
-  { value: 'tier.updated', label: 'Tier Diperbarui' },
-  { value: 'tier.deactivated', label: 'Tier Dinonaktifkan' },
-  { value: 'tier.reactivated', label: 'Tier Diaktifkan Kembali' },
-  { value: 'tier.archived', label: 'Tier Di-archive' },
-  { value: 'tier.unarchived', label: 'Tier Dipulihkan' },
-  { value: 'tier.deleted', label: 'Tier Dihapus' },
-  {
-    value: 'platform_settings.session_timeout_changed',
-    label: 'Session Timeout Diubah',
-  },
-  { value: 'ip_allowlist.added', label: 'IP Allowlist Ditambahkan' },
-  { value: 'ip_allowlist.removed', label: 'IP Allowlist Dihapus' },
-  { value: 'platform_settings.ip_allowlist_enabled_changed', label: 'IP Allowlist Diaktifkan/Dinonaktifkan' },
-  { value: 'user.login', label: 'Login Platform Admin' },
-  { value: 'erasure.executed', label: 'Erasure Dieksekusi' },
-  { value: 'erasure.rejected', label: 'Erasure Ditolak' },
-  { value: 'user.mfa_reset', label: 'MFA Direset' },
-]
+function getActionOptions(t: (key: string) => string) {
+  return [
+    { value: '', label: t('platformAuditLogPage.actionOptions.all') },
+    { value: 'user.invited', label: t('platformAuditLogPage.actionOptions.userInvited') },
+    { value: 'user.updated', label: t('platformAuditLogPage.actionOptions.userUpdated') },
+    { value: 'user.suspended', label: t('platformAuditLogPage.actionOptions.userSuspended') },
+    { value: 'user.reactivated', label: t('platformAuditLogPage.actionOptions.userReactivated') },
+    { value: 'user.deleted', label: t('platformAuditLogPage.actionOptions.userDeleted') },
+    { value: 'user.activation_resent', label: t('platformAuditLogPage.actionOptions.userActivationResent') },
+    { value: 'group.transferred', label: t('platformAuditLogPage.actionOptions.groupTransferred') },
+    { value: 'group.contract_created', label: t('platformAuditLogPage.actionOptions.groupContractCreated') },
+    { value: 'group.contract_renewed', label: t('platformAuditLogPage.actionOptions.groupContractRenewed') },
+    { value: 'tier.created', label: t('platformAuditLogPage.actionOptions.tierCreated') },
+    { value: 'tier.updated', label: t('platformAuditLogPage.actionOptions.tierUpdated') },
+    { value: 'tier.deactivated', label: t('platformAuditLogPage.actionOptions.tierDeactivated') },
+    { value: 'tier.reactivated', label: t('platformAuditLogPage.actionOptions.tierReactivated') },
+    { value: 'tier.archived', label: t('platformAuditLogPage.actionOptions.tierArchived') },
+    { value: 'tier.unarchived', label: t('platformAuditLogPage.actionOptions.tierUnarchived') },
+    { value: 'tier.deleted', label: t('platformAuditLogPage.actionOptions.tierDeleted') },
+    {
+      value: 'platform_settings.session_timeout_changed',
+      label: t('platformAuditLogPage.actionOptions.sessionTimeoutChanged'),
+    },
+    { value: 'ip_allowlist.added', label: t('platformAuditLogPage.actionOptions.ipAllowlistAdded') },
+    { value: 'ip_allowlist.removed', label: t('platformAuditLogPage.actionOptions.ipAllowlistRemoved') },
+    {
+      value: 'platform_settings.ip_allowlist_enabled_changed',
+      label: t('platformAuditLogPage.actionOptions.ipAllowlistEnabledChanged'),
+    },
+    { value: 'user.login', label: t('platformAuditLogPage.actionOptions.userLogin') },
+    { value: 'erasure.executed', label: t('platformAuditLogPage.actionOptions.erasureExecuted') },
+    { value: 'erasure.rejected', label: t('platformAuditLogPage.actionOptions.erasureRejected') },
+    { value: 'user.mfa_reset', label: t('platformAuditLogPage.actionOptions.userMfaReset') },
+  ]
+}
 
 const AUDIT_LOG_PAGE_SIZE = 10
 
 function PlatformAuditLogPageContent() {
+  const { t } = useTranslation()
+  const actionOptions = useMemo(() => getActionOptions(t), [t])
   const [actionType, setActionType] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -104,7 +113,7 @@ function PlatformAuditLogPageContent() {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch {
-      setExportError('Gagal mengekspor CSV. Coba lagi.')
+      setExportError(t('platformAuditLogPage.exportError'))
     } finally {
       setExporting(false)
     }
@@ -115,9 +124,11 @@ function PlatformAuditLogPageContent() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
-            Jejak Audit Level Platform · Append-Only
+            {t('platformAuditLogPage.subtitle')}
           </div>
-          <div className="mt-1.5 text-base font-bold">{filteredEntries.length} kejadian ditampilkan</div>
+          <div className="mt-1.5 text-base font-bold">
+            {t('platformAuditLogPage.eventsShown', { count: filteredEntries.length })}
+          </div>
         </div>
         <button
           type="button"
@@ -125,13 +136,15 @@ function PlatformAuditLogPageContent() {
           disabled={exporting}
           className="inline-flex items-center gap-2 border border-pa-accent px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-pa-accent disabled:opacity-50"
         >
-          {exporting ? 'Mengekspor...' : '⬇ Export CSV'}
+          {exporting ? t('platformAuditLogPage.exporting') : t('platformAuditLogPage.exportCsv')}
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
         <div className="space-y-1.5">
-          <label className="block font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Jenis Aksi</label>
+          <label className="block font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
+            {t('platformAuditLogPage.filters.actionType')}
+          </label>
           <select
             className={selectClassName}
             value={actionType}
@@ -140,7 +153,7 @@ function PlatformAuditLogPageContent() {
               setPage(1)
             }}
           >
-            {ACTION_OPTIONS.map((o) => (
+            {actionOptions.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
@@ -148,10 +161,12 @@ function PlatformAuditLogPageContent() {
           </select>
         </div>
         <div className="space-y-1.5">
-          <label className="block font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Pelaku</label>
+          <label className="block font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
+            {t('platformAuditLogPage.filters.actor')}
+          </label>
           <input
             type="text"
-            placeholder="email atau nama"
+            placeholder={t('platformAuditLogPage.filters.actorPlaceholder')}
             className={selectClassName}
             value={actorQuery}
             onChange={(e) => {
@@ -161,7 +176,9 @@ function PlatformAuditLogPageContent() {
           />
         </div>
         <div className="space-y-1.5">
-          <label className="block font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Dari Tanggal</label>
+          <label className="block font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
+            {t('platformAuditLogPage.filters.fromDate')}
+          </label>
           <input
             type="date"
             className={selectClassName}
@@ -173,7 +190,9 @@ function PlatformAuditLogPageContent() {
           />
         </div>
         <div className="space-y-1.5">
-          <label className="block font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Sampai Tanggal</label>
+          <label className="block font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
+            {t('platformAuditLogPage.filters.toDate')}
+          </label>
           <input
             type="date"
             className={selectClassName}
@@ -187,15 +206,21 @@ function PlatformAuditLogPageContent() {
       </div>
 
       {exportError && <p className="font-mono text-[11px] text-destructive">{exportError}</p>}
-      {logs.isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
-      {logs.isError && <p className="font-mono text-sm text-destructive">Gagal memuat jejak audit.</p>}
+      {logs.isLoading && <p className="font-mono text-sm text-text-muted">{t('platformAuditLogPage.loading')}</p>}
+      {logs.isError && <p className="font-mono text-sm text-destructive">{t('platformAuditLogPage.loadError')}</p>}
 
       {logs.data && (
         <div className="overflow-x-auto border border-pa-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-pa-header text-left">
-                {['Waktu', 'Aksi', 'Entitas', 'Pelaku', 'Asal'].map((h) => (
+                {[
+                  t('platformAuditLogPage.table.headers.time'),
+                  t('platformAuditLogPage.table.headers.action'),
+                  t('platformAuditLogPage.table.headers.entity'),
+                  t('platformAuditLogPage.table.headers.actor'),
+                  t('platformAuditLogPage.table.headers.origin'),
+                ].map((h) => (
                   <th key={h} className="py-2.5 pl-3.5 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
                     {h}
                   </th>
@@ -209,7 +234,7 @@ function PlatformAuditLogPageContent() {
             </tbody>
           </table>
           {filteredEntries.length === 0 && (
-            <p className="p-4 font-mono text-[11px] text-text-muted">Tidak ada kejadian yang cocok dengan filter.</p>
+            <p className="p-4 font-mono text-[11px] text-text-muted">{t('platformAuditLogPage.emptyState')}</p>
           )}
           {filteredEntries.length > AUDIT_LOG_PAGE_SIZE && (
             <div className="flex items-center justify-between border-t border-pa-border px-4 py-2.5">
@@ -219,10 +244,10 @@ function PlatformAuditLogPageContent() {
                 disabled={currentPage <= 1}
                 className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
               >
-                ← Sebelumnya
+                ← {t('platformAuditLogPage.pagination.previous')}
               </button>
               <span className="flex items-center gap-1.5 font-mono text-[10px] text-text-dim">
-                Halaman
+                {t('platformAuditLogPage.pagination.page')}
                 <input
                   key={currentPage}
                   ref={pageInputRef}
@@ -234,15 +259,15 @@ function PlatformAuditLogPageContent() {
                     if (e.key === 'Enter') goToPage(e.currentTarget.value)
                   }}
                   className="w-11 border border-line-strong bg-input-bg px-1 py-0.5 text-center font-mono text-[10px] text-text-body focus-visible:border-signal focus-visible:outline-none"
-                  aria-label="Nomor halaman"
+                  aria-label={t('platformAuditLogPage.pagination.pageNumberAriaLabel')}
                 />
-                / {totalPages} · {filteredEntries.length} data
+                / {totalPages} · {t('platformAuditLogPage.pagination.dataCount', { count: filteredEntries.length })}
                 <button
                   type="button"
                   onClick={() => goToPage(pageInputRef.current?.value ?? '')}
                   className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-text-muted"
                 >
-                  Ke
+                  {t('platformAuditLogPage.pagination.go')}
                 </button>
               </span>
               <button
@@ -251,23 +276,21 @@ function PlatformAuditLogPageContent() {
                 disabled={currentPage >= totalPages}
                 className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
               >
-                Berikutnya →
+                {t('platformAuditLogPage.pagination.next')} →
               </button>
             </div>
           )}
         </div>
       )}
 
-      <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
-        Jejak audit level platform bersifat append-only: perubahan tier, registrasi dan suspend Group Admin, transfer grup,
-        pengaturan keamanan, dan login Platform Admin. Record tidak dapat diubah atau dihapus.
-      </p>
+      <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">{t('platformAuditLogPage.footer')}</p>
     </div>
   )
 }
 
 function AuditLogRow({ entry }: { entry: PlatformAuditLogEntry }) {
-  const time = new Date(entry.logged_at).toLocaleString('id-ID', {
+  const { t, i18n } = useTranslation()
+  const time = new Date(entry.logged_at).toLocaleString(localeForLanguage(i18n.language), {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -278,7 +301,7 @@ function AuditLogRow({ entry }: { entry: PlatformAuditLogEntry }) {
     <tr className="border-b border-line last:border-0">
       <td className="whitespace-nowrap py-2.5 pl-3.5 pr-4 font-mono text-[10.5px] text-text-dim">{time}</td>
       <td className="py-2.5 pr-4 text-[12.5px] text-text-body">
-        {formatAuditNarrative(entry)}
+        {formatAuditNarrative(entry, t)}
         <div className="mt-0.5 font-mono text-[9px] text-text-dim">{entry.action}</div>
       </td>
       <td className="py-2.5 pr-4 font-mono text-[10.5px] text-text-muted">

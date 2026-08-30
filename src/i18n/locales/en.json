@@ -5,7 +5,7 @@
   "welcome": "Welcome to PRODO",
   "platformAdminLayout": {
     "title": "Platform Admin Console",
-    "description": "Cross-organization: manage Group Admins, service tiers & global quota, right to erasure, and platform audit trail. No access to any organization's content.",
+    "description": "Cross-organization: manage Group Admins, global tiers & quotas, right to erasure, and the platform audit trail. No access to any organization's content.",
     "scope": "SCOPE",
     "scopeValue": "PRODO PLATFORM",
     "signOut": "SIGN OUT",
@@ -13,12 +13,457 @@
     "nav": {
       "groupAdmins": "Manage Group Admins",
       "groupDirectory": "Group Directory",
-      "tiers": "Tier & Global Quota",
+      "tiers": "Global Tiers & Quotas",
       "erasure": "Right to Erasure",
       "auditTrail": "Platform Audit Trail",
       "dashboard": "Health Dashboard",
       "securitySettings": "Security Settings",
-      "adminAccounts": "Manage Platform Admins"
+      "adminAccounts": "Manage Platform Admin Accounts"
+    }
+  },
+  "auditNarrative": {
+    "unknownTarget": "unknown target",
+    "roles": { "platformAdmin": "Platform Admin", "groupAdmin": "Group Admin" },
+    "userInvited": "Invited a new {{role}} — {{target}}.",
+    "userUpdated": "Updated Group Admin {{target}}'s data.",
+    "userSuspended": "Suspended {{role}} account {{target}}.",
+    "userReactivated": "Reactivated {{role}} account {{target}}.",
+    "userMfaReset": "Reset MFA for {{role}} account {{target}} — must be set up again on next login.",
+    "userDeleted": "Permanently deleted Group Admin account {{target}}.",
+    "userActivationResent": "Resent the activation link to Group Admin {{target}}.",
+    "userLogin": "Logged in successfully (password + MFA verification).",
+    "groupTransferred": "Transferred group management from {{target}} to another Group Admin.",
+    "groupContractCreated": "Created the initial contract for {{target}}'s group.",
+    "groupContractRenewed": "Renewed the contract for {{target}}'s group.",
+    "tierCreated": "Added new tier {{target}} to the catalog.",
+    "tierUpdated": "Updated tier {{target}}'s configuration.",
+    "tierStatusChanged": "Changed tier {{target}}'s status from {{before}} to {{after}}.",
+    "tierDeactivated": "Deactivated tier {{target}}.",
+    "tierReactivated": "Reactivated tier {{target}}.",
+    "tierArchiveStatusChanged": "Changed tier {{target}}'s archive status from {{before}} to {{after}}.",
+    "tierArchived": "Archived tier {{target}}.",
+    "tierUnarchived": "Restored tier {{target}} from the archive.",
+    "tierDeleted": "Permanently deleted tier {{target}} from the catalog.",
+    "labels": { "active": "active", "inactive": "inactive", "archived": "archived", "notArchived": "not archived" },
+    "sessionTimeoutChanged": "Changed the session idle timeout from {{before}} to {{after}}.",
+    "sessionTimeoutChangedGeneric": "Changed the session idle timeout for own account.",
+    "sessionTimeoutDefaultGlobal": "the global default",
+    "sessionTimeoutMinutes_one": "{{count}} minute",
+    "sessionTimeoutMinutes_other": "{{count}} minutes",
+    "ipAllowlistEnabledChanged": "Changed IP Allowlist enforcement from {{before}} to {{after}} (applies to all Platform Admin accounts).",
+    "ipAllowlistEnabledChangedGeneric": "Changed IP Allowlist enforcement on/off (applies to all Platform Admin accounts).",
+    "ipAllowlistAdded": "Added CIDR {{cidr}} to the allowed IP list (applies to all Platform Admin accounts).",
+    "ipAllowlistAddedGeneric": "Added a new entry to the allowed IP list (applies to all Platform Admin accounts).",
+    "ipAllowlistRemoved": "Removed CIDR {{cidr}} from the allowed IP list (applies to all Platform Admin accounts).",
+    "ipAllowlistRemovedGeneric": "Removed an entry from the allowed IP list (applies to all Platform Admin accounts).",
+    "erasureExecuted": "Executed Right to Erasure for {{target}} (pseudonymization, session revoke, MFA removal).",
+    "erasureRejected": "Rejected the Right to Erasure request for {{target}}.",
+    "genericFallback": "Performed action \"{{action}}\" on {{entityType}}."
+  },
+  "platformDashboardPage": {
+    "eyebrow": "Platform Health · Realtime",
+    "subtitle": "Overview across all Group Admins and organizations",
+    "loading": "Loading...",
+    "errorMetrics": "Failed to load health metrics.",
+    "metrics": {
+      "activeGroupAdmins": "Active Group Admins",
+      "activeOrganizations": "Active Organizations",
+      "totalStorageUsed": "Total Storage Used",
+      "tierDistribution": "Tier Distribution",
+      "noGroups": "No groups yet."
+    },
+    "periodPicker": { "days": "{{count}} DAYS" },
+    "trends": { "loading": "Loading trends...", "error": "Failed to load trends." },
+    "anomalies": {
+      "title": "Anomaly Alerts",
+      "count": "{{count}} events",
+      "error": "Failed to load anomalies.",
+      "empty": "No anomalies detected right now.",
+      "badgeStorageCritical": "Storage · Critical",
+      "badgeStorageWarning": "Storage · Warning",
+      "badgeContract": "Contract",
+      "groupLabel": "Group",
+      "storageUsage": "is using {{used}} GB of its {{quota}} GB quota ({{pct}}%).",
+      "contractExpiresIn": "expires in {{days}} days.",
+      "contractExpiredAgo": "expired {{days}} days ago."
+    },
+    "pagination": {
+      "previous": "← Previous",
+      "next": "Next →",
+      "pageLabel": "Page",
+      "go": "Go",
+      "pageNumberAriaLabel": "Page number"
+    }
+  },
+  "trendLineChart": {
+    "title": "New GA Registrations & Organization Activations",
+    "newGa": "NEW GA",
+    "newOrg": "NEW ORG"
+  },
+  "platformGroupAdminPage": {
+    "metrics": {
+      "totalGroupAdmins": { "label": "Total Group Admins", "sub": "{{active}} active · {{inactive}} inactive" },
+      "nearQuota": { "label": "Near Quota", "sub": "≥80% of tier limit" }
+    },
+    "addButton": "Add Group Admin",
+    "loading": "Loading...",
+    "error": "Failed to load the Group Admin list.",
+    "empty": "No Group Admins yet.",
+    "table": {
+      "headers": {
+        "groupAdmin": "Group Admin",
+        "tier": "Tier",
+        "remainingOrg": "Orgs Left",
+        "remainingQuota": "Quota Left",
+        "remainingMembers": "Members Left",
+        "contractEnd": "Contract End",
+        "registeredDate": "Registered",
+        "status": "Status"
+      },
+      "units": { "org": "{{count}} org" }
+    },
+    "pagination": { "previous": "Previous", "next": "Next", "page": "Page", "go": "Go", "pageInputAriaLabel": "Page number" },
+    "actions": { "view": "View", "edit": "Edit" },
+    "status": { "active": "ACTIVE", "suspended": "SUSPENDED", "inactive": "INACTIVE" }
+  },
+  "tierDistributionChart": { "title": "Tier Distribution", "tooltipUnit": "{{count}} GA" },
+  "platformAdminAccountsPage": {
+    "eyebrow": "Manage Platform Admin Accounts",
+    "accountsCount": "{{count}} accounts recorded",
+    "actions": { "addAdmin": "Add Platform Admin", "activate": "ACTIVATE", "deactivate": "DEACTIVATE", "resetMfa": "RESET MFA" },
+    "status": { "inactive": "✕ INACTIVE", "pendingActivation": "PENDING ACTIVATION", "active": "✓ ACTIVE" },
+    "you": "(YOU)",
+    "loading": "Loading...",
+    "loadError": "Failed to load the Platform Admin list.",
+    "actionError": "Action failed, please try again.",
+    "emptyState": "No Platform Admin accounts yet.",
+    "table": { "headers": { "name": "Name", "status": "Status", "lastLogin": "Last Login", "actions": "Actions" } },
+    "pagination": { "previous": "Previous", "next": "Next", "page": "Page", "go": "Go", "pageNumberAriaLabel": "Page number" },
+    "modal": {
+      "title": "Add Platform Admin",
+      "emailLabel": "Email",
+      "nameLabel": "Name",
+      "cancel": "Cancel",
+      "submitting": "Creating...",
+      "submit": "Send Invitation"
+    }
+  },
+  "platformSecuritySettingsPage": {
+    "sessionTimeout": {
+      "title": "Platform Admin Session Timeout",
+      "description": "Applies only to your own account. The session does not extend with activity (non-sliding) -- it expires at a fixed time from login. Minimum {{minutes}} minutes.",
+      "loading": "Loading...",
+      "loadError": "Failed to load security settings.",
+      "idleTimeoutLabel": "Idle timeout (minutes)",
+      "minValidation": "Minimum {{minutes}} minutes.",
+      "save": "Save",
+      "saving": "Saving...",
+      "saved": "Saved"
+    },
+    "ipAllowlist": {
+      "title": "IP Allowlist",
+      "description": "Applies to ALL Platform Admin accounts. Empty or disabled means login is allowed from any IP.",
+      "enableCheckbox": "Enable IP Allowlist",
+      "cidrLabel": "CIDR (e.g. 10.0.0.0/24)",
+      "add": "Add",
+      "adding": "Adding...",
+      "empty": "No entries yet -- login is not restricted by IP.",
+      "table": { "headers": { "cidr": "CIDR" }, "delete": "Delete", "deleting": "Deleting..." },
+      "pagination": {
+        "previous": "← Previous",
+        "next": "Next →",
+        "page": "Page",
+        "go": "Go",
+        "pageNumberAriaLabel": "Page number"
+      }
+    }
+  },
+  "platformTiersPage": {
+    "eyebrow": "Tier Catalog · Set by Platform Admin",
+    "summaryShown": "{{count}} tier(s) shown — storage caps, org & member limits, retention range",
+    "summaryActive": "{{count}} active tier(s) — storage caps, org & member limits, retention range",
+    "showArchived": "Show Archived",
+    "addTierButton": "+ Add Tier",
+    "close": "Close",
+    "loading": "Loading...",
+    "loadError": "Failed to load the tier catalog.",
+    "table": {
+      "headers": {
+        "tier": "Tier",
+        "quota": "Global Quota",
+        "maxOrg": "Max Orgs",
+        "maxMembers": "Max Members",
+        "retention": "Retention Min–Max",
+        "webhookRate": "Webhook Rate",
+        "sso": "SSO",
+        "actions": "Actions"
+      }
+    },
+    "noticeDeactivated": "Tier {{name}} deactivated.",
+    "noticeReactivated": "Tier {{name}} reactivated.",
+    "noticeArchived": "Tier {{name}} archived.",
+    "noticeUnarchived": "Tier {{name}} restored from archive.",
+    "noticeCreated": "Tier {{name}} added to the catalog and is now available when registering a Group Admin.",
+    "noticeUpdated": "Tier {{name}} components updated — applies to every Group Admin on this tier.",
+    "noticeDeleted": "Tier {{name}} deleted from the catalog.",
+    "legend": {
+      "quotaLabel": "GLOBAL QUOTA",
+      "quotaText": "= storage cap for a single group, not per organization. The Group Admin splits this cap across their orgs and cannot exceed it.",
+      "retentionLabel": "RETENTION MIN–MAX",
+      "retentionText": "= how long operational data is kept after an organization is deactivated. The Group Admin picks a value within this range per organization.",
+      "webhookSsoLabel": "WEBHOOK RATE & SSO",
+      "webhookSsoText": "= outbound event limit per minute per organization and SSO availability. Changes to tier components apply to every Group Admin on that tier."
+    },
+    "deleteDialog": {
+      "title": "Delete Tier from Catalog",
+      "confirmPrefix": "Delete tier",
+      "confirmSuffix": "from the catalog?",
+      "warning": "A deleted tier can no longer be selected when registering a new Group Admin. This action cannot be undone.",
+      "confirmButton": "Delete Tier",
+      "confirmButtonPending": "Deleting..."
+    },
+    "row": {
+      "customTier": "CUSTOM TIER",
+      "standardTier": "STANDARD TIER",
+      "deactivatedTag": "INACTIVE",
+      "archivedTag": "ARCHIVED",
+      "orgCount": "{{count}} org",
+      "retentionDays": "{{min}}–{{max}} days",
+      "webhookPerMinute": "{{rate}} /min",
+      "ssoActive": "ACTIVE",
+      "ssoInactive": "NO",
+      "actionManage": "Manage",
+      "actionActivate": "Activate",
+      "actionDeactivate": "Deactivate",
+      "actionUnarchive": "Restore",
+      "actionArchive": "Archive",
+      "actionDelete": "Delete"
+    },
+    "form": {
+      "addTitle": "Add Tier",
+      "editTitle": "Manage Tier Components — {{name}}",
+      "nameLabel": "Tier Name",
+      "namePlaceholder": "e.g. GOLD",
+      "storageLabel": "Global Quota (GB)",
+      "maxOrgLabel": "Max Organizations",
+      "maxMembersLabel": "Max Members",
+      "minRetentionLabel": "Min Retention (Days)",
+      "maxRetentionLabel": "Max Retention (Days)",
+      "webhookRateLabel": "Webhook Rate (/min)",
+      "ssoLabel": "Single Sign-On (SAML / OIDC)",
+      "ssoOptionUnavailable": "NOT AVAILABLE",
+      "ssoOptionActive": "ACTIVE",
+      "impactWarning": "⚠ IMPACT — Tier cap is dropping from {{oldValue}} GB to {{newValue}} GB. Group Admins on this tier already allocated above {{newValue}} GB will be marked over-allocated and must trim their organizations' allocations.",
+      "footerNote": "Changes apply to every Group Admin on this tier.",
+      "submitAdd": "Add Tier",
+      "submitEdit": "Save Changes",
+      "savingButton": "Saving..."
+    }
+  },
+  "erasureRequestsPage": {
+    "eyebrow": "Right to Erasure · UU PDP Article 43",
+    "requestCount": "{{count}} requests recorded",
+    "loading": "Loading...",
+    "loadError": "Failed to load the erasure queue.",
+    "genericError": "Failed to process the request. Please try again.",
+    "table": {
+      "headers": {
+        "subject": "Data Subject",
+        "organization": "Organization",
+        "requestedBy": "Requested By",
+        "requestedAt": "Request Date",
+        "actions": "Actions"
+      }
+    },
+    "status": { "done": "DONE", "rejected": "CANCELLED" },
+    "processedLabel": { "rejected": "Cancelled", "executed": "Executed" },
+    "actions": { "execute": "EXECUTE", "reject": "CANCEL" },
+    "emptyState": "No erasure requests yet.",
+    "footerNote": "Execution = pseudonymization of account data (identity → anonymous token) + session revocation + MFA removal. Organization activity records remain preserved."
+  },
+  "erasureConfirmModal": {
+    "step1": {
+      "titleExecute": "Confirm Right to Erasure",
+      "titleReject": "Cancel Erasure Request",
+      "promptExecute": "Execute data erasure for",
+      "promptReject": "Cancel the data erasure request for",
+      "warningExecute": "This action pseudonymizes the account data (identity → anonymous token), revokes all active sessions, and removes MFA. This cannot be undone.",
+      "warningReject": "The request will be rejected and will not be processed. The requester will be notified. This action is recorded in the audit trail."
+    },
+    "step2": { "confirmationInputLabel": "Type \"{{phrase}}\" to continue" },
+    "buttons": { "cancel": "Exit", "processing": "Processing...", "confirmExecute": "Yes, Execute", "confirmReject": "Yes, Cancel" }
+  },
+  "platformLoginPage": {
+    "header": {
+      "eyebrow": "Platform Admin — Restricted Access",
+      "title": "PRODO Platform Console",
+      "description": "Cross-organization access. No task, workspace, or project data is shown here. MFA required."
+    },
+    "card": { "brandLabel": "PRODO PLATFORM ADMIN" },
+    "step1": {
+      "stepLabel": "STEP 1 / 2",
+      "title": "Platform Admin Identity",
+      "emailLabel": "PLATFORM EMAIL",
+      "emailPlaceholder": "admin@prodo-platform.io",
+      "passwordLabel": "PASSWORD",
+      "passwordPlaceholder": "••••••••",
+      "submitButton": "CONTINUE TO MFA VERIFICATION →",
+      "submitButtonLoading": "PROCESSING...",
+      "ssoNote": "SSO is not available for Platform Admin accounts — credentials are managed directly by the PRODO operations team. Login attempts are recorded in the Platform Audit Trail."
+    },
+    "errors": { "credentialsRequired": "Email and password are required." },
+    "mfaSetup": {
+      "stepLabel": "STEP 2 / 2 · REQUIRED",
+      "title": "Set Up Multi-Factor Authentication (First Login)",
+      "description": "This account has not set up MFA yet. Scan the QR code with your authenticator app, then enter the 6-digit code.",
+      "qrAlt": "MFA setup QR code",
+      "manualKey": "Manual key: {{secret}}",
+      "submitButton": "ENABLE MFA & SIGN IN",
+      "submitButtonLoading": "VERIFYING..."
+    },
+    "otpPlaceholder": "000000",
+    "mfaDisableNote": "MFA cannot be disabled for Platform Admin accounts.",
+    "backupCodes": {
+      "title": "Save Backup Codes",
+      "description": "Ten single-use codes for signing in if your authenticator device is lost. These codes will NOT be shown again.",
+      "ackLabel": "I have saved my backup codes somewhere safe.",
+      "continueButton": "CONTINUE"
+    },
+    "verifyOtp": {
+      "stepLabel": "STEP 2 / 2 · REQUIRED",
+      "title": "Multi-Factor Verification",
+      "description": "Enter the 6-digit code from your authenticator app.",
+      "error": "Incorrect or expired code. Please try again.",
+      "submitButton": "VERIFY & SIGN IN",
+      "submitButtonLoading": "VERIFYING...",
+      "backLink": "← BACK"
+    },
+    "success": {
+      "title": "Platform Console access granted",
+      "sessionTimeout": "Session timeout: 10 min idle · sliding disabled",
+      "role": "ROLE · PLATFORM ADMIN",
+      "scope": "SCOPE · PLATFORM METADATA ONLY — NO ORGANIZATION CONTENT ACCESS",
+      "mfaVerified": "MFA · VERIFIED",
+      "continueButton": "ENTER PLATFORM CONSOLE →"
+    },
+    "footer": { "notAdmin": "NOT A PLATFORM ADMIN?", "regularLoginLink": "USE THE REGULAR LOGIN PAGE →" }
+  },
+  "platformAuditLogPage": {
+    "subtitle": "Platform-Level Audit Trail · Append-Only",
+    "eventsShown": "{{count}} events shown",
+    "exporting": "Exporting...",
+    "exportCsv": "⬇ Export CSV",
+    "exportError": "Failed to export CSV. Please try again.",
+    "loading": "Loading...",
+    "loadError": "Failed to load audit trail.",
+    "emptyState": "No events match the current filters.",
+    "footer": "The platform-level audit trail is append-only: tier changes, Group Admin registration and suspension, group transfers, security settings, and Platform Admin logins. Records cannot be modified or deleted.",
+    "filters": {
+      "actionType": "Action Type",
+      "actor": "Actor",
+      "actorPlaceholder": "email or name",
+      "fromDate": "From Date",
+      "toDate": "To Date"
+    },
+    "table": { "headers": { "time": "Time", "action": "Action", "entity": "Entity", "actor": "Actor", "origin": "Origin" } },
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "page": "Page",
+      "go": "Go",
+      "dataCount": "{{count}} records",
+      "pageNumberAriaLabel": "Page number"
+    },
+    "actionOptions": {
+      "all": "ALL ACTIONS",
+      "userInvited": "GA Invited",
+      "userUpdated": "GA Updated",
+      "userSuspended": "GA Suspended",
+      "userReactivated": "GA Reactivated",
+      "userDeleted": "GA Deleted",
+      "userActivationResent": "Invitation Resent",
+      "groupTransferred": "Group Transferred",
+      "groupContractCreated": "Group Contract Created",
+      "groupContractRenewed": "Group Contract Renewed",
+      "tierCreated": "Tier Added",
+      "tierUpdated": "Tier Updated",
+      "tierDeactivated": "Tier Deactivated",
+      "tierReactivated": "Tier Reactivated",
+      "tierArchived": "Tier Archived",
+      "tierUnarchived": "Tier Unarchived",
+      "tierDeleted": "Tier Deleted",
+      "sessionTimeoutChanged": "Session Timeout Changed",
+      "ipAllowlistAdded": "IP Allowlist Added",
+      "ipAllowlistRemoved": "IP Allowlist Removed",
+      "ipAllowlistEnabledChanged": "IP Allowlist Enabled/Disabled",
+      "userLogin": "Platform Admin Login",
+      "erasureExecuted": "Erasure Executed",
+      "erasureRejected": "Erasure Rejected",
+      "userMfaReset": "MFA Reset"
+    }
+  },
+  "groupAdminFormModal": {
+    "title": { "add": "Add Group Admin", "edit": "Edit Group Admin", "view": "Group Admin Details" },
+    "loading": "Loading...",
+    "loadError": "Failed to load Group Admin details.",
+    "fields": {
+      "displayName": "Group Admin Name",
+      "groupName": "Company / Group Name",
+      "jobTitle": "PIC Job Title",
+      "address": "Company Address",
+      "email": "Email",
+      "emailImmutableHint": "Email cannot be changed after the account is created.",
+      "phone": "Phone Number (PIC)",
+      "tier": "Tier",
+      "storageQuota": "Group Storage Quota (GB)",
+      "status": "Status"
+    },
+    "validation": {
+      "quotaBelowUsage": "Minimum allocation is {{usedGB}} GB — this group is already using {{usedGB}} GB. Lower the organization's allocation first."
+    },
+    "contract": {
+      "initialHeading": "Initial Contract (Optional)",
+      "startDate": "Start Date",
+      "subscriptionPeriod": { "label": "Subscription Period", "placeholder": "Select...", "monthly": "Monthly", "quarterly": "3 Months", "yearly": "Yearly" },
+      "invoiceNumber": "Invoice No.",
+      "heading": "Contract",
+      "renewButton": "Renew Contract",
+      "createButton": "Create Contract",
+      "startLabel": "Start: ",
+      "periodLabel": "Period: ",
+      "endLabel": "Ends: ",
+      "none": "No contract yet.",
+      "invoicePrefix": "Invoice: {{number}}"
+    },
+    "status": { "unchanged": "Unchanged", "active": "ACTIVE", "suspended": "SUSPENDED" },
+    "invitation": {
+      "heading": "Invitation Link",
+      "resent": "✓ Invitation link resent to the Group Admin's email.",
+      "prompt": "Resend the account activation invitation link.",
+      "sending": "Sending...",
+      "sendButton": "Send Invitation Link"
+    },
+    "footer": {
+      "quotaNote": "The global quota follows the tier allocation and cannot be changed manually -- the Group Admin distributes this allocation across their organizations."
+    },
+    "actions": { "adding": "Adding...", "add": "Add", "saving": "Saving...", "saveChanges": "Save Changes", "exit": "Exit", "cancel": "Cancel" },
+    "renewContract": { "save": "Save" },
+    "common": { "on": "ON", "off": "OFF" },
+    "tierFacts": {
+      "heading": "{{tier}} Tier Package (Auto)",
+      "retentionRange": "Retention Range",
+      "retentionRangeValue": "{{min}}–{{max}} days",
+      "webhookRate": "Webhook Rate · SSO",
+      "webhookRateValue": "{{rate}} events/min · SSO {{sso}}",
+      "orgCount": "Organization Count",
+      "globalQuota": "Global Quota (Total Group)",
+      "maxMembers": "Max Members"
+    },
+    "usage": {
+      "heading": "Current Usage",
+      "orgUsed": "Organizations Used",
+      "quotaUsed": "Global Quota Used",
+      "membersUsed": "Members Used"
     }
   }
 }

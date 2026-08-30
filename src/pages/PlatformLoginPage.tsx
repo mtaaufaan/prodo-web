@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiError } from '@/lib/api'
@@ -118,6 +119,8 @@ function ErrorBanner({ children }: { children: string }) {
 type Step = 'credentials' | 'enroll-mfa' | 'backup-codes' | 'verify-otp' | 'success'
 
 export default function PlatformLoginPage() {
+  const { t, i18n } = useTranslation()
+  const currentLang = i18n.language?.startsWith('en') ? 'en' : 'id'
   const navigate = useNavigate()
   const login = usePlatformLogin()
   const completeMfaSetup = useCompletePlatformMfaSetup()
@@ -138,7 +141,7 @@ export default function PlatformLoginPage() {
 
   const onSubmitCredentials = () => {
     if (!email.trim() || !password.trim()) {
-      setCredError('Email dan password wajib diisi.')
+      setCredError(t('platformLoginPage.errors.credentialsRequired'))
       return
     }
     setCredError(null)
@@ -205,13 +208,13 @@ export default function PlatformLoginPage() {
             marginBottom: 10,
           }}
         >
-          Platform Admin — Restricted Access
+          {t('platformLoginPage.header.eyebrow')}
         </div>
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', textTransform: 'uppercase' }}>
-          PRODO Platform Console
+          {t('platformLoginPage.header.title')}
         </h1>
         <p style={{ margin: '8px 0 0', fontSize: 13, color: C.dim, maxWidth: 560, lineHeight: 1.5 }}>
-          Akses lintas-organisasi. Tidak menampilkan data task/workspace/project manapun. MFA wajib.
+          {t('platformLoginPage.header.description')}
         </p>
       </div>
 
@@ -251,41 +254,55 @@ export default function PlatformLoginPage() {
               flex: 1,
             }}
           >
-            PRODO PLATFORM ADMIN
+            {t('platformLoginPage.card.brandLabel')}
           </span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9.5, letterSpacing: '0.08em', padding: '4px 8px', color: C.text, borderBottom: `1px solid ${C.accent}` }}>
-            ID
-          </span>
-          <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9.5, letterSpacing: '0.08em', padding: '4px 8px', color: C.dimmer }}>
-            EN
-          </span>
+          {(['id', 'en'] as const).map((lng) => (
+            <button
+              key={lng}
+              type="button"
+              onClick={() => i18n.changeLanguage(lng)}
+              style={{
+                fontFamily: "'IBM Plex Mono', monospace",
+                fontSize: 9.5,
+                letterSpacing: '0.08em',
+                padding: '4px 8px',
+                background: 'none',
+                border: 'none',
+                borderBottom: currentLang === lng ? `1px solid ${C.accent}` : 'none',
+                color: currentLang === lng ? C.text : C.dimmer,
+                cursor: 'pointer',
+              }}
+            >
+              {lng.toUpperCase()}
+            </button>
+          ))}
         </div>
 
         {step === 'credentials' && (
           <>
             <div>
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: C.dim, marginBottom: 4 }}>
-                STEP 1 / 2
+                {t('platformLoginPage.step1.stepLabel')}
               </div>
-              <div style={{ fontSize: 19, fontWeight: 700 }}>Identitas Platform Admin</div>
+              <div style={{ fontSize: 19, fontWeight: 700 }}>{t('platformLoginPage.step1.title')}</div>
             </div>
 
             {credError && <ErrorBanner>{credError}</ErrorBanner>}
 
             <div>
-              <label style={labelStyle}>EMAIL PLATFORM</label>
+              <label style={labelStyle}>{t('platformLoginPage.step1.emailLabel')}</label>
               <input
                 value={email}
                 onChange={(e) => {
                   setEmail(e.target.value)
                   setCredError(null)
                 }}
-                placeholder="admin@prodo-platform.io"
+                placeholder={t('platformLoginPage.step1.emailPlaceholder')}
                 style={inputStyle}
               />
             </div>
             <div>
-              <label style={labelStyle}>PASSWORD</label>
+              <label style={labelStyle}>{t('platformLoginPage.step1.passwordLabel')}</label>
               <input
                 value={password}
                 onChange={(e) => {
@@ -293,16 +310,15 @@ export default function PlatformLoginPage() {
                   setCredError(null)
                 }}
                 type="password"
-                placeholder="••••••••"
+                placeholder={t('platformLoginPage.step1.passwordPlaceholder')}
                 style={inputStyle}
               />
             </div>
             <button type="button" onClick={onSubmitCredentials} disabled={login.isPending} style={buttonStyle}>
-              {login.isPending ? 'MEMPROSES...' : 'LANJUT KE VERIFIKASI MFA →'}
+              {login.isPending ? t('platformLoginPage.step1.submitButtonLoading') : t('platformLoginPage.step1.submitButton')}
             </button>
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: C.faint, lineHeight: 1.7 }}>
-              SSO tidak tersedia untuk akun Platform Admin — kredensial dikelola langsung oleh tim operasional PRODO.
-              Percobaan login dicatat di Platform Audit Trail.
+              {t('platformLoginPage.step1.ssoNote')}
             </div>
           </>
         )}
@@ -311,26 +327,26 @@ export default function PlatformLoginPage() {
           <>
             <div>
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: C.dim, marginBottom: 4 }}>
-                STEP 2 / 2 · WAJIB
+                {t('platformLoginPage.mfaSetup.stepLabel')}
               </div>
-              <div style={{ fontSize: 19, fontWeight: 700 }}>Setup Multi-Faktor (Login Pertama)</div>
+              <div style={{ fontSize: 19, fontWeight: 700 }}>{t('platformLoginPage.mfaSetup.title')}</div>
               <p style={{ margin: '8px 0 0', fontSize: 12.5, lineHeight: 1.55, color: C.dim }}>
-                Akun ini belum pernah setup MFA. Pindai QR dengan authenticator app, lalu masukkan kode 6 digit.
+                {t('platformLoginPage.mfaSetup.description')}
               </p>
             </div>
             {enrollError && <ErrorBanner>{enrollError}</ErrorBanner>}
             <img
               src={enrollChallenge.qrUrl}
-              alt="QR code setup MFA"
+              alt={t('platformLoginPage.mfaSetup.qrAlt')}
               style={{ width: 132, height: 132, alignSelf: 'center', border: `1px solid ${C.inputBorder}` }}
             />
             <p style={{ textAlign: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, letterSpacing: '0.08em', color: C.dim, wordBreak: 'break-all' }}>
-              Kunci manual: {enrollChallenge.secret}
+              {t('platformLoginPage.mfaSetup.manualKey', { secret: enrollChallenge.secret })}
             </p>
             <input
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-              placeholder="000000"
+              placeholder={t('platformLoginPage.otpPlaceholder')}
               maxLength={6}
               style={{ ...inputStyle, fontSize: 24, letterSpacing: '0.4em', textAlign: 'center', padding: 14 }}
             />
@@ -340,10 +356,10 @@ export default function PlatformLoginPage() {
               disabled={completeMfaSetup.isPending || otpCode.length !== 6}
               style={buttonStyle}
             >
-              {completeMfaSetup.isPending ? 'MEMVERIFIKASI...' : 'AKTIFKAN MFA & MASUK'}
+              {completeMfaSetup.isPending ? t('platformLoginPage.mfaSetup.submitButtonLoading') : t('platformLoginPage.mfaSetup.submitButton')}
             </button>
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: C.faint, lineHeight: 1.7 }}>
-              MFA tidak dapat dinonaktifkan untuk akun Platform Admin.
+              {t('platformLoginPage.mfaDisableNote')}
             </div>
           </>
         )}
@@ -351,10 +367,9 @@ export default function PlatformLoginPage() {
         {step === 'backup-codes' && (
           <>
             <div>
-              <div style={{ fontSize: 19, fontWeight: 700 }}>Simpan Kode Cadangan</div>
+              <div style={{ fontSize: 19, fontWeight: 700 }}>{t('platformLoginPage.backupCodes.title')}</div>
               <p style={{ margin: '8px 0 0', fontSize: 12.5, lineHeight: 1.55, color: C.dim }}>
-                Sepuluh kode sekali pakai untuk masuk bila perangkat authenticator hilang. Kode ini TIDAK akan
-                ditampilkan lagi.
+                {t('platformLoginPage.backupCodes.description')}
               </p>
             </div>
             <div
@@ -375,10 +390,10 @@ export default function PlatformLoginPage() {
             </div>
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, lineHeight: 1.6, color: C.dim, cursor: 'pointer' }}>
               <input type="checkbox" checked={savedAck} onChange={(e) => setSavedAck(e.target.checked)} style={{ marginTop: 2 }} />
-              <span>Saya sudah menyimpan kode cadangan di tempat aman.</span>
+              <span>{t('platformLoginPage.backupCodes.ackLabel')}</span>
             </label>
             <button type="button" onClick={() => setStep('success')} disabled={!savedAck} style={buttonStyle}>
-              LANJUT
+              {t('platformLoginPage.backupCodes.continueButton')}
             </button>
           </>
         )}
@@ -387,24 +402,24 @@ export default function PlatformLoginPage() {
           <>
             <div>
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: C.dim, marginBottom: 4 }}>
-                STEP 2 / 2 · WAJIB
+                {t('platformLoginPage.verifyOtp.stepLabel')}
               </div>
-              <div style={{ fontSize: 19, fontWeight: 700 }}>Verifikasi Multi-Faktor</div>
+              <div style={{ fontSize: 19, fontWeight: 700 }}>{t('platformLoginPage.verifyOtp.title')}</div>
               <p style={{ margin: '8px 0 0', fontSize: 12.5, lineHeight: 1.55, color: C.dim }}>
-                Masukkan 6 digit kode dari authenticator app Anda.
+                {t('platformLoginPage.verifyOtp.description')}
               </p>
             </div>
-            {verifyOtpError && <ErrorBanner>Kode salah atau kedaluwarsa. Coba lagi.</ErrorBanner>}
+            {verifyOtpError && <ErrorBanner>{t('platformLoginPage.verifyOtp.error')}</ErrorBanner>}
             <input
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-              placeholder="000000"
+              placeholder={t('platformLoginPage.otpPlaceholder')}
               maxLength={6}
               autoFocus
               style={{ ...inputStyle, fontSize: 24, letterSpacing: '0.4em', textAlign: 'center', padding: 14 }}
             />
             <button type="button" onClick={onSubmitVerifyOtp} disabled={login.isPending || otpCode.length !== 6} style={buttonStyle}>
-              {login.isPending ? 'MEMVERIFIKASI...' : 'VERIFIKASI & MASUK'}
+              {login.isPending ? t('platformLoginPage.verifyOtp.submitButtonLoading') : t('platformLoginPage.verifyOtp.submitButton')}
             </button>
             <span
               onClick={() => {
@@ -414,10 +429,10 @@ export default function PlatformLoginPage() {
               }}
               style={{ textAlign: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: C.dimmer, cursor: 'pointer' }}
             >
-              ← KEMBALI
+              {t('platformLoginPage.verifyOtp.backLink')}
             </span>
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: C.faint, lineHeight: 1.7 }}>
-              MFA tidak dapat dinonaktifkan untuk akun Platform Admin.
+              {t('platformLoginPage.mfaDisableNote')}
             </div>
           </>
         )}
@@ -429,9 +444,9 @@ export default function PlatformLoginPage() {
                 ✓
               </span>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700 }}>Akses Platform Console diberikan</div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>{t('platformLoginPage.success.title')}</div>
                 <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9.5, color: C.dim, marginTop: 2 }}>
-                  Session timeout: 10 menit idle · sliding disabled
+                  {t('platformLoginPage.success.sessionTimeout')}
                 </div>
               </div>
             </div>
@@ -448,21 +463,21 @@ export default function PlatformLoginPage() {
                 gap: 6,
               }}
             >
-              <div>ROLE · PLATFORM ADMIN</div>
-              <div>SCOPE · METADATA PLATFORM SAJA — TIDAK ADA AKSES KONTEN ORGANISASI</div>
-              <div>MFA · TERVERIFIKASI</div>
+              <div>{t('platformLoginPage.success.role')}</div>
+              <div>{t('platformLoginPage.success.scope')}</div>
+              <div>{t('platformLoginPage.success.mfaVerified')}</div>
             </div>
             <button type="button" onClick={() => navigate('/platform/dashboard')} style={buttonStyle}>
-              MASUK KE PLATFORM CONSOLE →
+              {t('platformLoginPage.success.continueButton')}
             </button>
           </>
         )}
       </div>
 
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '22px 0 0', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '0.08em', color: C.dimmer, lineHeight: 1.8 }}>
-        BUKAN PLATFORM ADMIN?{' '}
+        {t('platformLoginPage.footer.notAdmin')}{' '}
         <a href="/login" style={{ color: C.accent, textDecoration: 'none' }}>
-          GUNAKAN HALAMAN LOGIN BIASA →
+          {t('platformLoginPage.footer.regularLoginLink')}
         </a>
       </div>
     </div>

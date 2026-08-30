@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import GroupAdminFormModal, { type GroupAdminFormMode } from '@/components/GroupAdminFormModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import TierDistributionChart from '@/components/TierDistributionChart'
-import { cn } from '@/lib/utils'
+import { cn, localeForLanguage } from '@/lib/utils'
 import { useGroupAdminList } from '@/features/platform-admin/hooks'
 import type { GroupAdmin } from '@/features/platform-admin/types'
 
@@ -47,6 +48,7 @@ function MetricCard({ label, value, sub }: { label: string; value: string; sub?:
 // max-w -- desain "PA Group Admins" membiarkan tabel melebar penuh
 // mengisi seluruh area konten (main), bukan dikunci ke lebar tetap.
 function PlatformGroupAdminPageContent() {
+  const { t } = useTranslation()
   const list = useGroupAdminList()
   const [modal, setModal] = useState<{ mode: GroupAdminFormMode; id: string | null } | null>(null)
   const [page, setPage] = useState(1)
@@ -83,12 +85,19 @@ function PlatformGroupAdminPageContent() {
       {list.data && list.data.length > 0 && (
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
           <MetricCard
-            label="Total Group Admin"
+            label={t('platformGroupAdminPage.metrics.totalGroupAdmins.label')}
             value={String(list.data.length)}
-            sub={`${aktifCount} aktif · ${list.data.length - aktifCount} tidak aktif`}
+            sub={t('platformGroupAdminPage.metrics.totalGroupAdmins.sub', {
+              active: aktifCount,
+              inactive: list.data.length - aktifCount,
+            })}
           />
           <TierDistributionChart groupAdmins={list.data} />
-          <MetricCard label="Mendekati Kuota" value={String(nearQuotaCount)} sub="≥80% dari batas tier" />
+          <MetricCard
+            label={t('platformGroupAdminPage.metrics.nearQuota.label')}
+            value={String(nearQuotaCount)}
+            sub={t('platformGroupAdminPage.metrics.nearQuota.sub')}
+          />
         </div>
       )}
 
@@ -99,19 +108,33 @@ function PlatformGroupAdminPageContent() {
           onClick={() => setModal({ mode: 'add', id: null })}
           className="inline-flex items-center gap-2 border border-pa-accent px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-pa-accent"
         >
-          + Tambah Group Admin
+          + {t('platformGroupAdminPage.addButton')}
         </button>
       </div>
 
-      {list.isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
-      {list.isError && <p className="font-mono text-sm text-destructive">Gagal memuat daftar Group Admin.</p>}
-      {list.data && list.data.length === 0 && <p className="font-mono text-sm text-text-muted">Belum ada Group Admin.</p>}
+      {list.isLoading && <p className="font-mono text-sm text-text-muted">{t('platformGroupAdminPage.loading')}</p>}
+      {list.isError && (
+        <p className="font-mono text-sm text-destructive">{t('platformGroupAdminPage.error')}</p>
+      )}
+      {list.data && list.data.length === 0 && (
+        <p className="font-mono text-sm text-text-muted">{t('platformGroupAdminPage.empty')}</p>
+      )}
       {list.data && list.data.length > 0 && (
         <div className="overflow-x-auto border border-pa-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-pa-header text-left">
-                {['Group Admin', 'Tier', 'Sisa Org', 'Sisa Kuota', 'Sisa Member', 'Kontrak Berakhir', 'Tanggal Daftar', 'Status', ''].map(
+                {[
+                  t('platformGroupAdminPage.table.headers.groupAdmin'),
+                  t('platformGroupAdminPage.table.headers.tier'),
+                  t('platformGroupAdminPage.table.headers.remainingOrg'),
+                  t('platformGroupAdminPage.table.headers.remainingQuota'),
+                  t('platformGroupAdminPage.table.headers.remainingMembers'),
+                  t('platformGroupAdminPage.table.headers.contractEnd'),
+                  t('platformGroupAdminPage.table.headers.registeredDate'),
+                  t('platformGroupAdminPage.table.headers.status'),
+                  '',
+                ].map(
                   (h) => (
                     <th key={h} className="py-2.5 pl-3.5 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
                       {h}
@@ -139,10 +162,10 @@ function PlatformGroupAdminPageContent() {
                 disabled={currentPage <= 1}
                 className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
               >
-                ← Sebelumnya
+                ← {t('platformGroupAdminPage.pagination.previous')}
               </button>
               <span className="flex items-center gap-1.5 font-mono text-[10px] text-text-dim">
-                Halaman
+                {t('platformGroupAdminPage.pagination.page')}
                 <input
                   key={currentPage}
                   ref={pageInputRef}
@@ -154,7 +177,7 @@ function PlatformGroupAdminPageContent() {
                     if (e.key === 'Enter') goToPage(e.currentTarget.value)
                   }}
                   className="w-11 border border-line-strong bg-input-bg px-1 py-0.5 text-center font-mono text-[10px] text-text-body focus-visible:border-signal focus-visible:outline-none"
-                  aria-label="Nomor halaman"
+                  aria-label={t('platformGroupAdminPage.pagination.pageInputAriaLabel')}
                 />
                 / {totalPages}
                 <button
@@ -162,7 +185,7 @@ function PlatformGroupAdminPageContent() {
                   onClick={() => goToPage(pageInputRef.current?.value ?? '')}
                   className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-text-muted"
                 >
-                  Ke
+                  {t('platformGroupAdminPage.pagination.go')}
                 </button>
               </span>
               <button
@@ -171,7 +194,7 @@ function PlatformGroupAdminPageContent() {
                 disabled={currentPage >= totalPages}
                 className="border border-line-strong px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
               >
-                Berikutnya →
+                {t('platformGroupAdminPage.pagination.next')} →
               </button>
             </div>
           )}
@@ -188,10 +211,20 @@ function PlatformGroupAdminPageContent() {
 // Status pill: docs/design-system.md §8.1 -- border 1px status hue, mono
 // uppercase, TANPA fill.
 function StatusPill({ status }: { status: GroupAdmin['status'] }) {
+  const { t } = useTranslation()
   const styleByStatus: Record<GroupAdmin['status'], string> = {
     AKTIF: 'border-mint text-mint',
     SUSPENDED: 'border-red text-red',
     'TIDAK AKTIF': 'border-amber text-amber',
+  }
+  // labelByStatus -- status ('AKTIF'/'SUSPENDED'/'TIDAK AKTIF') adalah nilai
+  // enum dari kontrak API (GroupAdminStatus), bukan cuma label tampilan --
+  // dipetakan ke key terjemahan di sini, nilai mentahnya sendiri TIDAK
+  // diterjemahkan (dipakai juga untuk sort/filter di tempat lain).
+  const labelByStatus: Record<GroupAdmin['status'], string> = {
+    AKTIF: t('platformGroupAdminPage.status.active'),
+    SUSPENDED: t('platformGroupAdminPage.status.suspended'),
+    'TIDAK AKTIF': t('platformGroupAdminPage.status.inactive'),
   }
   return (
     <span
@@ -200,7 +233,7 @@ function StatusPill({ status }: { status: GroupAdmin['status'] }) {
         styleByStatus[status],
       )}
     >
-      {status}
+      {labelByStatus[status]}
     </span>
   )
 }
@@ -214,6 +247,8 @@ function GroupAdminRow({
   onView: () => void
   onEdit: () => void
 }) {
+  const { t, i18n } = useTranslation()
+  const locale = localeForLanguage(i18n.language)
   const hasGroup = groupAdmin.group_id != null
   const sisaOrg = hasGroup ? Math.max(0, groupAdmin.tier_max_org - groupAdmin.used_org_count) : null
   const sisaKuotaGB = hasGroup
@@ -228,20 +263,22 @@ function GroupAdminRow({
         <div className="font-mono text-[10px] text-text-dim">{groupAdmin.email}</div>
       </td>
       <td className="py-2 pr-4 font-mono text-[10px] uppercase text-text-muted">{groupAdmin.tier ?? '—'}</td>
-      <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">{sisaOrg != null ? `${sisaOrg} org` : '—'}</td>
+      <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">
+        {sisaOrg != null ? t('platformGroupAdminPage.table.units.org', { count: sisaOrg }) : '—'}
+      </td>
       <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">
         {sisaKuotaGB != null ? `${sisaKuotaGB.toFixed(1).replace(/\.0$/, '')} GB` : '—'}
       </td>
       <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">
-        {sisaMember != null ? sisaMember.toLocaleString('id-ID') : '—'}
+        {sisaMember != null ? sisaMember.toLocaleString(locale) : '—'}
       </td>
       <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">
         {groupAdmin.contract_end_at
-          ? new Date(groupAdmin.contract_end_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+          ? new Date(groupAdmin.contract_end_at).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })
           : '—'}
       </td>
       <td className="py-2 pr-4 font-mono text-[11px] text-text-muted">
-        {new Date(groupAdmin.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+        {new Date(groupAdmin.created_at).toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
       </td>
       <td className="py-2 pr-4">
         <StatusPill status={groupAdmin.status} />
@@ -253,14 +290,14 @@ function GroupAdminRow({
             onClick={onView}
             className="font-mono text-[10px] text-text-muted hover:text-mint"
           >
-            ◱ Lihat
+            ◱ {t('platformGroupAdminPage.actions.view')}
           </button>
           <button
             type="button"
             onClick={onEdit}
             className="font-mono text-[10px] text-text-muted hover:text-pa-accent"
           >
-            ✎ Ubah
+            ✎ {t('platformGroupAdminPage.actions.edit')}
           </button>
         </div>
       </td>
