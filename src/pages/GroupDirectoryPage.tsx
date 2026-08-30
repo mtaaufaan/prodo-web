@@ -19,7 +19,7 @@ function GroupDirectoryPageContent() {
   const orgs = useOrganizationList()
 
   const orgsInSelectedGroup = useMemo(
-    () => orgs.data?.filter((o) => o.group_id === selectedGroupId) ?? [],
+    () => orgs.data?.organizations.filter((o) => o.group_id === selectedGroupId) ?? [],
     [orgs.data, selectedGroupId],
   )
   const selectedGroup = groups.data?.find((g) => g.id === selectedGroupId)
