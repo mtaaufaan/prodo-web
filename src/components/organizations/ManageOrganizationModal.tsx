@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { Link } from 'react-router-dom'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -9,13 +10,18 @@ import { Label } from '@/components/ui/label'
 import {
   useDeactivateOrganization,
   useDeleteOrganization,
-  useOrganizationSummary,
   useReactivateOrganization,
   useUpdateOrganization,
   useUpdateOrganizationSettings,
   useUpdateOrganizationStorageQuota,
 } from '@/features/organizations/hooks'
-import { updateOrganizationSchema, type Organization, type UpdateOrganizationFormValues } from '@/features/organizations/types'
+import {
+  updateOrganizationSchema,
+  updateStorageQuotaSchema,
+  type Organization,
+  type UpdateOrganizationFormValues,
+  type UpdateStorageQuotaFormValues,
+} from '@/features/organizations/types'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -26,80 +32,83 @@ interface ManageOrganizationModalProps {
   onClose: () => void
 }
 
-type ConfirmAction = 'deactivate' | 'reactivate' | 'delete' | null
+type ConfirmAction = 'deactivate' | 'reactivate' | null
 
 const CONFIRM_COPY: Record<Exclude<ConfirmAction, null>, { title: string; body: string; confirmLabel: string }> = {
   deactivate: {
     title: 'Nonaktifkan Organisasi?',
-    body: 'Seluruh member organisasi ini akan kehilangan akses. Data tetap tersimpan dan bisa diaktifkan kembali kapan saja.',
+    body: 'Seluruh member organisasi ini akan kehilangan akses. Retensi 90 hari mulai berjalan sebelum data operasional dihapus permanen. Data tetap tersimpan dan bisa diaktifkan kembali kapan saja.',
     confirmLabel: 'Nonaktifkan',
   },
   reactivate: {
     title: 'Aktifkan Kembali Organisasi?',
-    body: 'Member organisasi ini akan mendapatkan akses kembali.',
+    body: 'Akses member organisasi ini akan dipulihkan dan jadwal penghapusan dibatalkan.',
     confirmLabel: 'Aktifkan',
-  },
-  delete: {
-    title: 'Hapus Organisasi Permanen?',
-    body: 'Tindakan ini tidak bisa dibatalkan. Organisasi hanya bisa dihapus kalau tidak ada workspace aktif di dalamnya.',
-    confirmLabel: 'Hapus Permanen',
   },
 }
 
-// S3-07, US-007 (GA Organizations.dc.html) -- versi minimal: edit name/slug,
-// toggle aktif/nonaktif dua arah (S3-07 prasyarat Reactivate), ringkasan
-// dashboard (S3-06), dan hapus. TANPA domain/logo/retention dari desain
-// penuh -- sama alasan CreateOrganizationModal. Bahasa Default (S3-31) dan
-// Kuota Storage (S3-36) DITAMBAHKAN di sini (S3 H10) alih-alih halaman
-// OrganizationSettingsPage/StorageDashboard terpisah seperti wording task
-// asli -- organisasi sudah punya satu modal kelola, tidak perlu halaman
-// baru untuk 2 field tambahan. Gauge storage berupa bar teks sederhana
-// (used/quota/max) -- breakdown per workspace (S3-35) dan usage real-time
-// dari attachments (S3-33) TIDAK ditampilkan, keduanya blocked karena
-// tabel attachments belum ada (implementation_gaps.md IG-19).
+// S4G-03, Track S4G (desain "GA Organizations.dc.html") -- diperkaya dari
+// versi minimal S3-07: tambah domain, kuota+retensi digabung satu section
+// dengan validasi live, hint status, dan zona berbahaya (blocked kalau
+// masih ada workspace, kalau tidak -- konfirmasi ketik slug). Ringkasan
+// (member/workspace/storage) sekarang dibaca LANGSUNG dari `organization`
+// (field ditambahkan S4G-03 di GET /organizations) -- request
+// GetSummary terpisah yang dipakai versi lama DIHAPUS, datanya sama
+// persis, cuma sumbernya digabung ke satu response list. Logo TETAP di
+// luar scope (task terpisah, dikonfirmasi user -- perlu infrastruktur
+// MinIO baru, bukan cuma field form).
 export default function ManageOrganizationModal({ organization, onClose }: ManageOrganizationModalProps) {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const updateOrganization = useUpdateOrganization(organization?.id ?? '')
   const deactivateOrganization = useDeactivateOrganization()
   const reactivateOrganization = useReactivateOrganization()
   const deleteOrganization = useDeleteOrganization()
   const updateSettings = useUpdateOrganizationSettings(organization?.id ?? '')
   const updateQuota = useUpdateOrganizationStorageQuota(organization?.id ?? '')
-  const summary = useOrganizationSummary(organization?.id ?? '')
 
   const [language, setLanguage] = useState('id')
-  const [quotaGb, setQuotaGb] = useState('')
 
-  const form = useForm<UpdateOrganizationFormValues>({
+  const infoForm = useForm<UpdateOrganizationFormValues>({
     resolver: zodResolver(updateOrganizationSchema),
-    defaultValues: { name: '', slug: '' },
+    defaultValues: { name: '', slug: '', domain: '' },
+  })
+  const quotaForm = useForm<UpdateStorageQuotaFormValues>({
+    resolver: zodResolver(updateStorageQuotaSchema),
+    defaultValues: { quota_gb: 0, retention_days: 90 },
   })
 
   useEffect(() => {
     if (organization) {
-      form.reset({ name: organization.name, slug: organization.slug })
+      infoForm.reset({ name: organization.name, slug: organization.slug, domain: organization.domain })
+      quotaForm.reset({
+        quota_gb: Number((organization.storage_quota_bytes / GB).toFixed(2)),
+        retention_days: organization.retention_days,
+      })
       setLanguage(organization.default_language)
-      setQuotaGb((organization.storage_quota_bytes / GB).toFixed(1))
+      setDeleteConfirmText('')
     }
-  }, [organization, form])
+  }, [organization, infoForm, quotaForm])
 
   const handleClose = () => {
     setConfirmAction(null)
     onClose()
   }
 
-  const onSubmit = (values: UpdateOrganizationFormValues) => {
+  const onSubmitInfo = (values: UpdateOrganizationFormValues) => {
     updateOrganization.mutate(values)
+  }
+
+  const onSubmitQuota = (values: UpdateStorageQuotaFormValues) => {
+    updateQuota.mutate({ quotaBytes: Math.round(values.quota_gb * GB), retentionDays: values.retention_days })
   }
 
   const handleConfirm = () => {
     if (!organization || !confirmAction) return
     if (confirmAction === 'deactivate') {
       deactivateOrganization.mutate(organization.id, { onSuccess: () => setConfirmAction(null) })
-    } else if (confirmAction === 'reactivate') {
-      reactivateOrganization.mutate(organization.id, { onSuccess: () => setConfirmAction(null) })
     } else {
-      deleteOrganization.mutate(organization.id, { onSuccess: handleClose })
+      reactivateOrganization.mutate(organization.id, { onSuccess: () => setConfirmAction(null) })
     }
   }
 
@@ -107,10 +116,9 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
     updateSettings.mutate(language)
   }
 
-  const handleSaveQuota = () => {
-    const gb = Number(quotaGb)
-    if (Number.isNaN(gb) || gb <= 0) return
-    updateQuota.mutate(Math.round(gb * GB))
+  const handleDelete = () => {
+    if (!organization) return
+    deleteOrganization.mutate(organization.id, { onSuccess: handleClose })
   }
 
   const updateErrorMessage = updateOrganization.error instanceof ApiError ? updateOrganization.error.message : null
@@ -118,40 +126,63 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
   const quotaErrorMessage = updateQuota.error instanceof ApiError ? updateQuota.error.message : null
   const deleteErrorMessage = deleteOrganization.error instanceof ApiError ? deleteOrganization.error.message : null
   const isDeactivated = organization?.deactivated_at !== null
-  const confirmPending = deactivateOrganization.isPending || reactivateOrganization.isPending || deleteOrganization.isPending
+
+  // Validasi live kuota vs storage terpakai (S4G-03, desain "GA Organizations.dc.html")
+  // -- bisa dicek client-side karena storage_used_bytes organisasi ini
+  // sudah ada di tangan (dari list), TANPA perlu fetch tambahan. Kuota
+  // melebihi plafon GRUP sengaja TIDAK divalidasi live di sini (butuh
+  // angka plafon per-organisasi-lain yang tidak murah dihitung di FE) --
+  // backend menegakkannya, errornya tampil lewat quotaErrorMessage setelah submit.
+  const quotaGbWatch = quotaForm.watch('quota_gb')
+  const usedGb = organization ? organization.storage_used_bytes / GB : 0
+  const quotaBelowUsed = organization !== null && !Number.isNaN(quotaGbWatch) && quotaGbWatch < usedGb
+  const confirmPending = deactivateOrganization.isPending || reactivateOrganization.isPending
+
+  const hasWorkspaces = (organization?.workspace_count ?? 0) > 0
+  const deleteMatches = organization !== null && deleteConfirmText === organization.slug
 
   return (
     <>
       <Dialog open={organization !== null && confirmAction === null} onOpenChange={(next) => !next && handleClose()}>
-        <DialogContent>
+        <DialogContent className="max-w-[620px]">
           <DialogHeader>
             <DialogTitle>Kelola Organisasi</DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 px-5 py-5">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Nama Organisasi</Label>
-              <Input id="edit-name" {...form.register('name')} />
-              {form.formState.errors.name && (
-                <p className="text-[11px] text-destructive">{form.formState.errors.name.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-slug">Slug</Label>
-              <Input id="edit-slug" {...form.register('slug')} />
-              {form.formState.errors.slug && (
-                <p className="text-[11px] text-destructive">{form.formState.errors.slug.message}</p>
-              )}
-            </div>
-            {updateErrorMessage && <p className="text-[11px] text-destructive">{updateErrorMessage}</p>}
-            <Button
-              type="submit"
-              variant="outline"
-              disabled={updateOrganization.isPending}
-              className="w-fit font-mono text-[10px] uppercase tracking-[0.06em]"
-            >
-              {updateOrganization.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
-            </Button>
+          <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-5 py-4">
+            <form onSubmit={infoForm.handleSubmit(onSubmitInfo)} noValidate className="flex flex-col gap-4">
+              <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Informasi Organisasi</p>
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Nama Organisasi</Label>
+                <Input id="edit-name" {...infoForm.register('name')} />
+                {infoForm.formState.errors.name && (
+                  <p className="text-[11px] text-destructive">{infoForm.formState.errors.name.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-slug">Slug</Label>
+                <Input id="edit-slug" {...infoForm.register('slug')} />
+                {infoForm.formState.errors.slug && (
+                  <p className="text-[11px] text-destructive">{infoForm.formState.errors.slug.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-domain">Domain Email Resmi (Opsional)</Label>
+                <Input id="edit-domain" placeholder="acme.co.id" {...infoForm.register('domain')} />
+                {infoForm.formState.errors.domain && (
+                  <p className="text-[11px] text-destructive">{infoForm.formState.errors.domain.message}</p>
+                )}
+              </div>
+              {updateErrorMessage && <p className="text-[11px] text-destructive">{updateErrorMessage}</p>}
+              <Button
+                type="submit"
+                variant="outline"
+                disabled={updateOrganization.isPending}
+                className="w-fit font-mono text-[10px] uppercase tracking-[0.06em]"
+              >
+                {updateOrganization.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
+              </Button>
+            </form>
 
             <div className="flex flex-wrap items-end gap-3 border-t border-line pt-4">
               <div className="space-y-2">
@@ -178,25 +209,23 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
               {settingsErrorMessage && <p className="text-[11px] text-destructive">{settingsErrorMessage}</p>}
             </div>
 
-            <div className="border-t border-line pt-4">
-              <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Kuota Storage</p>
+            <form onSubmit={quotaForm.handleSubmit(onSubmitQuota)} noValidate className="border-t border-line pt-4">
+              <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Alokasi Kuota Storage</p>
               {organization && (
-                <div className="mb-2">
+                <div className="mb-3">
                   <div className="h-2 w-full bg-line-subtle">
                     <div
                       className={cn(
                         'h-full',
-                        summary.data && summary.data.storage_used_bytes / organization.storage_quota_bytes >= 0.8
-                          ? 'bg-amber'
-                          : 'bg-mint',
+                        organization.storage_used_bytes / organization.storage_quota_bytes >= 0.8 ? 'bg-amber' : 'bg-mint',
                       )}
                       style={{
-                        width: `${Math.min(100, ((summary.data?.storage_used_bytes ?? 0) / organization.storage_quota_bytes) * 100)}%`,
+                        width: `${Math.min(100, (organization.storage_used_bytes / organization.storage_quota_bytes) * 100)}%`,
                       }}
                     />
                   </div>
                   <p className="mt-1 font-mono text-[9px] text-text-muted">
-                    {((summary.data?.storage_used_bytes ?? 0) / GB).toFixed(2)} GB / {(organization.storage_quota_bytes / GB).toFixed(1)} GB
+                    {usedGb.toFixed(2)} GB / {(organization.storage_quota_bytes / GB).toFixed(1)} GB
                     {' · maks '}
                     {(organization.storage_max_bytes / GB).toFixed(0)} GB
                   </p>
@@ -205,73 +234,125 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
               <div className="flex flex-wrap items-end gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="edit-quota">Kuota (GB)</Label>
-                  <Input
-                    id="edit-quota"
-                    type="number"
-                    step="0.1"
-                    min="0.1"
-                    value={quotaGb}
-                    onChange={(e) => setQuotaGb(e.target.value)}
-                    className="w-28"
-                  />
+                  <Input id="edit-quota" type="number" step="0.1" min="0" className="w-28" {...quotaForm.register('quota_gb')} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-retention">Retensi (Hari)</Label>
+                  <Input id="edit-retention" type="number" step="1" min="30" max="365" className="w-24" {...quotaForm.register('retention_days')} />
                 </div>
                 <Button
-                  type="button"
+                  type="submit"
                   variant="outline"
-                  onClick={handleSaveQuota}
                   disabled={updateQuota.isPending}
                   className="font-mono text-[10px] uppercase tracking-[0.06em]"
                 >
-                  {updateQuota.isPending ? 'Menyimpan...' : 'Simpan Kuota'}
+                  {updateQuota.isPending ? 'Menyimpan...' : 'Simpan Kuota & Retensi'}
                 </Button>
               </div>
+              <p className="mt-2 font-mono text-[9px] text-text-muted">
+                Kuota minimal sebesar storage terpakai ({usedGb.toFixed(2)} GB) · retensi 30-365 hari — batas ditetapkan Platform Admin.
+              </p>
+              {quotaBelowUsed && (
+                <p className="mt-1 text-[11px] text-destructive">
+                  ⚠ Kuota tidak boleh lebih kecil dari storage terpakai ({usedGb.toFixed(2)} GB).
+                </p>
+              )}
+              {quotaForm.formState.errors.quota_gb && (
+                <p className="mt-1 text-[11px] text-destructive">{quotaForm.formState.errors.quota_gb.message}</p>
+              )}
+              {quotaForm.formState.errors.retention_days && (
+                <p className="mt-1 text-[11px] text-destructive">{quotaForm.formState.errors.retention_days.message}</p>
+              )}
               {quotaErrorMessage && <p className="mt-2 text-[11px] text-destructive">{quotaErrorMessage}</p>}
-            </div>
+            </form>
 
             <div className="border-t border-line pt-4">
-              <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Ringkasan</p>
-              {summary.isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
-              {summary.isError && <p className="text-sm text-destructive">Gagal memuat ringkasan.</p>}
-              {summary.data && (
-                <div className="grid grid-cols-3 gap-3 font-mono text-[11px] text-text-body">
-                  <div>
-                    <div className="text-[9px] uppercase text-text-dim">Member</div>
-                    {summary.data.member_count}
-                  </div>
-                  <div>
-                    <div className="text-[9px] uppercase text-text-dim">Workspace</div>
-                    {summary.data.workspace_count}
-                  </div>
-                  <div>
-                    <div className="text-[9px] uppercase text-text-dim">Storage</div>
-                    {(summary.data.storage_used_bytes / (1024 * 1024)).toFixed(1)} MB
-                  </div>
-                </div>
-              )}
-            </div>
-          </form>
-
-          <DialogFooter className="justify-between">
-            <Button
-              type="button"
-              variant="outline"
-              className="border-destructive font-mono text-[10px] uppercase tracking-[0.06em] text-destructive"
-              onClick={() => setConfirmAction('delete')}
-            >
-              Hapus
-            </Button>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={handleClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
-                Tutup
-              </Button>
+              <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Status Organisasi</p>
+              <p className="mb-2 text-[11px] text-text-muted">
+                {isDeactivated
+                  ? 'Organisasi nonaktif — hitungan retensi 90 hari berjalan. Mengaktifkan kembali memulihkan akses member dan membatalkan jadwal penghapusan.'
+                  : 'Menonaktifkan memblokir akses seluruh member dan memulai hitungan retensi 90 hari sebelum data operasional dihapus permanen.'}
+              </p>
               <Button
                 type="button"
                 onClick={() => setConfirmAction(isDeactivated ? 'reactivate' : 'deactivate')}
                 className="font-mono text-[10px] uppercase tracking-[0.06em]"
               >
-                {isDeactivated ? 'Aktifkan' : 'Nonaktifkan'}
+                {isDeactivated ? 'Aktifkan Kembali' : 'Nonaktifkan'}
               </Button>
             </div>
+
+            <div className="border-t border-line pt-4">
+              <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-destructive">Zona Berbahaya</p>
+              {hasWorkspaces ? (
+                <p className="text-[11px] text-text-muted">
+                  Organisasi tidak dapat dihapus selama masih memiliki {organization?.workspace_count} workspace. Hapus atau
+                  pindahkan seluruh workspace terlebih dahulu.
+                </p>
+              ) : (
+                <>
+                  <p className="mb-2 text-[11px] text-text-muted">
+                    Penghapusan bersifat permanen. Ketik <span className="font-mono text-text-body">{organization?.slug}</span> untuk
+                    konfirmasi.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Input
+                      value={deleteConfirmText}
+                      onChange={(e) => setDeleteConfirmText(e.target.value)}
+                      placeholder={organization?.slug}
+                      className="w-48"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!deleteMatches || deleteOrganization.isPending}
+                      onClick={handleDelete}
+                      className="border-destructive font-mono text-[10px] uppercase tracking-[0.06em] text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deleteOrganization.isPending ? 'Menghapus...' : 'Hapus Organisasi Permanen'}
+                    </Button>
+                  </div>
+                  {deleteErrorMessage && <p className="mt-2 text-[11px] text-destructive">{deleteErrorMessage}</p>}
+                </>
+              )}
+            </div>
+
+            <p className="mt-4 border-t border-line pt-4 font-mono text-[9px] text-text-dim">
+              Seluruh perubahan pada organisasi — termasuk penonaktifan, pengaktifan kembali, dan penghapusan permanen — tercatat
+              di Audit Trail grup (aktor, timestamp UTC, nilai sebelum → sesudah).
+            </p>
+
+            {organization && (
+              <div className="border-t border-line pt-4">
+                <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Ringkasan</p>
+                <div className="grid grid-cols-3 gap-3 font-mono text-[11px] text-text-body">
+                  <div>
+                    <div className="text-[9px] uppercase text-text-dim">Member</div>
+                    {organization.member_count}
+                  </div>
+                  <div>
+                    <div className="text-[9px] uppercase text-text-dim">Workspace</div>
+                    {organization.workspace_count}
+                  </div>
+                  <div>
+                    <div className="text-[9px] uppercase text-text-dim">Storage</div>
+                    {(organization.storage_used_bytes / (1024 * 1024)).toFixed(1)} MB
+                  </div>
+                </div>
+                <Link
+                  to={`/groups/${organization.group_id}/cross-org-memberships`}
+                  className="mt-2 inline-block font-mono text-[10px] text-text-muted hover:text-signal"
+                >
+                  Lihat Cross-Org Membership →
+                </Link>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
+              Tutup
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -285,9 +366,6 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
               </DialogHeader>
               <div className="px-5 py-5">
                 <p className="text-sm text-text-muted">{CONFIRM_COPY[confirmAction].body}</p>
-                {confirmAction === 'delete' && deleteErrorMessage && (
-                  <p className="mt-2 text-[11px] text-destructive">{deleteErrorMessage}</p>
-                )}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setConfirmAction(null)} className="font-mono text-[10px] uppercase tracking-[0.06em]">

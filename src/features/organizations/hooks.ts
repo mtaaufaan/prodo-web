@@ -4,7 +4,6 @@ import {
   createOrganization,
   deactivateOrganization,
   deleteOrganization,
-  getOrganizationSummary,
   listOrganizations,
   reactivateOrganization,
   updateOrganization,
@@ -16,7 +15,6 @@ import type { CreateOrganizationFormValues, UpdateOrganizationFormValues } from 
 export const organizationKeys = {
   all: ['organizations'] as const,
   list: () => [...organizationKeys.all, 'list'] as const,
-  summary: (id: string) => [...organizationKeys.all, 'summary', id] as const,
 }
 
 const organizationListQuery = () =>
@@ -27,14 +25,6 @@ const organizationListQuery = () =>
 
 export function useOrganizationList() {
   return useQuery(organizationListQuery())
-}
-
-export function useOrganizationSummary(id: string) {
-  return useQuery({
-    queryKey: organizationKeys.summary(id),
-    queryFn: () => getOrganizationSummary(id),
-    enabled: id !== '',
-  })
 }
 
 export function useCreateOrganization() {
@@ -80,7 +70,8 @@ export function useUpdateOrganizationSettings(id: string) {
 export function useUpdateOrganizationStorageQuota(id: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (quotaBytes: number) => updateOrganizationStorageQuota(id, quotaBytes),
+    mutationFn: ({ quotaBytes, retentionDays }: { quotaBytes: number; retentionDays: number }) =>
+      updateOrganizationStorageQuota(id, quotaBytes, retentionDays),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: organizationKeys.all }),
   })
 }
