@@ -233,14 +233,21 @@ export default function Login() {
                 </Label>
                 <Input
                   id="otpCode"
-                  inputMode="numeric"
-                  maxLength={6}
+                  maxLength={9}
                   autoComplete="one-time-code"
                   autoFocus
                   className="text-center font-mono tracking-[0.3em]"
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value)}
                 />
+                {/* Kode cadangan (2026-08-30, menutup gap: backup_codes
+                    sudah diterbitkan sejak awal tapi tidak ada jalur
+                    memakainya saat login) -- format "XXXX-XXXX" diterima
+                    di kotak yang sama, dibedakan backend lewat ada/tidaknya
+                    strip (lihat mfa.go isBackupCodeFormat). */}
+                <p className="mt-1.5 text-[10.5px] text-text-dim">
+                  Kehilangan HP authenticator? Gunakan salah satu dari 10 kode cadangan Anda (format XXXX-XXXX).
+                </p>
               </div>
             )}
 

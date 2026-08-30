@@ -32,6 +32,7 @@
     "userDeleted": "Menghapus permanen akun Group Admin {{target}}.",
     "userActivationResent": "Mengirim ulang link aktivasi ke Group Admin {{target}}.",
     "userLogin": "Berhasil login (password + verifikasi MFA).",
+    "userBackupCodeUsed": "Login memakai kode cadangan MFA (bukan authenticator biasa).",
     "groupTransferred": "Memindahkan pengelolaan grup dari {{target}} ke Group Admin lain.",
     "groupContractCreated": "Membuat kontrak awal untuk grup milik {{target}}.",
     "groupContractRenewed": "Memperpanjang kontrak grup milik {{target}}.",
@@ -333,6 +334,7 @@
       "title": "Verifikasi Multi-Faktor",
       "description": "Masukkan 6 digit kode dari authenticator app Anda.",
       "error": "Kode salah atau kedaluwarsa. Coba lagi.",
+      "backupCodeHint": "Kehilangan HP authenticator? Gunakan salah satu dari 10 kode cadangan Anda (format XXXX-XXXX).",
       "submitButton": "VERIFIKASI & MASUK",
       "submitButtonLoading": "MEMVERIFIKASI...",
       "backLink": "← KEMBALI"
@@ -396,6 +398,7 @@
       "ipAllowlistRemoved": "IP Allowlist Dihapus",
       "ipAllowlistEnabledChanged": "IP Allowlist Diaktifkan/Dinonaktifkan",
       "userLogin": "Login Platform Admin",
+      "userBackupCodeUsed": "Login Pakai Kode Cadangan",
       "erasureExecuted": "Erasure Dieksekusi",
       "erasureRejected": "Erasure Ditolak",
       "userMfaReset": "MFA Direset"

@@ -32,6 +32,7 @@
     "userDeleted": "Permanently deleted Group Admin account {{target}}.",
     "userActivationResent": "Resent the activation link to Group Admin {{target}}.",
     "userLogin": "Logged in successfully (password + MFA verification).",
+    "userBackupCodeUsed": "Logged in using an MFA backup code (not the regular authenticator).",
     "groupTransferred": "Transferred group management from {{target}} to another Group Admin.",
     "groupContractCreated": "Created the initial contract for {{target}}'s group.",
     "groupContractRenewed": "Renewed the contract for {{target}}'s group.",
@@ -334,6 +335,7 @@
       "title": "Multi-Factor Verification",
       "description": "Enter the 6-digit code from your authenticator app.",
       "error": "Incorrect or expired code. Please try again.",
+      "backupCodeHint": "Lost your authenticator device? Use one of your 10 backup codes (format XXXX-XXXX).",
       "submitButton": "VERIFY & SIGN IN",
       "submitButtonLoading": "VERIFYING...",
       "backLink": "← BACK"
@@ -397,6 +399,7 @@
       "ipAllowlistRemoved": "IP Allowlist Removed",
       "ipAllowlistEnabledChanged": "IP Allowlist Enabled/Disabled",
       "userLogin": "Platform Admin Login",
+      "userBackupCodeUsed": "Login With Backup Code",
       "erasureExecuted": "Erasure Executed",
       "erasureRejected": "Erasure Rejected",
       "userMfaReset": "MFA Reset"

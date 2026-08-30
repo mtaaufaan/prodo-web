@@ -48,6 +48,7 @@ function getActionOptions(t: (key: string) => string) {
       label: t('platformAuditLogPage.actionOptions.ipAllowlistEnabledChanged'),
     },
     { value: 'user.login', label: t('platformAuditLogPage.actionOptions.userLogin') },
+    { value: 'user.backup_code_used', label: t('platformAuditLogPage.actionOptions.userBackupCodeUsed') },
     { value: 'erasure.executed', label: t('platformAuditLogPage.actionOptions.erasureExecuted') },
     { value: 'erasure.rejected', label: t('platformAuditLogPage.actionOptions.erasureRejected') },
     { value: 'user.mfa_reset', label: t('platformAuditLogPage.actionOptions.userMfaReset') },
