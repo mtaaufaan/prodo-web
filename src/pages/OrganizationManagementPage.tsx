@@ -26,7 +26,7 @@ function OrganizationManagementPageContent() {
   const selected = list.data?.find((o) => o.id === selectedId) ?? null
 
   return (
-    <div className="min-h-screen bg-bg-deep">
+    <>
       <div className="mx-auto max-w-4xl space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Organisasi</h1>
@@ -63,7 +63,7 @@ function OrganizationManagementPageContent() {
 
       <CreateOrganizationModal open={createOpen} onClose={() => setCreateOpen(false)} />
       <ManageOrganizationModal organization={selected} onClose={() => setSelectedId(null)} />
-    </div>
+    </>
   )
 }
 
