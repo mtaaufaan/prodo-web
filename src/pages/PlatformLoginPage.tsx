@@ -279,7 +279,21 @@ export default function PlatformLoginPage() {
         </div>
 
         {step === 'credentials' && (
-          <>
+          // <form> + type="submit" (2026-08-30, permintaan user) supaya
+          // Enter di kolom email/password memicu submit -- sebelumnya
+          // halaman ini TIDAK punya <form> sama sekali (semua button
+          // type="button" + onClick manual), jadi Enter tidak berbuat
+          // apa-apa. disabled={login.isPending} pada tombol submit tetap
+          // memblokir submit-via-Enter juga (browser tidak submit form
+          // kalau satu-satunya submit button dalam keadaan disabled),
+          // jadi tidak ada risiko submit ganda.
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              onSubmitCredentials()
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+          >
             <div>
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: C.dim, marginBottom: 4 }}>
                 {t('platformLoginPage.step1.stepLabel')}
@@ -314,17 +328,23 @@ export default function PlatformLoginPage() {
                 style={inputStyle}
               />
             </div>
-            <button type="button" onClick={onSubmitCredentials} disabled={login.isPending} style={buttonStyle}>
+            <button type="submit" disabled={login.isPending} style={buttonStyle}>
               {login.isPending ? t('platformLoginPage.step1.submitButtonLoading') : t('platformLoginPage.step1.submitButton')}
             </button>
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: C.faint, lineHeight: 1.7 }}>
               {t('platformLoginPage.step1.ssoNote')}
             </div>
-          </>
+          </form>
         )}
 
         {step === 'enroll-mfa' && enrollChallenge && (
-          <>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              onSubmitEnroll()
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+          >
             <div>
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: C.dim, marginBottom: 4 }}>
                 {t('platformLoginPage.mfaSetup.stepLabel')}
@@ -350,18 +370,13 @@ export default function PlatformLoginPage() {
               maxLength={6}
               style={{ ...inputStyle, fontSize: 24, letterSpacing: '0.4em', textAlign: 'center', padding: 14 }}
             />
-            <button
-              type="button"
-              onClick={onSubmitEnroll}
-              disabled={completeMfaSetup.isPending || otpCode.length !== 6}
-              style={buttonStyle}
-            >
+            <button type="submit" disabled={completeMfaSetup.isPending || otpCode.length !== 6} style={buttonStyle}>
               {completeMfaSetup.isPending ? t('platformLoginPage.mfaSetup.submitButtonLoading') : t('platformLoginPage.mfaSetup.submitButton')}
             </button>
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: C.faint, lineHeight: 1.7 }}>
               {t('platformLoginPage.mfaDisableNote')}
             </div>
-          </>
+          </form>
         )}
 
         {step === 'backup-codes' && (
@@ -399,7 +414,13 @@ export default function PlatformLoginPage() {
         )}
 
         {step === 'verify-otp' && (
-          <>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              onSubmitVerifyOtp()
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+          >
             <div>
               <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, letterSpacing: '0.14em', color: C.dim, marginBottom: 4 }}>
                 {t('platformLoginPage.verifyOtp.stepLabel')}
@@ -412,13 +433,25 @@ export default function PlatformLoginPage() {
             {verifyOtpError && <ErrorBanner>{t('platformLoginPage.verifyOtp.error')}</ErrorBanner>}
             <input
               value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+              onChange={(e) => setOtpCode(e.target.value)}
               placeholder={t('platformLoginPage.otpPlaceholder')}
-              maxLength={6}
+              maxLength={9}
               autoFocus
-              style={{ ...inputStyle, fontSize: 24, letterSpacing: '0.4em', textAlign: 'center', padding: 14 }}
+              style={{ ...inputStyle, fontSize: 24, letterSpacing: '0.2em', textAlign: 'center', padding: 14 }}
             />
-            <button type="button" onClick={onSubmitVerifyOtp} disabled={login.isPending || otpCode.length !== 6} style={buttonStyle}>
+            {/* Kode cadangan (2026-08-30, menutup gap: backup_codes sudah
+                diterbitkan sejak awal tapi tidak ada jalur memakainya saat
+                login) -- format "XXXX-XXXX" diterima di kotak yang sama,
+                dibedakan backend lewat ada/tidaknya strip (mfa.go
+                isBackupCodeFormat), bukan field/endpoint terpisah. */}
+            <p style={{ margin: 0, fontFamily: "'IBM Plex Mono', monospace", fontSize: 9.5, color: C.faint, lineHeight: 1.6 }}>
+              {t('platformLoginPage.verifyOtp.backupCodeHint')}
+            </p>
+            <button
+              type="submit"
+              disabled={login.isPending || (otpCode.length !== 6 && otpCode.length !== 9)}
+              style={buttonStyle}
+            >
               {login.isPending ? t('platformLoginPage.verifyOtp.submitButtonLoading') : t('platformLoginPage.verifyOtp.submitButton')}
             </button>
             <span
@@ -434,7 +467,7 @@ export default function PlatformLoginPage() {
             <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 9, color: C.faint, lineHeight: 1.7 }}>
               {t('platformLoginPage.mfaDisableNote')}
             </div>
-          </>
+          </form>
         )}
 
         {step === 'success' && (

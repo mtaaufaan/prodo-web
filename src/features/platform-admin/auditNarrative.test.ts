@@ -55,6 +55,11 @@ describe('formatAuditNarrative', () => {
     expect(msg).not.toContain('PA Name')
   })
 
+  it('flags a login that used an MFA backup code distinctly from a normal login', () => {
+    const msg = formatAuditNarrative(entry({ action: 'user.backup_code_used' }), t)
+    expect(msg).toContain('kode cadangan')
+  })
+
   it('names the erasure subject when executed', () => {
     const msg = formatAuditNarrative(entry({ action: 'erasure.executed', target_user_name: 'User [REDACTED]' }), t)
     expect(msg).toContain('User [REDACTED]')
