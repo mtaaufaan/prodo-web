@@ -5,17 +5,25 @@ export interface Organization {
   group_id: string
   name: string
   slug: string
+  domain: string
   default_language: string
   storage_quota_bytes: number
   storage_max_bytes: number
+  storage_used_bytes: number
+  retention_days: number
+  workspace_count: number
+  member_count: number
   deactivated_at: string | null
   created_at: string
 }
 
-export interface OrganizationSummary {
-  member_count: number
-  workspace_count: number
-  storage_used_bytes: number
+// S4G-03, Track S4G: GET /organizations sekarang mengembalikan objek
+// {organizations, group_storage_ceiling_bytes} (bukan array polos) --
+// group_storage_ceiling_bytes 0 kalau daftar kosong/lintas grup (Platform
+// Admin), lihat komentar OrganizationRepository.List di backend.
+export interface OrganizationListResult {
+  organizations: Organization[]
+  group_storage_ceiling_bytes: number
 }
 
 const slugSchema = z
@@ -32,9 +40,16 @@ export const createOrganizationSchema = z.object({
 })
 export type CreateOrganizationFormValues = z.infer<typeof createOrganizationSchema>
 
+// domain (S4G-02, Track S4G): sama regex dengan CHECK constraint DB --
+// kosong diizinkan (opsional, dikosongkan di server sebagai NULL).
+const domainSchema = z
+  .string()
+  .refine((v) => v === '' || /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(v), 'Format domain tidak valid (mis. acme.co.id)')
+
 export const updateOrganizationSchema = z.object({
   name: z.string().min(1, 'Nama wajib diisi'),
   slug: slugSchema,
+  domain: domainSchema,
 })
 export type UpdateOrganizationFormValues = z.infer<typeof updateOrganizationSchema>
 
@@ -44,9 +59,18 @@ export const updateSettingsSchema = z.object({
 })
 export type UpdateSettingsFormValues = z.infer<typeof updateSettingsSchema>
 
-// S3-32/34/36 (US-011) -- input FE dalam GB (lebih ramah dibaca), dikonversi
-// ke bytes sebelum dikirim ke API.
+// S3-32/34/36 (US-011), retention_days ditambah S4G-03 (Track S4G, desain
+// "GA Organizations.dc.html" -- kuota+retensi digabung satu section/satu
+// simpan) -- quota_gb dalam GB (lebih ramah dibaca), dikonversi ke bytes
+// sebelum dikirim ke API. Batas retensi 30-365 hari sama persis CHECK
+// constraint DB (organizations.retention_days) -- valid dipakai sebagai
+// bound tanpa perlu fetch tambahan.
 export const updateStorageQuotaSchema = z.object({
   quota_gb: z.coerce.number().min(0.1, 'Kuota minimal 0.1 GB'),
+  retention_days: z.coerce
+    .number()
+    .int('Retensi harus bilangan bulat')
+    .min(30, 'Retensi minimal 30 hari')
+    .max(365, 'Retensi maksimal 365 hari'),
 })
 export type UpdateStorageQuotaFormValues = z.infer<typeof updateStorageQuotaSchema>

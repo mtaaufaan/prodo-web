@@ -1,9 +1,9 @@
 import { apiClient } from '@/lib/api'
 
-import type { CreateOrganizationFormValues, Organization, OrganizationSummary, UpdateOrganizationFormValues } from './types'
+import type { CreateOrganizationFormValues, OrganizationListResult, UpdateOrganizationFormValues } from './types'
 
 export function listOrganizations() {
-  return apiClient.get<Organization[]>('/api/v1/organizations')
+  return apiClient.get<OrganizationListResult>('/api/v1/organizations')
 }
 
 export function createOrganization(values: CreateOrganizationFormValues) {
@@ -26,18 +26,15 @@ export function deleteOrganization(id: string) {
   return apiClient.delete<void>(`/api/v1/organizations/${id}`)
 }
 
-export function getOrganizationSummary(id: string) {
-  return apiClient.get<OrganizationSummary>(`/api/v1/organizations/${id}/summary`)
-}
-
 export function updateOrganizationSettings(id: string, defaultLanguage: string) {
   return apiClient.put<{ id: string; default_language: string }>(`/api/v1/organizations/${id}/settings`, {
     default_language: defaultLanguage,
   })
 }
 
-export function updateOrganizationStorageQuota(id: string, quotaBytes: number) {
-  return apiClient.put<{ id: string; storage_quota_bytes: number }>(`/api/v1/organizations/${id}/storage-quota`, {
-    storage_quota_bytes: quotaBytes,
-  })
+export function updateOrganizationStorageQuota(id: string, quotaBytes: number, retentionDays: number) {
+  return apiClient.put<{ id: string; storage_quota_bytes: number; retention_days: number }>(
+    `/api/v1/organizations/${id}/storage-quota`,
+    { storage_quota_bytes: quotaBytes, retention_days: retentionDays },
+  )
 }
