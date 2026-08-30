@@ -4,6 +4,7 @@ import {
   createWorkspace,
   deactivateWorkspace,
   deleteWorkspace,
+  getWorkspace,
   listWorkspaces,
   reactivateWorkspace,
   updateWorkspace,
@@ -24,6 +25,18 @@ const workspaceListQuery = (orgId: string) =>
 
 export function useWorkspaceList(orgId: string) {
   return useQuery(workspaceListQuery(orgId))
+}
+
+const workspaceQuery = (id: string) =>
+  queryOptions({
+    queryKey: [...workspaceKeys.all, 'detail', id] as const,
+    queryFn: () => getWorkspace(id),
+    enabled: id !== '',
+  })
+
+// S4-04 prasyarat: nama workspace untuk header WorkspaceLayout.
+export function useWorkspace(id: string) {
+  return useQuery(workspaceQuery(id))
 }
 
 export function useCreateWorkspace(orgId: string) {

@@ -22,10 +22,12 @@ import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
 import PlatformLoginPage from '@/pages/PlatformLoginPage'
 import PlatformSecuritySettingsPage from '@/pages/PlatformSecuritySettingsPage'
 import PlatformTiersPage from '@/pages/PlatformTiersPage'
+import ProjectListPage from '@/pages/ProjectListPage'
 import ProjectMembersPage from '@/pages/ProjectMembersPage'
 import SessionsPage from '@/pages/SessionsPage'
 import WorkspaceListPage from '@/pages/WorkspaceListPage'
 import WorkspaceMembersPage from '@/pages/WorkspaceMembersPage'
+import WorkspaceLayout from '@/components/WorkspaceLayout'
 
 // Definisi route terpusat (S0-28). Route asli (dashboard/tasks/projects/dst)
 // ditambahkan di bawah <Route element={<AuthGuard />}> mulai S1.
@@ -55,7 +57,15 @@ export default function AppRouter() {
         <Route path="/" element={<Home />} />
         {/* TODO S1: /dashboard, /tasks, /projects */}
         <Route path="/settings/sessions" element={<SessionsPage />} />{/* S1-31 */}
-        <Route path="/workspaces/:wsId/members" element={<WorkspaceMembersPage />} />{/* S2-07/08 */}
+        {/* WorkspaceLayout (2026-08-30, US-012): kerangka Master UI User --
+            diekstrak dari desain "Master UI User.dc.html" -- dibangun
+            karena 5 halaman member/workspace sudah berjalan tanpa shell
+            sama sekali sebelum ini. Halaman baru tinggal disambung sebagai
+            child route begitu task-nya selesai, sama pola PlatformAdminLayout. */}
+        <Route element={<WorkspaceLayout />}>
+          <Route path="/workspaces/:wsId/members" element={<WorkspaceMembersPage />} />{/* S2-07/08 */}
+          <Route path="/workspaces/:wsId/projects" element={<ProjectListPage />} />{/* S4-04, US-012 */}
+        </Route>
         {/* S3-24, US-009b: TANPA RoleGuard platform-role -- aktor sah (AW/PM)
             platform_role-nya "member" biasa, otorisasi penuh di backend
             ProjectMemberService. */}

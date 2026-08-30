@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useRemoveMember, useWorkspaceMembers } from '@/features/workspace-members/hooks'
 import type { WorkspaceMember } from '@/features/workspace-members/types'
+import { useWorkspace } from '@/features/workspaces/hooks'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -28,6 +29,8 @@ function WorkspaceMembersPageContent() {
   const { wsId } = useParams<{ wsId: string }>()
   const workspaceId = wsId ?? ''
   const { data, isLoading, isError } = useWorkspaceMembers(workspaceId)
+  const { data: workspace } = useWorkspace(workspaceId)
+  const workspaceName = workspace?.name ?? workspaceId
   const [selected, setSelected] = useState<WorkspaceMember | null>(null)
   const [removeTarget, setRemoveTarget] = useState<WorkspaceMember | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -44,7 +47,7 @@ function WorkspaceMembersPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-deep">
+    <>
       <div className="mx-auto max-w-4xl space-y-6 p-6">
         <div className="flex items-center justify-between">
           <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Member Workspace</h1>
@@ -95,19 +98,15 @@ function WorkspaceMembersPageContent() {
         <PendingInvitationsSection workspaceId={workspaceId} />
       </div>
 
-      {/* workspaceName pakai workspaceId apa adanya -- GET /workspaces/:wsId
-          (nama workspace sungguhan) belum diverifikasi hidup di S2, di luar
-          scope prasyarat minimal S2-07/08. Ganti begitu S3 (workspace detail)
-          selesai. */}
       <RolePickerModal
         workspaceId={workspaceId}
-        workspaceName={workspaceId}
+        workspaceName={workspaceName}
         member={selected}
         onClose={() => setSelected(null)}
       />
       <InviteMemberModal
         workspaceId={workspaceId}
-        workspaceName={workspaceId}
+        workspaceName={workspaceName}
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
       />
@@ -137,7 +136,7 @@ function WorkspaceMembersPageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }
 
