@@ -10,6 +10,7 @@ import CrossOrgMembershipsPage from '@/pages/CrossOrgMembershipsPage'
 import DesignPage from '@/pages/DesignPage'
 import ErasureRequestsPage from '@/pages/ErasureRequestsPage'
 import Forbidden from '@/pages/Forbidden'
+import GroupAdminLayout from '@/components/GroupAdminLayout'
 import GroupDirectoryPage from '@/pages/GroupDirectoryPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
@@ -103,15 +104,22 @@ export default function AppRouter() {
         {/* S3-07, US-007: Platform Admin (semua org) atau Group Admin (org
             dalam grup yang dia kelola, scoping lewat RLS `orgs_select`). */}
         <Route element={<RoleGuard allowedRoles={['platform_admin', 'group_admin']} />}>
-          <Route path="/organizations" element={<OrganizationManagementPage />} />
-          {/* S3-13, US-008: sama gate seperti /organizations -- backend
-              GET .../workspaces (implementation_gaps.md IG-17) PA/GA saja,
-              konsisten RLS `workspaces_delete` yang tidak punya cabang
-              `admin_workspace`. */}
-          <Route path="/organizations/:orgId/workspaces" element={<WorkspaceListPage />} />
-          {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
-              (S3-25/27) PA/GA saja. */}
-          <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />
+          {/* GroupAdminLayout (2026-08-30, Track S4G S4G-01): kerangka konsol
+              GA dari "Master UI Group Admin.dc.html". Route ini dipakai
+              BERSAMA Platform Admin -- GroupAdminLayout sendiri deteksi
+              platform_admin dan render children polos (PA punya konsol
+              sendiri di /platform/*), shell cuma tampil untuk group_admin. */}
+          <Route element={<GroupAdminLayout />}>
+            <Route path="/organizations" element={<OrganizationManagementPage />} />
+            {/* S3-13, US-008: sama gate seperti /organizations -- backend
+                GET .../workspaces (implementation_gaps.md IG-17) PA/GA saja,
+                konsisten RLS `workspaces_delete` yang tidak punya cabang
+                `admin_workspace`. */}
+            <Route path="/organizations/:orgId/workspaces" element={<WorkspaceListPage />} />
+            {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
+                (S3-25/27) PA/GA saja. */}
+            <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />
+          </Route>
         </Route>
       </Route>
 
