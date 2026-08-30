@@ -6,6 +6,10 @@ export function listWorkspaces(orgId: string) {
   return apiClient.get<Workspace[]>(`/api/v1/organizations/${orgId}/workspaces`)
 }
 
+export function getWorkspace(id: string) {
+  return apiClient.get<Workspace>(`/api/v1/workspaces/${id}`)
+}
+
 export function createWorkspace(orgId: string, values: CreateWorkspaceFormValues) {
   return apiClient.post<{ id: string }>(`/api/v1/organizations/${orgId}/workspaces`, values)
 }
