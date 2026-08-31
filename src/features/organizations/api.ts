@@ -7,7 +7,11 @@ export function listOrganizations() {
 }
 
 export function createOrganization(values: CreateOrganizationFormValues) {
-  return apiClient.post<{ id: string }>('/api/v1/organizations', values)
+  const { quota_gb, ...rest } = values
+  return apiClient.post<{ id: string }>('/api/v1/organizations', {
+    ...rest,
+    storage_quota_bytes: Math.round(quota_gb * 1024 * 1024 * 1024),
+  })
 }
 
 export function updateOrganization(id: string, values: UpdateOrganizationFormValues) {

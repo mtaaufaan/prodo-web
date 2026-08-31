@@ -31,20 +31,34 @@ const slugSchema = z
   .min(1, 'Slug wajib diisi')
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'Lowercase, alphanumeric, hyphen (mis. "acme-corp")')
 
-// group_id dipilih dari dropdown direktori grup (S4P-36, menutup
-// implementation_gaps.md IG-16) -- lihat CreateOrganizationModal.
-export const createOrganizationSchema = z.object({
-  group_id: z.string().min(1, 'Group ID wajib diisi'),
-  name: z.string().min(1, 'Nama wajib diisi'),
-  slug: slugSchema,
-})
-export type CreateOrganizationFormValues = z.infer<typeof createOrganizationSchema>
-
 // domain (S4G-02, Track S4G): sama regex dengan CHECK constraint DB --
 // kosong diizinkan (opsional, dikosongkan di server sebagai NULL).
 const domainSchema = z
   .string()
   .refine((v) => v === '' || /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(v), 'Format domain tidak valid (mis. acme.co.id)')
+
+// group_id dipilih dari dropdown direktori grup (S4P-36, menutup
+// implementation_gaps.md IG-16). S4G-05 (Track S4G, desain
+// "GA Add Organization.dc.html"): domain/default_language/quota_gb/
+// retention_days ditambahkan supaya organisasi dibuat lengkap dalam satu
+// submit (sebelumnya cuma name/slug/group_id, sisanya harus diisi lewat
+// ManageOrganizationModal setelah dibuat). `slug` tidak lagi diisi manual
+// di form -- diturunkan otomatis dari `name` (lihat CreateOrganizationModal),
+// tetap ada di schema karena tetap dikirim ke API persis format S3-02.
+export const createOrganizationSchema = z.object({
+  group_id: z.string().min(1, 'Group ID wajib diisi'),
+  name: z.string().min(1, 'Nama wajib diisi'),
+  slug: slugSchema,
+  domain: domainSchema,
+  default_language: z.enum(['id', 'en']),
+  quota_gb: z.coerce.number().min(0.1, 'Kuota minimal 0.1 GB'),
+  retention_days: z.coerce
+    .number()
+    .int('Retensi harus bilangan bulat')
+    .min(30, 'Retensi minimal 30 hari')
+    .max(365, 'Retensi maksimal 365 hari'),
+})
+export type CreateOrganizationFormValues = z.infer<typeof createOrganizationSchema>
 
 export const updateOrganizationSchema = z.object({
   name: z.string().min(1, 'Nama wajib diisi'),
