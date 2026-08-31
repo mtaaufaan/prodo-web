@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useOutletContext } from 'react-router-dom'
 
+import type { GroupAdminOutletContext } from '@/components/GroupAdminLayout'
 import CreateOrganizationModal from '@/components/organizations/CreateOrganizationModal'
 import ManageOrganizationModal from '@/components/organizations/ManageOrganizationModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
@@ -47,6 +48,11 @@ function OrganizationManagementPageContent() {
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  // Baris tab tampilan (Semua/Aktif/Nonaktif) datang dari GroupAdminLayout
+  // (S4G-03 fix, desain "Master UI Group Admin.dc.html") -- undefined kalau
+  // dirender polos untuk Platform Admin (shell-nya cuma <Outlet/> tanpa
+  // context, lihat GroupAdminLayout), makanya fallback 'Semua'.
+  const { view } = useOutletContext<GroupAdminOutletContext>() ?? { view: 'Semua' }
   // Derivasi dari list.data (bukan simpan object organisasi apa adanya di
   // state) -- supaya modal ikut lihat deactivated_at/kuota terbaru setelah
   // toggle/simpan sukses (query di-invalidate, list refetch), bukan snapshot
@@ -54,6 +60,8 @@ function OrganizationManagementPageContent() {
   const orgs = useMemo(() => list.data?.organizations ?? [], [list.data])
   const selected = orgs.find((o) => o.id === selectedId) ?? null
 
+  // Stats selalu dari SELURUH organisasi (bukan hasil filter) -- sama
+  // dengan desain (__vals() hitung dari `all`, bukan `rows`).
   const stats = useMemo(() => {
     const aktif = orgs.filter((o) => o.deactivated_at === null).length
     const allocatedBytes = orgs.reduce((sum, o) => sum + o.storage_quota_bytes, 0)
@@ -62,9 +70,16 @@ function OrganizationManagementPageContent() {
   }, [orgs])
   const ceilingBytes = list.data?.group_storage_ceiling_bytes ?? 0
 
-  const totalPages = Math.max(1, Math.ceil(orgs.length / ORG_PAGE_SIZE))
+  const filteredOrgs = useMemo(() => {
+    if (view === 'Aktif') return orgs.filter((o) => o.deactivated_at === null)
+    if (view === 'Nonaktif') return orgs.filter((o) => o.deactivated_at !== null)
+    return orgs
+  }, [orgs, view])
+  useEffect(() => setPage(1), [view])
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrgs.length / ORG_PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-  const pagedOrgs = orgs.slice((currentPage - 1) * ORG_PAGE_SIZE, currentPage * ORG_PAGE_SIZE)
+  const pagedOrgs = filteredOrgs.slice((currentPage - 1) * ORG_PAGE_SIZE, currentPage * ORG_PAGE_SIZE)
   const pageInputRef = useRef<HTMLInputElement>(null)
   const goToPage = (raw: string) => {
     const n = parseInt(raw, 10)
@@ -112,11 +127,15 @@ function OrganizationManagementPageContent() {
           </div>
           {list.isLoading && <p className="p-4 text-sm text-text-muted">Memuat...</p>}
           {list.isError && <p className="p-4 text-sm text-destructive">Gagal memuat daftar organisasi.</p>}
-          {orgs.length === 0 && !list.isLoading && <p className="p-4 text-sm text-text-muted">Belum ada organisasi.</p>}
+          {filteredOrgs.length === 0 && !list.isLoading && (
+            <p className="p-4 text-sm text-text-muted">
+              {orgs.length === 0 ? 'Belum ada organisasi.' : 'Tidak ada organisasi berstatus ini.'}
+            </p>
+          )}
           {pagedOrgs.map((org) => (
             <OrganizationRow key={org.id} organization={org} onManage={() => setSelectedId(org.id)} />
           ))}
-          {orgs.length > ORG_PAGE_SIZE && (
+          {filteredOrgs.length > ORG_PAGE_SIZE && (
             <div className="flex items-center justify-between border-t border-line px-4 py-2.5">
               <button
                 type="button"
