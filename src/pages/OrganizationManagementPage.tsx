@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useOutletContext } from 'react-router-dom'
 
+import type { GroupAdminOutletContext } from '@/components/GroupAdminLayout'
 import CreateOrganizationModal from '@/components/organizations/CreateOrganizationModal'
 import ManageOrganizationModal from '@/components/organizations/ManageOrganizationModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
@@ -47,6 +48,11 @@ function OrganizationManagementPageContent() {
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  // Baris tab tampilan (Semua/Aktif/Nonaktif) datang dari GroupAdminLayout
+  // (S4G-03 fix, desain "Master UI Group Admin.dc.html") -- undefined kalau
+  // dirender polos untuk Platform Admin (shell-nya cuma <Outlet/> tanpa
+  // context, lihat GroupAdminLayout), makanya fallback 'Semua'.
+  const { view } = useOutletContext<GroupAdminOutletContext>() ?? { view: 'Semua' }
   // Derivasi dari list.data (bukan simpan object organisasi apa adanya di
   // state) -- supaya modal ikut lihat deactivated_at/kuota terbaru setelah
   // toggle/simpan sukses (query di-invalidate, list refetch), bukan snapshot
@@ -54,6 +60,8 @@ function OrganizationManagementPageContent() {
   const orgs = useMemo(() => list.data?.organizations ?? [], [list.data])
   const selected = orgs.find((o) => o.id === selectedId) ?? null
 
+  // Stats selalu dari SELURUH organisasi (bukan hasil filter) -- sama
+  // dengan desain (__vals() hitung dari `all`, bukan `rows`).
   const stats = useMemo(() => {
     const aktif = orgs.filter((o) => o.deactivated_at === null).length
     const allocatedBytes = orgs.reduce((sum, o) => sum + o.storage_quota_bytes, 0)
@@ -62,9 +70,16 @@ function OrganizationManagementPageContent() {
   }, [orgs])
   const ceilingBytes = list.data?.group_storage_ceiling_bytes ?? 0
 
-  const totalPages = Math.max(1, Math.ceil(orgs.length / ORG_PAGE_SIZE))
+  const filteredOrgs = useMemo(() => {
+    if (view === 'Aktif') return orgs.filter((o) => o.deactivated_at === null)
+    if (view === 'Nonaktif') return orgs.filter((o) => o.deactivated_at !== null)
+    return orgs
+  }, [orgs, view])
+  useEffect(() => setPage(1), [view])
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrgs.length / ORG_PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-  const pagedOrgs = orgs.slice((currentPage - 1) * ORG_PAGE_SIZE, currentPage * ORG_PAGE_SIZE)
+  const pagedOrgs = filteredOrgs.slice((currentPage - 1) * ORG_PAGE_SIZE, currentPage * ORG_PAGE_SIZE)
   const pageInputRef = useRef<HTMLInputElement>(null)
   const goToPage = (raw: string) => {
     const n = parseInt(raw, 10)
@@ -112,11 +127,15 @@ function OrganizationManagementPageContent() {
           </div>
           {list.isLoading && <p className="p-4 text-sm text-text-muted">Memuat...</p>}
           {list.isError && <p className="p-4 text-sm text-destructive">Gagal memuat daftar organisasi.</p>}
-          {orgs.length === 0 && !list.isLoading && <p className="p-4 text-sm text-text-muted">Belum ada organisasi.</p>}
+          {filteredOrgs.length === 0 && !list.isLoading && (
+            <p className="p-4 text-sm text-text-muted">
+              {orgs.length === 0 ? 'Belum ada organisasi.' : 'Tidak ada organisasi berstatus ini.'}
+            </p>
+          )}
           {pagedOrgs.map((org) => (
             <OrganizationRow key={org.id} organization={org} onManage={() => setSelectedId(org.id)} />
           ))}
-          {orgs.length > ORG_PAGE_SIZE && (
+          {filteredOrgs.length > ORG_PAGE_SIZE && (
             <div className="flex items-center justify-between border-t border-line px-4 py-2.5">
               <button
                 type="button"
@@ -169,6 +188,23 @@ function OrganizationManagementPageContent() {
   )
 }
 
+// Palette badge logo (S4G-03 fix, ditemukan user 2026-08-31 dari screenshot
+// desain "GA Organizations.dc.html"): tiap baris organisasi desain punya
+// kotak inisial berwarna sebelum nama. Data dummy desain (ga-store.js)
+// hardcode warna per organisasi dari palet tetap {orange,mint,violet,amber,
+// blue,grey} -- backend TIDAK punya kolom warna/logo sama sekali (`logo`
+// upload sungguhan sengaja di luar scope, task terpisah, butuh infrastruktur
+// MinIO baru). Badge ini BUKAN logo upload -- cuma monogram dekoratif,
+// dihitung deterministik dari org.id supaya warnanya konsisten tiap render
+// tanpa kolom DB baru. Palet + urutan sama persis dengan desain.
+const LOGO_PALETTE = ['bg-signal', 'bg-mint', 'bg-violet', 'bg-amber', 'bg-blue', 'bg-text-muted'] as const
+
+function logoBgClass(id: string): string {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
+  return LOGO_PALETTE[hash % LOGO_PALETTE.length]
+}
+
 function OrganizationRow({ organization, onManage }: { organization: Organization; onManage: () => void }) {
   const isActive = organization.deactivated_at === null
   const pct = organization.storage_quota_bytes > 0 ? (organization.storage_used_bytes / organization.storage_quota_bytes) * 100 : 0
@@ -176,9 +212,19 @@ function OrganizationRow({ organization, onManage }: { organization: Organizatio
 
   return (
     <div className="grid grid-cols-[1.4fr_0.9fr_1.3fr_0.7fr_0.65fr] items-center gap-3 border-t border-line px-4 py-3">
-      <div>
-        <div className="text-[13px] text-text-body">{organization.name}</div>
-        <div className="font-mono text-[10px] text-text-muted">{organization.domain || organization.slug}</div>
+      <div className="flex items-center gap-2.5">
+        <span
+          className={cn(
+            'flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center text-[12px] font-extrabold text-bg-deep',
+            logoBgClass(organization.id),
+          )}
+        >
+          {organization.name.charAt(0).toUpperCase()}
+        </span>
+        <div>
+          <div className="text-[13px] text-text-body">{organization.name}</div>
+          <div className="font-mono text-[10px] text-text-muted">{organization.domain || organization.slug}</div>
+        </div>
       </div>
       <Link
         to={`/organizations/${organization.id}/workspaces`}

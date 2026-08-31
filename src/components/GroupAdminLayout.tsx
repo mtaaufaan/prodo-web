@@ -1,35 +1,56 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useMemo, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
+import { useGroups } from '@/features/platform-admin/hooks'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
-// Kerangka konsol Group Admin -- diekstrak dari desain "Master UI Group
-// Admin.dc.html" (dibaca via DesignSync), dibangun 2026-08-30 (Track S4G,
-// S4G-01). Disederhanakan sama pola PlatformAdminLayout/WorkspaceLayout:
-// SATU sidebar (bukan icon-rail + sidebar konteks terpisah dari desain),
-// TANPA search bar/notifikasi/CTA topbar.
+// Kerangka konsol Group Admin -- dibangun ulang 2026-08-31 setelah user
+// menunjukkan versi awal (S4G-01, H12) terlalu disederhanakan dibanding
+// sumber desain "Master UI Group Admin.dc.html" (dibaca ulang langsung
+// via DesignSync, bukan dari ringkasan riset -- lihat memory
+// claude-design-prodo-project.md). Versi awal cuma satu sidebar; ini
+// mengikuti struktur asli: icon rail + sidebar konteks + topbar + baris
+// tab tampilan.
 //
-// Route yang dibungkus (/organizations, /organizations/:orgId/workspaces,
-// /groups/:groupId/cross-org-memberships) DIPAKAI BERSAMA Platform Admin
-// (RoleGuard allowedRoles=['platform_admin','group_admin']) -- PA punya
-// konsol sendiri (PlatformAdminLayout di /platform/*), jadi shell GA
-// SENGAJA tidak dipaksakan ke PA: kalau viewer platform_admin, render
-// children polos (persis perilaku sebelum S4G-01), shell cuma tampil
-// untuk group_admin. Menghindari duplikasi route untuk data yang sama.
-function useNavItems() {
-  return [
-    { icon: '◧', label: 'Ringkasan', to: null },
-    { icon: '▤', label: 'Organisasi', to: '/organizations' },
-    { icon: '◫', label: 'Workspace', to: null },
-    { icon: '▦', label: 'Storage & Kuota', to: null },
-    { icon: '◉', label: 'Members & Roles', to: null },
-    { icon: '◷', label: 'Data Retention', to: null },
-    { icon: '⬇', label: 'Import Data', to: null },
-    { icon: '⌗', label: 'Webhook', to: null },
-    { icon: '🌐', label: 'Bahasa & Lokal', to: null },
-    { icon: '☰', label: 'Audit Trail', to: null },
-    { icon: '◎', label: 'Kinerja Grup', to: null },
-  ]
+// TIDAK disalin dari desain (chrome dokumentasi tool desain, sama kelas
+// dengan panel swatch TYPE yang sudah dihilangkan dari halaman lain):
+// header besar "Application Shell -- Group Admin" / "Master UI -- Group
+// Admin" di atas kotak shell.
+//
+// Disengaja tetap non-fungsional (SEGERA/inert, bukan link mati) karena
+// tidak ada data/endpoint nyata untuk itu sama sekali di backend saat ini:
+// - Search bar (⌘K) -- tidak ada endpoint pencarian lintas-entity.
+// - Ikon notifikasi -- tidak ada GET /notifications (in-app notification
+//   CUMA ditulis saat AssignRole, S2-05, tidak pernah dibaca ulang).
+// - Ikon pengaturan di icon rail + dropdown profil (bahasa/pengaturan akun)
+//   -- halaman "GA Pengaturan Akun" belum dibangun; toggle bahasa GA area
+//   belum di-wire ke i18next (sama keterbatasan PlatformAdminLayout, IG-30
+//   sengaja membatasi cakupan i18n ke PA saja).
+// Tombol CTA topbar ("+ ORGANISASI" dst di desain) SENGAJA tidak dibangun
+// di sini -- akan duplikat tombol "+ Buat Organisasi" yang sudah ada di
+// dalam OrganizationManagementPage sendiri; menambahkannya butuh state
+// lifting lintas shell<->halaman yang tidak sepadan untuk 1 CTA saja
+// selagi baru 1 dari 11 menu yang punya halaman sungguhan.
+const NAV_ITEMS = [
+  { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: null as string | null, tabs: null as string[] | null },
+  { key: 'ringkasan', icon: '◧', label: 'Ringkasan', to: null, tabs: null },
+  { key: 'organisasi', icon: '▤', label: 'Organisasi', to: '/organizations', tabs: ['Semua', 'Aktif', 'Nonaktif'] },
+  { key: 'workspace', icon: '◫', label: 'Workspace', to: null, tabs: null },
+  { key: 'storage', icon: '▦', label: 'Storage & Kuota', to: null, tabs: null },
+  { key: 'members', icon: '◉', label: 'Members & Roles', to: null, tabs: null },
+  { key: 'retensi', icon: '◷', label: 'Data Retention', to: null, tabs: null },
+  { key: 'import', icon: '⬇', label: 'Import Data', to: null, tabs: null },
+  { key: 'webhook', icon: '⌗', label: 'Webhook', to: null, tabs: null },
+  { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: null, tabs: null },
+  { key: 'audit', icon: '☰', label: 'Audit Trail', to: null, tabs: null },
+]
+
+// Konteks diteruskan ke halaman yang dibungkus lewat <Outlet context=.../>
+// (S4G-03 fix) -- supaya baris tab tampilan (Semua/Aktif/Nonaktif) di
+// shell bisa menyaring data di halaman anak tanpa lifting state manual.
+export interface GroupAdminOutletContext {
+  view: string
 }
 
 function GroupAdminNavItem({ icon, label, to }: { icon: string; label: string; to: string | null }) {
@@ -60,9 +81,14 @@ function GroupAdminNavItem({ icon, label, to }: { icon: string; label: string; t
 
 export default function GroupAdminLayout() {
   const navigate = useNavigate()
+  const location = useLocation()
   const platformRole = useAuthStore((state) => state.user?.platform_role)
+  const user = useAuthStore((state) => state.user)
   const clearSession = useAuthStore((state) => state.clearSession)
-  const navItems = useNavItems()
+  const groups = useGroups('')
+  const [view, setView] = useState('Semua')
+
+  const activeNav = useMemo(() => NAV_ITEMS.find((n) => n.to && location.pathname.startsWith(n.to)) ?? null, [location.pathname])
 
   if (platformRole === 'platform_admin') {
     return <Outlet />
@@ -73,32 +99,135 @@ export default function GroupAdminLayout() {
     navigate('/login')
   }
 
-  return (
-    <div className="min-h-screen bg-bg-deep p-10 text-text-body">
-      <div className="mx-auto mb-5 max-w-[1540px]">
-        <p className="font-mono text-[10px] tracking-[0.14em] text-text-muted">GRUP</p>
-        <h1 className="mt-1 text-2xl font-extrabold uppercase tracking-tight text-text-bone">Konsol Group Admin</h1>
-      </div>
+  const group = groups.data?.[0] ?? null
+  const groupName = group?.name ?? '—'
+  const tierShort = (group?.tier ?? '—').slice(0, 3).toUpperCase()
+  const monogram = (user?.display_name ?? '')
+    .split(/\s+/)
+    .map((w) => w[0] ?? '')
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 
-      <div className="mx-auto flex max-w-[1540px] overflow-hidden border border-line bg-bg-deep">
-        <aside className="flex w-56 flex-shrink-0 flex-col border-r border-line">
-          <nav className="flex flex-col gap-0.5 p-2">
-            {navItems.map((item) => (
-              <GroupAdminNavItem key={item.label} {...item} />
-            ))}
-          </nav>
-          <div className="mt-auto flex justify-end border-t border-line p-4">
+  return (
+    <div className="min-h-screen bg-bg-deep p-6 text-text-body">
+      <div className="mx-auto flex h-[calc(100vh-48px)] max-w-[1540px] overflow-hidden border border-line bg-panel">
+        {/* ICON RAIL */}
+        <div className="flex w-[58px] flex-shrink-0 flex-col items-center gap-1.5 border-r border-line py-3.5">
+          <div className="mb-2.5 flex h-[34px] w-[34px] items-center justify-center bg-signal text-[16px] font-black text-bg-deep">
+            P
+          </div>
+          <button
+            type="button"
+            disabled
+            title="Pencarian lintas organisasi belum tersedia"
+            className="flex h-[38px] w-[38px] cursor-not-allowed items-center justify-center border-l-2 border-transparent font-mono text-[15px] text-text-dim"
+          >
+            ⌕
+          </button>
+          <button
+            type="button"
+            disabled
+            title="Pengaturan akun belum tersedia"
+            className="flex h-[38px] w-[38px] cursor-not-allowed items-center justify-center border-l-2 border-transparent font-mono text-[15px] text-text-dim"
+          >
+            ⚙
+          </button>
+          <div className="mt-auto flex flex-col items-center gap-2.5">
+            <div
+              className="grid h-8 w-8 place-items-center rounded-full bg-violet font-mono text-[11px] font-bold text-bg-deep"
+              title={user?.display_name ?? ''}
+            >
+              {monogram || '—'}
+            </div>
             <button
               type="button"
               onClick={handleSignOut}
-              className="inline-flex items-center gap-2 border border-line px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-signal"
+              title="Keluar"
+              className="flex h-[34px] w-[34px] items-center justify-center border border-line-strong text-[14px] text-text-muted hover:border-signal hover:text-signal"
             >
-              Keluar ⏻
+              ⏻
             </button>
           </div>
+        </div>
+
+        {/* CONTEXT SIDEBAR */}
+        <aside className="flex w-60 flex-shrink-0 flex-col border-r border-line">
+          <div className="flex h-[58px] flex-shrink-0 items-center gap-2.5 border-b border-line px-3.5">
+            <span className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center bg-signal text-[14px] font-extrabold text-bg-deep">
+              {groupName.charAt(0).toUpperCase()}
+            </span>
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-muted">GRUP</div>
+              <div className="truncate text-[14px] font-bold">{groupName}</div>
+            </div>
+            <span className="border border-mint px-1.5 py-0.5 font-mono text-[8px] tracking-[0.06em] text-mint">
+              {tierShort}
+            </span>
+          </div>
+          <div className="flex flex-1 flex-col gap-0.5 overflow-auto px-1.5 py-3">
+            <div className="px-2.5 pb-1 pt-1.5 font-mono text-[9px] tracking-[0.14em] text-text-faint">KELOLA GRUP</div>
+            {NAV_ITEMS.map((item) => (
+              <GroupAdminNavItem key={item.key} icon={item.icon} label={item.label} to={item.to} />
+            ))}
+          </div>
+          <div className="flex flex-shrink-0 items-center gap-2.5 border-t border-line px-4 py-3">
+            <span className="flex h-7 w-7 items-center justify-center border border-signal bg-[oklch(0.24_0.03_45)] font-mono text-[13px] text-signal">
+              ◈
+            </span>
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="truncate text-[12.5px] font-semibold">{user?.display_name ?? '—'}</div>
+              <div className="font-mono text-[9px] text-text-muted">Group Admin</div>
+            </div>
+          </div>
         </aside>
-        <main className="min-h-[600px] flex-1 overflow-auto">
-          <Outlet />
+
+        {/* MAIN */}
+        <main className="flex min-w-0 flex-1 flex-col">
+          <div className="flex h-[58px] flex-shrink-0 items-center gap-4 border-b border-line px-5">
+            <div className="flex items-center gap-2 font-mono text-[11px] text-text-muted">
+              <span>{groupName}</span>
+              <span className="text-text-faint">/</span>
+              <span className="text-text-bone">{activeNav ? `${activeNav.label} · ${view}` : 'Ringkasan'}</span>
+            </div>
+            <div className="flex-1" />
+            <input
+              disabled
+              title="Pencarian lintas organisasi belum tersedia"
+              placeholder="Cari nama, email, organisasi…"
+              className="hidden max-w-[220px] flex-1 cursor-not-allowed border border-line bg-transparent px-3 py-1.5 font-mono text-[11px] text-text-dim outline-none placeholder:text-text-dim md:block"
+            />
+            <button
+              type="button"
+              disabled
+              title="Notifikasi belum tersedia"
+              className="flex h-[34px] w-[34px] flex-shrink-0 cursor-not-allowed items-center justify-center border border-line text-[14px] text-text-dim"
+            >
+              🔔
+            </button>
+          </div>
+
+          {activeNav?.tabs && (
+            <div className="flex h-[46px] flex-shrink-0 items-stretch gap-0.5 border-b border-line px-3.5">
+              {activeNav.tabs.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setView(tab)}
+                  className={cn(
+                    'flex items-center border-b-2 px-3.5 font-mono text-[11px] tracking-[0.04em]',
+                    view === tab ? 'border-signal text-text-bone' : 'border-transparent text-text-muted',
+                  )}
+                >
+                  {tab.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="min-h-0 flex-1 overflow-auto bg-content">
+            <Outlet context={{ view } satisfies GroupAdminOutletContext} />
+          </div>
         </main>
       </div>
     </div>
