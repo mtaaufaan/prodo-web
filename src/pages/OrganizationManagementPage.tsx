@@ -5,7 +5,6 @@ import type { GroupAdminOutletContext } from '@/components/GroupAdminLayout'
 import CreateOrganizationModal from '@/components/organizations/CreateOrganizationModal'
 import ManageOrganizationModal from '@/components/organizations/ManageOrganizationModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { Button } from '@/components/ui/button'
 import { useOrganizationList } from '@/features/organizations/hooks'
 import type { Organization } from '@/features/organizations/types'
 import { cn } from '@/lib/utils'
@@ -48,11 +47,24 @@ function OrganizationManagementPageContent() {
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
-  // Baris tab tampilan (Semua/Aktif/Nonaktif) datang dari GroupAdminLayout
-  // (S4G-03 fix, desain "Master UI Group Admin.dc.html") -- undefined kalau
-  // dirender polos untuk Platform Admin (shell-nya cuma <Outlet/> tanpa
-  // context, lihat GroupAdminLayout), makanya fallback 'Semua'.
-  const { view } = useOutletContext<GroupAdminOutletContext>() ?? { view: 'Semua' }
+  // Baris tab tampilan (Semua/Aktif/Nonaktif) & tombol CTA topbar datang
+  // dari GroupAdminLayout (S4G-03 fix, desain "Master UI Group Admin.dc.html")
+  // -- undefined kalau dirender polos untuk Platform Admin (shell-nya cuma
+  // <Outlet/> tanpa context, lihat GroupAdminLayout) -- PA TIDAK PUNYA
+  // topbar sama sekali, jadi tetap butuh tombol create di dalam halaman
+  // sendiri (lihat isBareRender di bawah), beda dari GA yang sekarang
+  // pakai CTA topbar (bukan lagi tombol duplikat di halaman).
+  const outletContext = useOutletContext<GroupAdminOutletContext>()
+  const isBareRender = !outletContext
+  const { view, registerCta } = outletContext ?? { view: 'Semua', registerCta: () => {} }
+  // Daftarkan handler tombol "+ Buat Organisasi" topbar sekali saat mount --
+  // sebelumnya tombol ini duplikat di dalam halaman (di luar desain sama
+  // sekali, ditemukan user lewat login ke demo interaktif sungguhan).
+  useEffect(() => {
+    registerCta(() => setCreateOpen(true))
+    return () => registerCta(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // Derivasi dari list.data (bukan simpan object organisasi apa adanya di
   // state) -- supaya modal ikut lihat deactivated_at/kuota terbaru setelah
   // toggle/simpan sukses (query di-invalidate, list refetch), bukan snapshot
@@ -90,26 +102,37 @@ function OrganizationManagementPageContent() {
   return (
     <>
       <div className="space-y-3.5 p-6">
-        <div className="flex items-center justify-between">
-          <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Organisasi</h1>
-          <Button onClick={() => setCreateOpen(true)} className="font-mono text-[10px] uppercase tracking-[0.06em]">
-            + Buat Organisasi
-          </Button>
-        </div>
-
-        {orgs.length > 0 && (
-          <div className="flex flex-wrap gap-3">
-            <StatCard label="Total Organisasi" value={String(stats.total)} />
-            <StatCard label="Aktif" value={String(stats.aktif)} tone="mint" />
-            <StatCard label="Nonaktif" value={String(stats.nonaktif)} tone="destructive" />
-            <StatCard
-              label="Kuota Teralokasi"
-              value={ceilingBytes > 0 ? `${(stats.allocatedBytes / GB).toFixed(0)} / ${(ceilingBytes / GB).toFixed(0)} GB` : `${(stats.allocatedBytes / GB).toFixed(0)} GB`}
-              tone="signal"
-            />
-            <StatCard label="Storage Terpakai" value={`${(stats.usedBytes / GB).toFixed(1)} GB`} />
+        {/* Platform Admin lihat halaman ini polos, TANPA shell/topbar sama
+            sekali (lihat GroupAdminLayout) -- tombol create SATU-SATUNYA
+            cuma ada di sini untuk PA. Group Admin pakai CTA topbar. */}
+        {isBareRender && (
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="bg-signal px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-bg-deep"
+            >
+              + Buat Organisasi
+            </button>
           </div>
         )}
+
+        {/* Selalu tampil, TERMASUK saat 0 organisasi (dengan angka 0) --
+            desain "GA Organizations.dc.html" render 5 kartu ini via sc-for
+            tanpa syarat sama sekali. Sebelumnya digerbangi `orgs.length > 0`,
+            jadi grup yang baru dibuat/belum punya organisasi (kasus nyata
+            ditemukan user: "RDS Group") tidak pernah melihat stats bar. */}
+        <div className="flex flex-wrap gap-3">
+          <StatCard label="Total Organisasi" value={String(stats.total)} />
+          <StatCard label="Aktif" value={String(stats.aktif)} tone="mint" />
+          <StatCard label="Nonaktif" value={String(stats.nonaktif)} tone="destructive" />
+          <StatCard
+            label="Kuota Teralokasi"
+            value={ceilingBytes > 0 ? `${(stats.allocatedBytes / GB).toFixed(0)} / ${(ceilingBytes / GB).toFixed(0)} GB` : `${(stats.allocatedBytes / GB).toFixed(0)} GB`}
+            tone="signal"
+          />
+          <StatCard label="Storage Terpakai" value={`${(stats.usedBytes / GB).toFixed(1)} GB`} />
+        </div>
 
         <div className="border border-line">
           {/* bg-raised-2 (S4G-03 fix, ditemukan user 2026-08-30): header grid
