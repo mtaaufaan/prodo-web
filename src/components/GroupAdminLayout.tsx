@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 import { useGroups } from '@/features/platform-admin/hooks'
@@ -27,30 +27,37 @@ import { useAuthStore } from '@/store/useAuthStore'
 //   -- halaman "GA Pengaturan Akun" belum dibangun; toggle bahasa GA area
 //   belum di-wire ke i18next (sama keterbatasan PlatformAdminLayout, IG-30
 //   sengaja membatasi cakupan i18n ke PA saja).
-// Tombol CTA topbar ("+ ORGANISASI" dst di desain) SENGAJA tidak dibangun
-// di sini -- akan duplikat tombol "+ Buat Organisasi" yang sudah ada di
-// dalam OrganizationManagementPage sendiri; menambahkannya butuh state
-// lifting lintas shell<->halaman yang tidak sepadan untuk 1 CTA saja
-// selagi baru 1 dari 11 menu yang punya halaman sungguhan.
+// Tombol CTA topbar (S4G-03 fix, ditemukan user 2026-08-31 lewat login
+// sungguhan ke demo interaktif "PRODO Alur Aplikasi - Standalone.html"):
+// desain menaruh SATU tombol create di topbar (beda label per menu aktif,
+// ctaMap di Master UI Group Admin.dc.html), konten halaman TIDAK pernah
+// punya judul/tombol duplikat sendiri. Percobaan awal (S4G-01) menyimpulkan
+// sebaliknya (CTA di halaman, topbar kosong) -- salah baca, dibalik di sini.
+// Halaman anak mendaftarkan handler-nya sendiri lewat `registerCta` di
+// outlet context (lihat OrganizationManagementPage) -- shell tidak perlu
+// tahu apa pun soal CreateOrganizationModal, pola yang sama akan dipakai
+// nav lain begitu halamannya nyata (mis. "+ Workspace" untuk Workspace).
 const NAV_ITEMS = [
-  { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: null as string | null, tabs: null as string[] | null },
-  { key: 'ringkasan', icon: '◧', label: 'Ringkasan', to: null, tabs: null },
-  { key: 'organisasi', icon: '▤', label: 'Organisasi', to: '/organizations', tabs: ['Semua', 'Aktif', 'Nonaktif'] },
-  { key: 'workspace', icon: '◫', label: 'Workspace', to: null, tabs: null },
-  { key: 'storage', icon: '▦', label: 'Storage & Kuota', to: null, tabs: null },
-  { key: 'members', icon: '◉', label: 'Members & Roles', to: null, tabs: null },
-  { key: 'retensi', icon: '◷', label: 'Data Retention', to: null, tabs: null },
-  { key: 'import', icon: '⬇', label: 'Import Data', to: null, tabs: null },
-  { key: 'webhook', icon: '⌗', label: 'Webhook', to: null, tabs: null },
-  { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: null, tabs: null },
-  { key: 'audit', icon: '☰', label: 'Audit Trail', to: null, tabs: null },
+  { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: null as string | null, tabs: null as string[] | null, cta: null as string | null },
+  { key: 'ringkasan', icon: '◧', label: 'Ringkasan', to: null, tabs: null, cta: null },
+  { key: 'organisasi', icon: '▤', label: 'Organisasi', to: '/organizations', tabs: ['Semua', 'Aktif', 'Nonaktif'], cta: '+ Buat Organisasi' },
+  { key: 'workspace', icon: '◫', label: 'Workspace', to: null, tabs: null, cta: null },
+  { key: 'storage', icon: '▦', label: 'Storage & Kuota', to: null, tabs: null, cta: null },
+  { key: 'members', icon: '◉', label: 'Members & Roles', to: null, tabs: null, cta: null },
+  { key: 'retensi', icon: '◷', label: 'Data Retention', to: null, tabs: null, cta: null },
+  { key: 'import', icon: '⬇', label: 'Import Data', to: null, tabs: null, cta: null },
+  { key: 'webhook', icon: '⌗', label: 'Webhook', to: null, tabs: null, cta: null },
+  { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: null, tabs: null, cta: null },
+  { key: 'audit', icon: '☰', label: 'Audit Trail', to: null, tabs: null, cta: null },
 ]
 
 // Konteks diteruskan ke halaman yang dibungkus lewat <Outlet context=.../>
-// (S4G-03 fix) -- supaya baris tab tampilan (Semua/Aktif/Nonaktif) di
-// shell bisa menyaring data di halaman anak tanpa lifting state manual.
+// -- `view` (S4G-03 fix) untuk baris tab tampilan (Semua/Aktif/Nonaktif),
+// `registerCta` (S4G-03 fix) supaya halaman anak mendaftarkan aksi tombol
+// CTA topbar tanpa shell perlu tahu detail halamannya.
 export interface GroupAdminOutletContext {
   view: string
+  registerCta: (handler: (() => void) | null) => void
 }
 
 function GroupAdminNavItem({ icon, label, to }: { icon: string; label: string; to: string | null }) {
@@ -87,6 +94,8 @@ export default function GroupAdminLayout() {
   const clearSession = useAuthStore((state) => state.clearSession)
   const groups = useGroups('')
   const [view, setView] = useState('Semua')
+  const [ctaHandler, setCtaHandler] = useState<(() => void) | null>(null)
+  const registerCta = useCallback((handler: (() => void) | null) => setCtaHandler(() => handler), [])
 
   const activeNav = useMemo(() => NAV_ITEMS.find((n) => n.to && location.pathname.startsWith(n.to)) ?? null, [location.pathname])
 
@@ -205,6 +214,15 @@ export default function GroupAdminLayout() {
             >
               🔔
             </button>
+            {activeNav?.cta && ctaHandler && (
+              <button
+                type="button"
+                onClick={ctaHandler}
+                className="flex-shrink-0 whitespace-nowrap bg-signal px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-bg-deep"
+              >
+                {activeNav.cta}
+              </button>
+            )}
           </div>
 
           {activeNav?.tabs && (
@@ -226,7 +244,7 @@ export default function GroupAdminLayout() {
           )}
 
           <div className="min-h-0 flex-1 overflow-auto bg-content">
-            <Outlet context={{ view } satisfies GroupAdminOutletContext} />
+            <Outlet context={{ view, registerCta } satisfies GroupAdminOutletContext} />
           </div>
         </main>
       </div>
