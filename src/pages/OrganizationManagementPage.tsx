@@ -169,6 +169,23 @@ function OrganizationManagementPageContent() {
   )
 }
 
+// Palette badge logo (S4G-03 fix, ditemukan user 2026-08-31 dari screenshot
+// desain "GA Organizations.dc.html"): tiap baris organisasi desain punya
+// kotak inisial berwarna sebelum nama. Data dummy desain (ga-store.js)
+// hardcode warna per organisasi dari palet tetap {orange,mint,violet,amber,
+// blue,grey} -- backend TIDAK punya kolom warna/logo sama sekali (`logo`
+// upload sungguhan sengaja di luar scope, task terpisah, butuh infrastruktur
+// MinIO baru). Badge ini BUKAN logo upload -- cuma monogram dekoratif,
+// dihitung deterministik dari org.id supaya warnanya konsisten tiap render
+// tanpa kolom DB baru. Palet + urutan sama persis dengan desain.
+const LOGO_PALETTE = ['bg-signal', 'bg-mint', 'bg-violet', 'bg-amber', 'bg-blue', 'bg-text-muted'] as const
+
+function logoBgClass(id: string): string {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
+  return LOGO_PALETTE[hash % LOGO_PALETTE.length]
+}
+
 function OrganizationRow({ organization, onManage }: { organization: Organization; onManage: () => void }) {
   const isActive = organization.deactivated_at === null
   const pct = organization.storage_quota_bytes > 0 ? (organization.storage_used_bytes / organization.storage_quota_bytes) * 100 : 0
@@ -176,9 +193,19 @@ function OrganizationRow({ organization, onManage }: { organization: Organizatio
 
   return (
     <div className="grid grid-cols-[1.4fr_0.9fr_1.3fr_0.7fr_0.65fr] items-center gap-3 border-t border-line px-4 py-3">
-      <div>
-        <div className="text-[13px] text-text-body">{organization.name}</div>
-        <div className="font-mono text-[10px] text-text-muted">{organization.domain || organization.slug}</div>
+      <div className="flex items-center gap-2.5">
+        <span
+          className={cn(
+            'flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center text-[12px] font-extrabold text-bg-deep',
+            logoBgClass(organization.id),
+          )}
+        >
+          {organization.name.charAt(0).toUpperCase()}
+        </span>
+        <div>
+          <div className="text-[13px] text-text-body">{organization.name}</div>
+          <div className="font-mono text-[10px] text-text-muted">{organization.domain || organization.slug}</div>
+        </div>
       </div>
       <Link
         to={`/organizations/${organization.id}/workspaces`}
