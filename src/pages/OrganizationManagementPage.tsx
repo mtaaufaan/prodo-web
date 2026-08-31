@@ -117,19 +117,22 @@ function OrganizationManagementPageContent() {
           </div>
         )}
 
-        {orgs.length > 0 && (
-          <div className="flex flex-wrap gap-3">
-            <StatCard label="Total Organisasi" value={String(stats.total)} />
-            <StatCard label="Aktif" value={String(stats.aktif)} tone="mint" />
-            <StatCard label="Nonaktif" value={String(stats.nonaktif)} tone="destructive" />
-            <StatCard
-              label="Kuota Teralokasi"
-              value={ceilingBytes > 0 ? `${(stats.allocatedBytes / GB).toFixed(0)} / ${(ceilingBytes / GB).toFixed(0)} GB` : `${(stats.allocatedBytes / GB).toFixed(0)} GB`}
-              tone="signal"
-            />
-            <StatCard label="Storage Terpakai" value={`${(stats.usedBytes / GB).toFixed(1)} GB`} />
-          </div>
-        )}
+        {/* Selalu tampil, TERMASUK saat 0 organisasi (dengan angka 0) --
+            desain "GA Organizations.dc.html" render 5 kartu ini via sc-for
+            tanpa syarat sama sekali. Sebelumnya digerbangi `orgs.length > 0`,
+            jadi grup yang baru dibuat/belum punya organisasi (kasus nyata
+            ditemukan user: "RDS Group") tidak pernah melihat stats bar. */}
+        <div className="flex flex-wrap gap-3">
+          <StatCard label="Total Organisasi" value={String(stats.total)} />
+          <StatCard label="Aktif" value={String(stats.aktif)} tone="mint" />
+          <StatCard label="Nonaktif" value={String(stats.nonaktif)} tone="destructive" />
+          <StatCard
+            label="Kuota Teralokasi"
+            value={ceilingBytes > 0 ? `${(stats.allocatedBytes / GB).toFixed(0)} / ${(ceilingBytes / GB).toFixed(0)} GB` : `${(stats.allocatedBytes / GB).toFixed(0)} GB`}
+            tone="signal"
+          />
+          <StatCard label="Storage Terpakai" value={`${(stats.usedBytes / GB).toFixed(1)} GB`} />
+        </div>
 
         <div className="border border-line">
           {/* bg-raised-2 (S4G-03 fix, ditemukan user 2026-08-30): header grid
