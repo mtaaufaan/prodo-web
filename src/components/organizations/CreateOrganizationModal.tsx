@@ -1,7 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
+import { useOutletContext } from 'react-router-dom'
 
+import type { GroupAdminOutletContext } from '@/components/GroupAdminLayout'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -37,48 +39,45 @@ function slugify(name: string) {
 // ManageOrganizationModal). Rate-limit client-side demo desain (3x/60dtk)
 // TIDAK direplikasi -- tidak ada padanan backend, murni simulasi demo.
 // Header/footer FIXED, cuma body yang scroll (design-system.md §9.1 anatomi
-// modal) -- versi awal menaruh DialogFooter DI DALAM <form> yang sama dengan
-// overflow-y-auto, jadi tombol submit ikut ke-scroll bareng field terakhir
-// begitu tinggi modal melebihi viewport. Diperbaiki: <form> cuma jadi
-// pembungkus submit (tidak scroll sendiri), field-field dibungkus <div>
-// terpisah yang scroll, DialogFooter jadi sibling SETELAH div itu supaya
-// tetap menempel di bawah -- pola sama seperti ManageOrganizationModal.
+// modal). Urutan tombol footer: BUAT ORGANISASI (primer) DI KIRI, TUTUP DI
+// KANAN, sesuai desain.
 //
-// Ditemukan user lewat perbandingan langsung ke Claude Design (bukan cuma
-// baca .dc.html): (1) picker "Grup Pemilik" TIDAK ada di desain -- grup
-// ditampilkan sebagai konteks di header ("Buat organisasi dalam grup
-// {{groupName}}"), bukan field pilihan. TAPI `group_admin_assignments`
-// (DATABASE_SCHEMA.md §5.6) many-to-many -- satu GA BISA mengelola lebih
-// dari satu grup, desain (ga-store.js) tidak memodelkan kasus itu sama
-// sekali. Kompromi: picker cuma tampil kalau actor benar-benar punya >1
-// grup (GA multi-grup, atau Platform Admin) -- kasus umum (1 grup) grup
-// otomatis terpilih dan cuma ditampilkan sebagai teks header, sesuai
-// desain. (2) Urutan tombol footer desain: BUAT ORGANISASI (primer) DI
-// KIRI, TUTUP DI KANAN -- kebalikan dari yang saya bangun sebelumnya.
+// Picker "Grup Pemilik" (S4G-06, Track S4G): desain TIDAK PERNAH
+// menampilkan picker -- grup selalu konteks ambient ("Buat organisasi
+// dalam grup {{groupName}}"). Group Admin sekarang punya group switcher
+// di GroupAdminLayout (outlet context `groupId`) yang menyelesaikan grup
+// mana yang aktif SEBELUM modal ini dibuka -- jadi TIDAK PERNAH butuh
+// picker sendiri di sini, cocok dengan desain, bahkan untuk GA yang
+// mengelola >1 grup (DATABASE_SCHEMA.md §5.6). Picker cuma tersisa untuk
+// Platform Admin (bare render, tanpa shell/switcher sama sekali) yang
+// genuinely perlu memilih grup tujuan -- alasan asli S4P-36/IG-16.
 export default function CreateOrganizationModal({ open, onClose }: CreateOrganizationModalProps) {
   const createOrganization = useCreateOrganization()
   const groups = useGroups('')
-  const orgList = useOrganizationList()
+  const outletContext = useOutletContext<GroupAdminOutletContext>()
+  const isBareRender = !outletContext
   const form = useForm<CreateOrganizationFormValues>({
     resolver: zodResolver(createOrganizationSchema),
     defaultValues: { group_id: '', name: '', slug: '', domain: '', default_language: 'id', quota_gb: 25, retention_days: 90 },
   })
 
   const name = form.watch('name')
-  const groupId = form.watch('group_id')
+  const groupIdField = form.watch('group_id')
   const quotaGbWatch = form.watch('quota_gb')
 
   useEffect(() => {
     form.setValue('slug', slugify(name), { shouldValidate: false })
   }, [name, form])
 
-  // Grup otomatis terpilih kalau actor cuma punya satu (kasus GA umum,
-  // sesuai desain) -- picker cuma perlu ditampilkan kalau ada >1 pilihan.
-  const singleGroup = groups.data?.length === 1 ? groups.data[0] : null
-  const needsGroupPicker = (groups.data?.length ?? 0) > 1
+  // GA: grup sudah ditentukan lewat switcher shell, cuma perlu disalin ke
+  // form. PA (bare render): tidak ada shell/switcher, field ini diisi
+  // manual lewat dropdown di bawah.
   useEffect(() => {
-    if (singleGroup) form.setValue('group_id', singleGroup.id, { shouldValidate: false })
-  }, [singleGroup, form])
+    if (!isBareRender && outletContext.groupId) form.setValue('group_id', outletContext.groupId, { shouldValidate: false })
+  }, [isBareRender, outletContext?.groupId, form])
+
+  const groupId = isBareRender ? groupIdField : outletContext.groupId
+  const orgList = useOrganizationList(groupId || undefined)
 
   const handleClose = () => {
     form.reset()
@@ -91,16 +90,15 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
 
   const errorMessage = createOrganization.error instanceof ApiError ? createOrganization.error.message : null
 
-  const activeGroup = groups.data?.find((g) => g.id === groupId) ?? singleGroup ?? null
+  const activeGroup = groups.data?.find((g) => g.id === groupId) ?? null
 
-  // Plafon grup dibaca dari GET /organizations (S4G-03, sudah ada) -- 0
-  // berarti viewer lintas grup (Platform Admin) dan tidak bisa dihitung
-  // live di sini, backend tetap menegakkannya saat submit.
+  // Plafon grup dibaca dari GET /organizations (S4G-03, S4G-06) -- 0
+  // berarti grup belum terpilih (PA bare render sebelum memilih dropdown).
   const ceilingBytes = orgList.data?.group_storage_ceiling_bytes ?? 0
   const { allocatedBytes, orgCount } = useMemo(() => {
-    const orgsInGroup = orgList.data?.organizations.filter((o) => o.group_id === groupId) ?? []
+    const orgsInGroup = orgList.data?.organizations ?? []
     return { allocatedBytes: orgsInGroup.reduce((sum, o) => sum + o.storage_quota_bytes, 0), orgCount: orgsInGroup.length }
-  }, [orgList.data, groupId])
+  }, [orgList.data])
   const remainingBytes = Math.max(0, ceilingBytes - allocatedBytes)
   const showQuotaBar = ceilingBytes > 0
   const quotaExceedsRemaining = showQuotaBar && !Number.isNaN(quotaGbWatch) && quotaGbWatch * GB > remainingBytes
@@ -128,7 +126,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
 
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col">
           <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
-            {needsGroupPicker && (
+            {isBareRender && (
               <div className="space-y-2">
                 <Label htmlFor="group_id">Grup Pemilik</Label>
                 <select

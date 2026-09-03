@@ -43,7 +43,6 @@ function StatCard({ label, value, tone }: { label: string; value: string; tone?:
 // disamakan dengan struktur flat `src/pages/` yang sudah dipakai seluruh
 // halaman lain.
 function OrganizationManagementPageContent() {
-  const list = useOrganizationList()
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
@@ -53,10 +52,13 @@ function OrganizationManagementPageContent() {
   // <Outlet/> tanpa context, lihat GroupAdminLayout) -- PA TIDAK PUNYA
   // topbar sama sekali, jadi tetap butuh tombol create di dalam halaman
   // sendiri (lihat isBareRender di bawah), beda dari GA yang sekarang
-  // pakai CTA topbar (bukan lagi tombol duplikat di halaman).
+  // pakai CTA topbar (bukan lagi tombol duplikat di halaman). `groupId`
+  // (S4G-06, group switcher) -- undefined untuk PA (lintas grup, tidak
+  // difilter, perilaku lama), grup yang sedang aktif dipilih untuk GA.
   const outletContext = useOutletContext<GroupAdminOutletContext>()
   const isBareRender = !outletContext
-  const { view, registerCta } = outletContext ?? { view: 'Semua', registerCta: () => {} }
+  const { view, registerCta, groupId } = outletContext ?? { view: 'Semua', registerCta: () => {}, groupId: undefined }
+  const list = useOrganizationList(groupId)
   // Daftarkan handler tombol "+ Buat Organisasi" topbar sekali saat mount --
   // sebelumnya tombol ini duplikat di dalam halaman (di luar desain sama
   // sekali, ditemukan user lewat login ke demo interaktif sungguhan).

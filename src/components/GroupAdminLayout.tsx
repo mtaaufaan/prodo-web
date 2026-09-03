@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useGroups } from '@/features/platform-admin/hooks'
 import { cn } from '@/lib/utils'
@@ -54,10 +54,14 @@ const NAV_ITEMS = [
 // Konteks diteruskan ke halaman yang dibungkus lewat <Outlet context=.../>
 // -- `view` (S4G-03 fix) untuk baris tab tampilan (Semua/Aktif/Nonaktif),
 // `registerCta` (S4G-03 fix) supaya halaman anak mendaftarkan aksi tombol
-// CTA topbar tanpa shell perlu tahu detail halamannya.
+// CTA topbar tanpa shell perlu tahu detail halamannya. `groupId` (S4G-06,
+// group switcher) -- grup yang SEDANG AKTIF dipilih, satu-satunya sumber
+// kebenaran dipakai halaman anak (mis. OrganizationManagementPage,
+// CreateOrganizationModal) supaya tidak perlu resolve grup sendiri-sendiri.
 export interface GroupAdminOutletContext {
   view: string
   registerCta: (handler: (() => void) | null) => void
+  groupId: string
 }
 
 function GroupAdminNavItem({ icon, label, to }: { icon: string; label: string; to: string | null }) {
@@ -89,6 +93,7 @@ function GroupAdminNavItem({ icon, label, to }: { icon: string; label: string; t
 export default function GroupAdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const platformRole = useAuthStore((state) => state.user?.platform_role)
   const user = useAuthStore((state) => state.user)
   const clearSession = useAuthStore((state) => state.clearSession)
@@ -99,6 +104,24 @@ export default function GroupAdminLayout() {
 
   const activeNav = useMemo(() => NAV_ITEMS.find((n) => n.to && location.pathname.startsWith(n.to)) ?? null, [location.pathname])
 
+  // Group switcher (S4G-06, Track S4G): sebagian besar GA cuma punya 1
+  // grup (switcher tidak dirender sama sekali di kasus itu) -- tapi
+  // group_admin_assignments many-to-many (DATABASE_SCHEMA.md §5.6, bisa
+  // terjadi lewat TransferGroup S4P-03) mengizinkan lebih dari satu. `?
+  // group_id=` di URL (bukan state React biasa) supaya bisa di-refresh/
+  // dibagikan dan tidak hilang saat pindah halaman dalam shell ini.
+  const groupIdParam = searchParams.get('group_id')
+  const activeGroup = useMemo(
+    () => groups.data?.find((g) => g.id === groupIdParam) ?? groups.data?.[0] ?? null,
+    [groups.data, groupIdParam],
+  )
+  const hasMultipleGroups = (groups.data?.length ?? 0) > 1
+  const handleSwitchGroup = (groupId: string) => {
+    const next = new URLSearchParams(searchParams)
+    next.set('group_id', groupId)
+    setSearchParams(next)
+  }
+
   if (platformRole === 'platform_admin') {
     return <Outlet />
   }
@@ -108,7 +131,7 @@ export default function GroupAdminLayout() {
     navigate('/login')
   }
 
-  const group = groups.data?.[0] ?? null
+  const group = activeGroup
   const groupName = group?.name ?? '—'
   const tierShort = (group?.tier ?? '—').slice(0, 3).toUpperCase()
   const monogram = (user?.display_name ?? '')
@@ -168,7 +191,22 @@ export default function GroupAdminLayout() {
             </span>
             <div className="min-w-0 flex-1 leading-tight">
               <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-muted">GRUP</div>
-              <div className="truncate text-[14px] font-bold">{groupName}</div>
+              {hasMultipleGroups ? (
+                <select
+                  value={activeGroup?.id ?? ''}
+                  onChange={(e) => handleSwitchGroup(e.target.value)}
+                  title="Ganti grup aktif"
+                  className="w-full truncate border-none bg-transparent text-[14px] font-bold text-text-bone outline-none"
+                >
+                  {groups.data?.map((g) => (
+                    <option key={g.id} value={g.id} className="bg-panel text-text-body">
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="truncate text-[14px] font-bold">{groupName}</div>
+              )}
             </div>
             <span className="border border-mint px-1.5 py-0.5 font-mono text-[8px] tracking-[0.06em] text-mint">
               {tierShort}
@@ -244,7 +282,7 @@ export default function GroupAdminLayout() {
           )}
 
           <div className="min-h-0 flex-1 overflow-auto bg-content">
-            <Outlet context={{ view, registerCta } satisfies GroupAdminOutletContext} />
+            <Outlet context={{ view, registerCta, groupId: activeGroup?.id ?? '' } satisfies GroupAdminOutletContext} />
           </div>
         </main>
       </div>
