@@ -64,6 +64,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
   const name = form.watch('name')
   const groupIdField = form.watch('group_id')
   const quotaGbWatch = form.watch('quota_gb')
+  const retentionDaysWatch = form.watch('retention_days')
 
   useEffect(() => {
     form.setValue('slug', slugify(name), { shouldValidate: false })
@@ -102,6 +103,15 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
   const remainingBytes = Math.max(0, ceilingBytes - allocatedBytes)
   const showQuotaBar = ceilingBytes > 0
   const quotaExceedsRemaining = showQuotaBar && !Number.isNaN(quotaGbWatch) && quotaGbWatch * GB > remainingBytes
+
+  // Plafon retensi TIER grup (S4G-08, Track S4G, desain "GA Add
+  // Organization.dc.html" -- hint "RANGE {min}-{max} (BATAS TIER
+  // {nama})"). Fallback 30/365 (batas keras backend) kalau grup belum
+  // terpilih (PA bare render sebelum memilih dropdown).
+  const retentionMin = activeGroup?.min_retention_days ?? 30
+  const retentionMax = activeGroup?.max_retention_days ?? 365
+  const retentionOutOfRange =
+    !Number.isNaN(retentionDaysWatch) && (retentionDaysWatch < retentionMin || retentionDaysWatch > retentionMax)
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
@@ -185,6 +195,14 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
               <div className="space-y-2">
                 <Label htmlFor="retention_days">Retensi Data (Hari)</Label>
                 <Input id="retention_days" type="number" step="1" min="30" max="365" className="w-24" {...form.register('retention_days')} />
+                <p className="font-mono text-[9px] text-text-muted">
+                  RANGE {retentionMin}–{retentionMax} (BATAS TIER {(activeGroup?.tier ?? '-').toUpperCase()})
+                </p>
+                {retentionOutOfRange && (
+                  <p className="text-[11px] text-destructive">
+                    ⚠ Retensi harus antara {retentionMin} dan {retentionMax} hari.
+                  </p>
+                )}
                 {form.formState.errors.retention_days && (
                   <p className="text-[11px] text-destructive">{form.formState.errors.retention_days.message}</p>
                 )}
@@ -232,7 +250,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
           <DialogFooter>
             <Button
               type="submit"
-              disabled={createOrganization.isPending || quotaExceedsRemaining}
+              disabled={createOrganization.isPending || quotaExceedsRemaining || retentionOutOfRange}
               className="font-mono text-[10px] uppercase tracking-[0.06em]"
             >
               {createOrganization.isPending ? 'Membuat...' : 'Buat Organisasi'}
