@@ -111,11 +111,12 @@ export default function AppRouter() {
               sendiri di /platform/*), shell cuma tampil untuk group_admin. */}
           <Route element={<GroupAdminLayout />}>
             <Route path="/organizations" element={<OrganizationManagementPage />} />
-            {/* S3-13, US-008: sama gate seperti /organizations -- backend
-                GET .../workspaces (implementation_gaps.md IG-17) PA/GA saja,
-                konsisten RLS `workspaces_delete` yang tidak punya cabang
-                `admin_workspace`. */}
-            <Route path="/organizations/:orgId/workspaces" element={<WorkspaceListPage />} />
+            {/* S4G-05, Track S4G (desain "GA Workspaces.dc.html"): grid
+                GROUP-WIDE, org jadi kolom -- GANTIKAN route lama per-org
+                /organizations/:orgId/workspaces (S3-13). Link "WS · Member"
+                di OrganizationManagementPage sekarang mengarah ke sini
+                dengan `?org_id=` sebagai filter awal, bukan route terpisah. */}
+            <Route path="/workspaces" element={<WorkspaceListPage />} />
             {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
                 (S3-25/27) PA/GA saja. */}
             <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />
