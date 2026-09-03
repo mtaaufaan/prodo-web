@@ -34,6 +34,7 @@
     "userLogin": "Logged in successfully (password + MFA verification).",
     "userBackupCodeUsed": "Logged in using an MFA backup code (not the regular authenticator).",
     "groupTransferred": "Transferred group management from {{target}} to another Group Admin.",
+    "groupAssignedToExistingAdmin": "Linked new group {{groupName}} to existing Group Admin account {{target}}.",
     "groupContractCreated": "Created the initial contract for {{target}}'s group.",
     "groupContractRenewed": "Renewed the contract for {{target}}'s group.",
     "tierCreated": "Added new tier {{target}} to the catalog.",
@@ -439,6 +440,10 @@
       "invoicePrefix": "Invoice: {{number}}"
     },
     "status": { "unchanged": "Unchanged", "active": "ACTIVE", "suspended": "SUSPENDED" },
+    "linkedExisting": {
+      "heading": "Group Linked to Existing Account",
+      "body": "{{email}} is already registered as an active Group Admin -- this new group has been added to that same account, not a new one. No invitation was sent."
+    },
     "invitation": {
       "heading": "Invitation Link",
       "resent": "✓ Invitation link resent to the Group Admin's email.",

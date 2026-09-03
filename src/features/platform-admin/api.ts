@@ -25,28 +25,35 @@ export function listGroupAdmins() {
   return apiClient.get<GroupAdmin[]>('/api/v1/platform/group-admins')
 }
 
+// createGroupAdmin -- linked_existing_admin (S4G-07, Track S4G): true
+// kalau email yang diminta match GA aktif existing -- grup baru ditautkan
+// ke akun itu, TANPA invitation baru (expires_at tidak ada di respons itu).
 export function createGroupAdmin(values: CreateGroupAdminFormValues) {
-  return apiClient.post<{ id: string }>('/api/v1/platform/group-admins', values)
+  return apiClient.post<{ id: string; linked_existing_admin: boolean; expires_at?: string }>('/api/v1/platform/group-admins', values)
 }
 
 export function resendActivation(id: string) {
   return apiClient.post<{ id: string }>(`/api/v1/platform/group-admins/${id}/resend-activation`)
 }
 
-// getGroupAdmin/updateGroupAdmin -- S4P-06, mode Lihat/Ubah.
-export function getGroupAdmin(id: string) {
-  return apiClient.get<GroupAdmin>(`/api/v1/platform/group-admins/${id}`)
+// getGroupAdmin/updateGroupAdmin -- S4P-06, mode Lihat/Ubah. groupId
+// (S4G-07) WAJIB disebut eksplisit -- satu baris panel PA sekarang satu
+// grup, bukan "grup pertama" GA lagi (DATABASE_SCHEMA.md §5.6
+// many-to-many). null berarti baris 0-grup.
+export function getGroupAdmin(id: string, groupId: string | null) {
+  return apiClient.get<GroupAdmin>(`/api/v1/platform/group-admins/${id}`, { params: { group_id: groupId ?? '' } })
 }
 
-export function updateGroupAdmin(id: string, values: UpdateGroupAdminFormValues) {
-  return apiClient.put<GroupAdmin>(`/api/v1/platform/group-admins/${id}`, values)
+export function updateGroupAdmin(id: string, groupId: string | null, values: UpdateGroupAdminFormValues) {
+  return apiClient.put<GroupAdmin>(`/api/v1/platform/group-admins/${id}`, { ...values, group_id: groupId ?? '' })
 }
 
 // renewGroupContract -- kontrak grup (dikonfirmasi user 2026-08-29):
 // dipakai baik untuk kontrak PERTAMA (belum pernah ada) maupun
-// PERPANJANGAN, backend yang membedakan audit action-nya.
-export function renewGroupContract(id: string, values: RenewGroupContractFormValues) {
-  return apiClient.post<{ contract_end_at: string }>(`/api/v1/platform/group-admins/${id}/renew-contract`, values)
+// PERPANJANGAN, backend yang membedakan audit action-nya. groupId
+// (S4G-07) WAJIB.
+export function renewGroupContract(id: string, groupId: string, values: RenewGroupContractFormValues) {
+  return apiClient.post<{ contract_end_at: string }>(`/api/v1/platform/group-admins/${id}/renew-contract`, { ...values, group_id: groupId })
 }
 
 // listServiceTiers -- S4P-07/11. includeArchived=false (default, dropdown

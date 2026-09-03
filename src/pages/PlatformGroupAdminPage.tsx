@@ -50,7 +50,11 @@ function MetricCard({ label, value, sub }: { label: string; value: string; sub?:
 function PlatformGroupAdminPageContent() {
   const { t } = useTranslation()
   const list = useGroupAdminList()
-  const [modal, setModal] = useState<{ mode: GroupAdminFormMode; id: string | null } | null>(null)
+  // groupId (S4G-07, Track S4G): panel sekarang SATU BARIS PER GRUP yang
+  // dikelola (bukan satu baris per akun lagi) -- baris mana yang diklik
+  // menentukan grup mana yang dibuka di modal, bukan "grup pertama" GA
+  // itu lagi.
+  const [modal, setModal] = useState<{ mode: GroupAdminFormMode; id: string | null; groupId: string | null } | null>(null)
   const [page, setPage] = useState(1)
 
   // Urutan (dikonfirmasi user): status butuh perhatian dulu (SUSPENDED/
@@ -67,7 +71,15 @@ function PlatformGroupAdminPageContent() {
   }, [list.data])
 
   const nearQuotaCount = sortedGAs.filter((ga) => (usageRatio(ga) ?? 0) >= NEAR_QUOTA_THRESHOLD).length
-  const aktifCount = sortedGAs.filter((ga) => ga.status === 'AKTIF').length
+  // uniqueGACount/aktifCount (S4G-07): dedup per akun (id), bukan per
+  // baris -- satu GA yang mengelola N grup sekarang muncul sebagai N
+  // baris (lihat GroupAdminSummary backend), jadi menghitung baris
+  // mentah untuk "Total Group Admin"/"Aktif" akan menghitung orang yang
+  // sama berkali-kali. nearQuotaCount SENGAJA TETAP per baris/per grup --
+  // kuota adalah properti grup, satu dari N grup seseorang mendekati
+  // kuota tetap layak dihitung sebagai satu perhatian tersendiri.
+  const uniqueGACount = new Set(sortedGAs.map((ga) => ga.id)).size
+  const aktifCount = new Set(sortedGAs.filter((ga) => ga.status === 'AKTIF').map((ga) => ga.id)).size
 
   const totalPages = Math.max(1, Math.ceil(sortedGAs.length / GA_PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -86,10 +98,10 @@ function PlatformGroupAdminPageContent() {
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
           <MetricCard
             label={t('platformGroupAdminPage.metrics.totalGroupAdmins.label')}
-            value={String(list.data.length)}
+            value={String(uniqueGACount)}
             sub={t('platformGroupAdminPage.metrics.totalGroupAdmins.sub', {
               active: aktifCount,
-              inactive: list.data.length - aktifCount,
+              inactive: uniqueGACount - aktifCount,
             })}
           />
           <TierDistributionChart groupAdmins={list.data} />
@@ -105,7 +117,7 @@ function PlatformGroupAdminPageContent() {
         <div className="flex-1" />
         <button
           type="button"
-          onClick={() => setModal({ mode: 'add', id: null })}
+          onClick={() => setModal({ mode: 'add', id: null, groupId: null })}
           className="inline-flex items-center gap-2 border border-pa-accent px-3.5 py-2 font-mono text-[11px] tracking-[0.06em] text-pa-accent"
         >
           + {t('platformGroupAdminPage.addButton')}
@@ -146,10 +158,10 @@ function PlatformGroupAdminPageContent() {
             <tbody>
               {pagedGAs.map((ga) => (
                 <GroupAdminRow
-                  key={ga.id}
+                  key={`${ga.id}-${ga.group_id ?? 'none'}`}
                   groupAdmin={ga}
-                  onView={() => setModal({ mode: 'view', id: ga.id })}
-                  onEdit={() => setModal({ mode: 'edit', id: ga.id })}
+                  onView={() => setModal({ mode: 'view', id: ga.id, groupId: ga.group_id })}
+                  onEdit={() => setModal({ mode: 'edit', id: ga.id, groupId: ga.group_id })}
                 />
               ))}
             </tbody>
@@ -202,7 +214,7 @@ function PlatformGroupAdminPageContent() {
       )}
 
       {modal && (
-        <GroupAdminFormModal mode={modal.mode} groupAdminId={modal.id} open onClose={() => setModal(null)} />
+        <GroupAdminFormModal mode={modal.mode} groupAdminId={modal.id} groupId={modal.groupId} open onClose={() => setModal(null)} />
       )}
     </div>
   )

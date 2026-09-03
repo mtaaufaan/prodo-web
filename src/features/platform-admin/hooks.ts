@@ -41,7 +41,9 @@ import type {
 export const groupAdminKeys = {
   all: ['group-admins'] as const,
   list: () => [...groupAdminKeys.all, 'list'] as const,
-  detail: (id: string) => [...groupAdminKeys.all, 'detail', id] as const,
+  // detail key menyertakan groupId (S4G-07) -- satu akun bisa punya
+  // beberapa entri cache berbeda sekarang, satu per grup yang dikelola.
+  detail: (id: string, groupId: string | null) => [...groupAdminKeys.all, 'detail', id, groupId ?? ''] as const,
 }
 
 const groupAdminListQuery = () =>
@@ -55,11 +57,12 @@ export function useGroupAdminList() {
 }
 
 // useGroupAdminDetail -- S4P-06, mode Lihat/Ubah. enabled:false kalau id
-// kosong (mode Tambah tidak butuh fetch detail).
-export function useGroupAdminDetail(id: string | null) {
+// kosong (mode Tambah tidak butuh fetch detail). groupId (S4G-07) --
+// grup SPESIFIK baris yang diklik, null berarti baris 0-grup.
+export function useGroupAdminDetail(id: string | null, groupId: string | null) {
   return useQuery({
-    queryKey: groupAdminKeys.detail(id ?? ''),
-    queryFn: () => getGroupAdmin(id as string),
+    queryKey: groupAdminKeys.detail(id ?? '', groupId),
+    queryFn: () => getGroupAdmin(id as string, groupId),
     enabled: id != null,
   })
 }
@@ -72,20 +75,21 @@ export function useCreateGroupAdmin() {
   })
 }
 
-export function useUpdateGroupAdmin(id: string) {
+export function useUpdateGroupAdmin(id: string, groupId: string | null) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (values: UpdateGroupAdminFormValues) => updateGroupAdmin(id, values),
+    mutationFn: (values: UpdateGroupAdminFormValues) => updateGroupAdmin(id, groupId, values),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: groupAdminKeys.all }),
   })
 }
 
 // useRenewGroupContract -- kontrak grup (dikonfirmasi user 2026-08-29):
-// dipakai baik untuk kontrak pertama maupun perpanjangan.
-export function useRenewGroupContract(id: string) {
+// dipakai baik untuk kontrak pertama maupun perpanjangan. groupId
+// (S4G-07) WAJIB -- kontrak selalu milik satu grup spesifik.
+export function useRenewGroupContract(id: string, groupId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (values: RenewGroupContractFormValues) => renewGroupContract(id, values),
+    mutationFn: (values: RenewGroupContractFormValues) => renewGroupContract(id, groupId, values),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: groupAdminKeys.all }),
   })
 }

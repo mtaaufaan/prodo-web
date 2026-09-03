@@ -33,6 +33,12 @@ export type GroupAdminFormMode = 'add' | 'edit' | 'view'
 interface GroupAdminFormModalProps {
   mode: GroupAdminFormMode
   groupAdminId: string | null // null di mode "add"
+  // groupId (S4G-07, Track S4G): grup SPESIFIK dari baris panel yang
+  // diklik -- satu akun bisa mengelola >1 grup (DATABASE_SCHEMA.md §5.6),
+  // panel sekarang satu baris per grup, jadi modal ini WAJIB tahu grup
+  // mana yang sedang dibuka, bukan menebak "grup pertama" lagi. null di
+  // mode "add" atau baris 0-grup.
+  groupId: string | null
   open: boolean
   onClose: () => void
 }
@@ -52,19 +58,25 @@ const selectClassName =
 // dengan model Keycloak-delegated (password tidak pernah disimpan
 // backend), dan copy desainnya sendiri berlabel "khusus demo, di
 // produksi PA cuma kirim invitation link".
-export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose }: GroupAdminFormModalProps) {
+export default function GroupAdminFormModal({ mode, groupAdminId, groupId, open, onClose }: GroupAdminFormModalProps) {
   const { t, i18n } = useTranslation()
   const locale = localeForLanguage(i18n.language)
   const isAdd = mode === 'add'
   const isView = mode === 'view'
 
   const tiers = useServiceTiers()
-  const detail = useGroupAdminDetail(!isAdd ? groupAdminId : null)
+  const detail = useGroupAdminDetail(!isAdd ? groupAdminId : null, groupId)
   const createGroupAdmin = useCreateGroupAdmin()
-  const updateGroupAdmin = useUpdateGroupAdmin(groupAdminId ?? '')
+  const updateGroupAdmin = useUpdateGroupAdmin(groupAdminId ?? '', groupId)
   const resendActivation = useResendActivation()
   const [resendSent, setResendSent] = useState(false)
   const [renewOpen, setRenewOpen] = useState(false)
+  // linkedExistingEmail (S4G-07): begitu email yang diisi match GA aktif
+  // existing, backend menautkan grup baru ke akun itu TANPA invitation
+  // baru -- modal TIDAK auto-close seperti alur biasa, supaya PA sadar
+  // ini bukan akun baru (dikonfirmasi user: harus ada peringatan
+  // eksplisit, bukan diam-diam sama seperti sukses biasa).
+  const [linkedExistingEmail, setLinkedExistingEmail] = useState<string | null>(null)
 
   const createForm = useForm<CreateGroupAdminFormValues>({
     resolver: zodResolver(createGroupAdminSchema),
@@ -131,6 +143,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
     }
     setResendSent(false)
     setRenewOpen(false)
+    setLinkedExistingEmail(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode, groupAdminId])
 
@@ -163,7 +176,15 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
   }
 
   const onSubmitAdd = (values: CreateGroupAdminFormValues) => {
-    createGroupAdmin.mutate(values, { onSuccess: onClose })
+    createGroupAdmin.mutate(values, {
+      onSuccess: (result) => {
+        if (result.linked_existing_admin) {
+          setLinkedExistingEmail(values.email)
+        } else {
+          onClose()
+        }
+      },
+    })
   }
   const onSubmitEdit = (values: UpdateGroupAdminFormValues) => {
     // IG-23: cek proaktif di klien pakai used_storage_mb yang sudah termuat
@@ -217,7 +238,18 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
             <p className="font-mono text-sm text-destructive">{t('groupAdminFormModal.loadError')}</p>
           )}
 
-          {(isAdd || detail.data) && (
+          {linkedExistingEmail && (
+            <div className="space-y-1.5 border border-amber/40 bg-amber/10 p-3">
+              <div className="font-mono text-[9px] uppercase tracking-[0.12em] text-amber">
+                {t('groupAdminFormModal.linkedExisting.heading')}
+              </div>
+              <p className="font-mono text-[11px] text-text-body">
+                {t('groupAdminFormModal.linkedExisting.body', { email: linkedExistingEmail })}
+              </p>
+            </div>
+          )}
+
+          {!linkedExistingEmail && (isAdd || detail.data) && (
             <form
               onSubmit={isAdd ? createForm.handleSubmit(onSubmitAdd) : editForm.handleSubmit(onSubmitEdit)}
               className="space-y-3.5"
@@ -385,7 +417,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
                     <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
                       {t('groupAdminFormModal.contract.heading')}
                     </div>
-                    {!isView && (
+                    {!isView && detail.data.group_id && (
                       <Button
                         type="button"
                         variant="outline"
@@ -473,7 +505,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
         </div>
 
         <DialogFooter>
-          {!isView && (
+          {!isView && !linkedExistingEmail && (
             <Button
               type="button"
               className="flex-1 bg-pa-accent font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-bg-deep hover:bg-pa-accent-hover"
@@ -493,16 +525,17 @@ export default function GroupAdminFormModal({ mode, groupAdminId, open, onClose 
             type="button"
             variant="outline"
             onClick={onClose}
-            className={cn('font-mono text-[11px]', isView && 'flex-1')}
+            className={cn('font-mono text-[11px]', (isView || linkedExistingEmail) && 'flex-1')}
           >
-            {isView ? t('groupAdminFormModal.actions.exit') : t('groupAdminFormModal.actions.cancel')}
+            {isView || linkedExistingEmail ? t('groupAdminFormModal.actions.exit') : t('groupAdminFormModal.actions.cancel')}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    {!isAdd && groupAdminId && (
+    {!isAdd && groupAdminId && detail.data?.group_id && (
       <RenewContractDialog
         groupAdminId={groupAdminId}
+        groupId={detail.data.group_id}
         currentEndAt={detail.data?.contract_end_at ?? null}
         currentPeriod={detail.data?.subscription_period ?? null}
         open={renewOpen}
@@ -547,19 +580,21 @@ function toDateInputValue(d: Date): string {
 // mundur ke masa lalu begitu saja.
 function RenewContractDialog({
   groupAdminId,
+  groupId,
   currentEndAt,
   currentPeriod,
   open,
   onClose,
 }: {
   groupAdminId: string
+  groupId: string
   currentEndAt: string | null
   currentPeriod: string | null
   open: boolean
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const renew = useRenewGroupContract(groupAdminId)
+  const renew = useRenewGroupContract(groupAdminId, groupId)
   const form = useForm<RenewGroupContractFormValues>({
     resolver: zodResolver(renewGroupContractSchema),
     defaultValues: {
