@@ -43,6 +43,18 @@ function slugify(name: string) {
 // pembungkus submit (tidak scroll sendiri), field-field dibungkus <div>
 // terpisah yang scroll, DialogFooter jadi sibling SETELAH div itu supaya
 // tetap menempel di bawah -- pola sama seperti ManageOrganizationModal.
+//
+// Ditemukan user lewat perbandingan langsung ke Claude Design (bukan cuma
+// baca .dc.html): (1) picker "Grup Pemilik" TIDAK ada di desain -- grup
+// ditampilkan sebagai konteks di header ("Buat organisasi dalam grup
+// {{groupName}}"), bukan field pilihan. TAPI `group_admin_assignments`
+// (DATABASE_SCHEMA.md §5.6) many-to-many -- satu GA BISA mengelola lebih
+// dari satu grup, desain (ga-store.js) tidak memodelkan kasus itu sama
+// sekali. Kompromi: picker cuma tampil kalau actor benar-benar punya >1
+// grup (GA multi-grup, atau Platform Admin) -- kasus umum (1 grup) grup
+// otomatis terpilih dan cuma ditampilkan sebagai teks header, sesuai
+// desain. (2) Urutan tombol footer desain: BUAT ORGANISASI (primer) DI
+// KIRI, TUTUP DI KANAN -- kebalikan dari yang saya bangun sebelumnya.
 export default function CreateOrganizationModal({ open, onClose }: CreateOrganizationModalProps) {
   const createOrganization = useCreateOrganization()
   const groups = useGroups('')
@@ -60,6 +72,14 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
     form.setValue('slug', slugify(name), { shouldValidate: false })
   }, [name, form])
 
+  // Grup otomatis terpilih kalau actor cuma punya satu (kasus GA umum,
+  // sesuai desain) -- picker cuma perlu ditampilkan kalau ada >1 pilihan.
+  const singleGroup = groups.data?.length === 1 ? groups.data[0] : null
+  const needsGroupPicker = (groups.data?.length ?? 0) > 1
+  useEffect(() => {
+    if (singleGroup) form.setValue('group_id', singleGroup.id, { shouldValidate: false })
+  }, [singleGroup, form])
+
   const handleClose = () => {
     form.reset()
     onClose()
@@ -71,16 +91,16 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
 
   const errorMessage = createOrganization.error instanceof ApiError ? createOrganization.error.message : null
 
-  const selectedGroup = groups.data?.find((g) => g.id === groupId) ?? null
+  const activeGroup = groups.data?.find((g) => g.id === groupId) ?? singleGroup ?? null
 
   // Plafon grup dibaca dari GET /organizations (S4G-03, sudah ada) -- 0
   // berarti viewer lintas grup (Platform Admin) dan tidak bisa dihitung
   // live di sini, backend tetap menegakkannya saat submit.
   const ceilingBytes = orgList.data?.group_storage_ceiling_bytes ?? 0
-  const allocatedBytes = useMemo(
-    () => orgList.data?.organizations.filter((o) => o.group_id === groupId).reduce((sum, o) => sum + o.storage_quota_bytes, 0) ?? 0,
-    [orgList.data, groupId],
-  )
+  const { allocatedBytes, orgCount } = useMemo(() => {
+    const orgsInGroup = orgList.data?.organizations.filter((o) => o.group_id === groupId) ?? []
+    return { allocatedBytes: orgsInGroup.reduce((sum, o) => sum + o.storage_quota_bytes, 0), orgCount: orgsInGroup.length }
+  }, [orgList.data, groupId])
   const remainingBytes = Math.max(0, ceilingBytes - allocatedBytes)
   const showQuotaBar = ceilingBytes > 0
   const quotaExceedsRemaining = showQuotaBar && !Number.isNaN(quotaGbWatch) && quotaGbWatch * GB > remainingBytes
@@ -89,30 +109,46 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
       <DialogContent className="max-w-[560px]">
         <DialogHeader>
-          <DialogTitle>Buat Organisasi</DialogTitle>
+          <DialogTitle>Tambah Organisasi Baru</DialogTitle>
+          <p className="mt-1.5 text-sm font-semibold text-text-body">
+            Buat organisasi{activeGroup ? ` dalam grup ${activeGroup.name}` : ''}
+          </p>
+          {activeGroup && (
+            <p className="mt-1 text-[11px] leading-relaxed text-text-muted">
+              Grup {activeGroup.name} — tier {activeGroup.tier}
+              {showQuotaBar && (
+                <>
+                  , plafon {(ceilingBytes / GB).toFixed(0)} GB. Sudah teralokasi {(allocatedBytes / GB).toFixed(1)} GB ke{' '}
+                  {orgCount} organisasi; sisa {(remainingBytes / GB).toFixed(1)} GB dapat dialokasikan.
+                </>
+              )}
+            </p>
+          )}
         </DialogHeader>
 
         <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col">
           <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
-            <div className="space-y-2">
-              <Label htmlFor="group_id">Grup Pemilik</Label>
-              <select
-                id="group_id"
-                {...form.register('group_id')}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="">{groups.isLoading ? 'Memuat grup...' : 'Pilih grup...'}</option>
-                {groups.data?.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name} ({g.tier})
-                  </option>
-                ))}
-              </select>
-              {groups.isError && <p className="text-[11px] text-destructive">Gagal memuat daftar grup.</p>}
-              {form.formState.errors.group_id && (
-                <p className="text-[11px] text-destructive">{form.formState.errors.group_id.message}</p>
-              )}
-            </div>
+            {needsGroupPicker && (
+              <div className="space-y-2">
+                <Label htmlFor="group_id">Grup Pemilik</Label>
+                <select
+                  id="group_id"
+                  {...form.register('group_id')}
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="">{groups.isLoading ? 'Memuat grup...' : 'Pilih grup...'}</option>
+                  {groups.data?.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} ({g.tier})
+                    </option>
+                  ))}
+                </select>
+                {groups.isError && <p className="text-[11px] text-destructive">Gagal memuat daftar grup.</p>}
+                {form.formState.errors.group_id && (
+                  <p className="text-[11px] text-destructive">{form.formState.errors.group_id.message}</p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="name">Nama Organisasi</Label>
@@ -129,7 +165,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
 
             <div className="space-y-2">
               <Label htmlFor="domain">Domain Email Resmi</Label>
-              <Input id="domain" placeholder={selectedGroup ? `manufaktur.${selectedGroup.name.toLowerCase()}.co.id` : 'acme.co.id'} {...form.register('domain')} />
+              <Input id="domain" placeholder={activeGroup ? `manufaktur.${activeGroup.name.toLowerCase()}.co.id` : 'acme.co.id'} {...form.register('domain')} />
               <p className="text-[11px] text-text-muted">Hanya email pada domain ini yang dapat diundang ke organisasi.</p>
               {form.formState.errors.domain && (
                 <p className="text-[11px] text-destructive">{form.formState.errors.domain.message}</p>
@@ -196,15 +232,15 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
-              Tutup
-            </Button>
             <Button
               type="submit"
               disabled={createOrganization.isPending || quotaExceedsRemaining}
               className="font-mono text-[10px] uppercase tracking-[0.06em]"
             >
               {createOrganization.isPending ? 'Membuat...' : 'Buat Organisasi'}
+            </Button>
+            <Button type="button" variant="outline" onClick={handleClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
+              Tutup
             </Button>
           </DialogFooter>
         </form>
