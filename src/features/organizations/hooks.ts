@@ -23,7 +23,7 @@ const organizationListQuery = (groupId?: string) =>
     queryFn: () => listOrganizations(groupId),
   })
 
-// groupId (S4G-06, group switcher) -- diteruskan apa adanya ke API, lihat
+// groupId (S4G-32, group switcher) -- diteruskan apa adanya ke API, lihat
 // komentar listOrganizations.
 export function useOrganizationList(groupId?: string) {
   return useQuery(organizationListQuery(groupId))
