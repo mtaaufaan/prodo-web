@@ -36,6 +36,13 @@ function slugify(name: string) {
 // butuh infrastruktur MinIO -- dikonfirmasi user, sama alasan
 // ManageOrganizationModal). Rate-limit client-side demo desain (3x/60dtk)
 // TIDAK direplikasi -- tidak ada padanan backend, murni simulasi demo.
+// Header/footer FIXED, cuma body yang scroll (design-system.md §9.1 anatomi
+// modal) -- versi awal menaruh DialogFooter DI DALAM <form> yang sama dengan
+// overflow-y-auto, jadi tombol submit ikut ke-scroll bareng field terakhir
+// begitu tinggi modal melebihi viewport. Diperbaiki: <form> cuma jadi
+// pembungkus submit (tidak scroll sendiri), field-field dibungkus <div>
+// terpisah yang scroll, DialogFooter jadi sibling SETELAH div itu supaya
+// tetap menempel di bawah -- pola sama seperti ManageOrganizationModal.
 export default function CreateOrganizationModal({ open, onClose }: CreateOrganizationModalProps) {
   const createOrganization = useCreateOrganization()
   const groups = useGroups('')
@@ -85,106 +92,108 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
           <DialogTitle>Buat Organisasi</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex max-h-[calc(100vh-220px)] flex-col gap-4 overflow-y-auto px-5 py-5">
-          <div className="space-y-2">
-            <Label htmlFor="group_id">Grup Pemilik</Label>
-            <select
-              id="group_id"
-              {...form.register('group_id')}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            >
-              <option value="">{groups.isLoading ? 'Memuat grup...' : 'Pilih grup...'}</option>
-              {groups.data?.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name} ({g.tier})
-                </option>
-              ))}
-            </select>
-            {groups.isError && <p className="text-[11px] text-destructive">Gagal memuat daftar grup.</p>}
-            {form.formState.errors.group_id && (
-              <p className="text-[11px] text-destructive">{form.formState.errors.group_id.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="name">Nama Organisasi</Label>
-            <Input id="name" {...form.register('name')} />
-            {form.formState.errors.name && (
-              <p className="text-[11px] text-destructive">{form.formState.errors.name.message}</p>
-            )}
-            {form.watch('slug') && (
-              <p className="font-mono text-[9px] uppercase tracking-[0.08em] text-text-muted">
-                Slug · {form.watch('slug')}.prodo.app
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="domain">Domain Email Resmi</Label>
-            <Input id="domain" placeholder={selectedGroup ? `manufaktur.${selectedGroup.name.toLowerCase()}.co.id` : 'acme.co.id'} {...form.register('domain')} />
-            <p className="text-[11px] text-text-muted">Hanya email pada domain ini yang dapat diundang ke organisasi.</p>
-            {form.formState.errors.domain && (
-              <p className="text-[11px] text-destructive">{form.formState.errors.domain.message}</p>
-            )}
-          </div>
-
-          <div className="flex flex-wrap gap-3">
+        <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col">
+          <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
             <div className="space-y-2">
-              <Label htmlFor="default_language">Bahasa Default</Label>
+              <Label htmlFor="group_id">Grup Pemilik</Label>
               <select
-                id="default_language"
-                {...form.register('default_language')}
-                className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                id="group_id"
+                {...form.register('group_id')}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="id">Bahasa Indonesia</option>
-                <option value="en">English</option>
+                <option value="">{groups.isLoading ? 'Memuat grup...' : 'Pilih grup...'}</option>
+                {groups.data?.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} ({g.tier})
+                  </option>
+                ))}
               </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="retention_days">Retensi Data (Hari)</Label>
-              <Input id="retention_days" type="number" step="1" min="30" max="365" className="w-24" {...form.register('retention_days')} />
-              {form.formState.errors.retention_days && (
-                <p className="text-[11px] text-destructive">{form.formState.errors.retention_days.message}</p>
+              {groups.isError && <p className="text-[11px] text-destructive">Gagal memuat daftar grup.</p>}
+              {form.formState.errors.group_id && (
+                <p className="text-[11px] text-destructive">{form.formState.errors.group_id.message}</p>
               )}
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="quota_gb">Alokasi Kuota Storage (GB)</Label>
-            <Input id="quota_gb" type="number" step="0.1" min="0.1" className="w-28" {...form.register('quota_gb')} />
-            {showQuotaBar && (
-              <div>
-                <div className="h-2 w-full bg-line-subtle">
-                  <div
-                    className={cn('h-full', quotaExceedsRemaining ? 'bg-destructive' : 'bg-mint')}
-                    style={{ width: `${Math.min(100, (((quotaGbWatch || 0) * GB) / remainingBytes) * 100)}%` }}
-                  />
-                </div>
-                <p className="mt-1 font-mono text-[9px] text-text-muted">
-                  {(quotaGbWatch || 0).toFixed(1)} / {(remainingBytes / GB).toFixed(1)} GB sisa plafon grup
+            <div className="space-y-2">
+              <Label htmlFor="name">Nama Organisasi</Label>
+              <Input id="name" {...form.register('name')} />
+              {form.formState.errors.name && (
+                <p className="text-[11px] text-destructive">{form.formState.errors.name.message}</p>
+              )}
+              {form.watch('slug') && (
+                <p className="font-mono text-[9px] uppercase tracking-[0.08em] text-text-muted">
+                  Slug · {form.watch('slug')}.prodo.app
                 </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="domain">Domain Email Resmi</Label>
+              <Input id="domain" placeholder={selectedGroup ? `manufaktur.${selectedGroup.name.toLowerCase()}.co.id` : 'acme.co.id'} {...form.register('domain')} />
+              <p className="text-[11px] text-text-muted">Hanya email pada domain ini yang dapat diundang ke organisasi.</p>
+              {form.formState.errors.domain && (
+                <p className="text-[11px] text-destructive">{form.formState.errors.domain.message}</p>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="default_language">Bahasa Default</Label>
+                <select
+                  id="default_language"
+                  {...form.register('default_language')}
+                  className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="id">Bahasa Indonesia</option>
+                  <option value="en">English</option>
+                </select>
               </div>
-            )}
-            {quotaExceedsRemaining && (
-              <p className="text-[11px] text-destructive">⚠ Melebihi sisa kuota global grup ({(remainingBytes / GB).toFixed(1)} GB).</p>
-            )}
-            {form.formState.errors.quota_gb && (
-              <p className="text-[11px] text-destructive">{form.formState.errors.quota_gb.message}</p>
-            )}
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="retention_days">Retensi Data (Hari)</Label>
+                <Input id="retention_days" type="number" step="1" min="30" max="365" className="w-24" {...form.register('retention_days')} />
+                {form.formState.errors.retention_days && (
+                  <p className="text-[11px] text-destructive">{form.formState.errors.retention_days.message}</p>
+                )}
+              </div>
+            </div>
 
-          <div className="border-t border-line pt-3">
-            <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.14em] text-amber">Langkah Berikutnya</p>
-            <p className="text-[11px] text-text-muted">
-              Organisasi baru belum punya workspace, sehingga belum perlu Admin Workspace. Penunjukan Admin Workspace dilakukan
-              saat workspace pertama dibuat dari menu Workspace — dan bersifat wajib di sana.
-            </p>
-            <p className="mt-1 text-[11px] text-text-muted">
-              Member lain dapat diundang kapan saja dari menu Members &amp; Roles setelah workspace tersedia.
-            </p>
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="quota_gb">Alokasi Kuota Storage (GB)</Label>
+              <Input id="quota_gb" type="number" step="0.1" min="0.1" className="w-28" {...form.register('quota_gb')} />
+              {showQuotaBar && (
+                <div>
+                  <div className="h-2 w-full bg-line-subtle">
+                    <div
+                      className={cn('h-full', quotaExceedsRemaining ? 'bg-destructive' : 'bg-mint')}
+                      style={{ width: `${Math.min(100, (((quotaGbWatch || 0) * GB) / remainingBytes) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="mt-1 font-mono text-[9px] text-text-muted">
+                    {(quotaGbWatch || 0).toFixed(1)} / {(remainingBytes / GB).toFixed(1)} GB sisa plafon grup
+                  </p>
+                </div>
+              )}
+              {quotaExceedsRemaining && (
+                <p className="text-[11px] text-destructive">⚠ Melebihi sisa kuota global grup ({(remainingBytes / GB).toFixed(1)} GB).</p>
+              )}
+              {form.formState.errors.quota_gb && (
+                <p className="text-[11px] text-destructive">{form.formState.errors.quota_gb.message}</p>
+              )}
+            </div>
 
-          {errorMessage && <p className="text-[11px] text-destructive">{errorMessage}</p>}
+            <div className="border-t border-line pt-3">
+              <p className="mb-1 font-mono text-[9px] uppercase tracking-[0.14em] text-amber">Langkah Berikutnya</p>
+              <p className="text-[11px] text-text-muted">
+                Organisasi baru belum punya workspace, sehingga belum perlu Admin Workspace. Penunjukan Admin Workspace dilakukan
+                saat workspace pertama dibuat dari menu Workspace — dan bersifat wajib di sana.
+              </p>
+              <p className="mt-1 text-[11px] text-text-muted">
+                Member lain dapat diundang kapan saja dari menu Members &amp; Roles setelah workspace tersedia.
+              </p>
+            </div>
+
+            {errorMessage && <p className="text-[11px] text-destructive">{errorMessage}</p>}
+          </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
