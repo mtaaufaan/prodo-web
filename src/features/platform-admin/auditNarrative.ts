@@ -89,6 +89,10 @@ export function formatAuditNarrative(entry: PlatformAuditLogEntry, t: TFunction)
       return t('auditNarrative.userBackupCodeUsed')
     case 'group.transferred':
       return t('auditNarrative.groupTransferred', { target })
+    case 'group.assigned_to_existing_admin': {
+      const groupName = metaString(entry, 'group_name') ?? t('auditNarrative.unknownTarget')
+      return t('auditNarrative.groupAssignedToExistingAdmin', { target, groupName })
+    }
     case 'group.contract_created':
       return t('auditNarrative.groupContractCreated', { target })
     case 'group.contract_renewed':

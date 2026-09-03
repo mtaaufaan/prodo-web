@@ -60,6 +60,15 @@ describe('formatAuditNarrative', () => {
     expect(msg).toContain('kode cadangan')
   })
 
+  it('names both the existing GA and the new group when linked (S4G-07)', () => {
+    const msg = formatAuditNarrative(
+      entry({ action: 'group.assigned_to_existing_admin', target_user_name: 'Budi', metadata: { group_name: 'PT Retail Sejahtera' } }),
+      t,
+    )
+    expect(msg).toContain('Budi')
+    expect(msg).toContain('PT Retail Sejahtera')
+  })
+
   it('names the erasure subject when executed', () => {
     const msg = formatAuditNarrative(entry({ action: 'erasure.executed', target_user_name: 'User [REDACTED]' }), t)
     expect(msg).toContain('User [REDACTED]')

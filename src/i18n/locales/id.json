@@ -34,6 +34,7 @@
     "userLogin": "Berhasil login (password + verifikasi MFA).",
     "userBackupCodeUsed": "Login memakai kode cadangan MFA (bukan authenticator biasa).",
     "groupTransferred": "Memindahkan pengelolaan grup dari {{target}} ke Group Admin lain.",
+    "groupAssignedToExistingAdmin": "Menautkan grup baru {{groupName}} ke akun Group Admin existing {{target}}.",
     "groupContractCreated": "Membuat kontrak awal untuk grup milik {{target}}.",
     "groupContractRenewed": "Memperpanjang kontrak grup milik {{target}}.",
     "tierCreated": "Menambahkan tier baru {{target}} ke katalog.",
@@ -438,6 +439,10 @@
       "invoicePrefix": "Invoice: {{number}}"
     },
     "status": { "unchanged": "Tidak diubah", "active": "AKTIF", "suspended": "SUSPENDED" },
+    "linkedExisting": {
+      "heading": "Grup Ditautkan ke Akun Existing",
+      "body": "Email {{email}} sudah terdaftar sebagai Group Admin aktif -- grup baru ini ditambahkan sebagai grup tambahan untuk akun yang sama, bukan akun baru. Tidak ada invitation yang dikirim."
+    },
     "invitation": {
       "heading": "Invitation Link",
       "resent": "✓ Invitation link terkirim ulang ke email Group Admin.",

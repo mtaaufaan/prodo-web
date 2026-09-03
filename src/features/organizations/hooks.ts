@@ -14,17 +14,19 @@ import type { CreateOrganizationFormValues, UpdateOrganizationFormValues } from 
 
 export const organizationKeys = {
   all: ['organizations'] as const,
-  list: () => [...organizationKeys.all, 'list'] as const,
+  list: (groupId?: string) => [...organizationKeys.all, 'list', groupId ?? ''] as const,
 }
 
-const organizationListQuery = () =>
+const organizationListQuery = (groupId?: string) =>
   queryOptions({
-    queryKey: organizationKeys.list(),
-    queryFn: () => listOrganizations(),
+    queryKey: organizationKeys.list(groupId),
+    queryFn: () => listOrganizations(groupId),
   })
 
-export function useOrganizationList() {
-  return useQuery(organizationListQuery())
+// groupId (S4G-06, group switcher) -- diteruskan apa adanya ke API, lihat
+// komentar listOrganizations.
+export function useOrganizationList(groupId?: string) {
+  return useQuery(organizationListQuery(groupId))
 }
 
 export function useCreateOrganization() {
