@@ -53,7 +53,7 @@ function OrganizationManagementPageContent() {
   // topbar sama sekali, jadi tetap butuh tombol create di dalam halaman
   // sendiri (lihat isBareRender di bawah), beda dari GA yang sekarang
   // pakai CTA topbar (bukan lagi tombol duplikat di halaman). `groupId`
-  // (S4G-06, group switcher) -- undefined untuk PA (lintas grup, tidak
+  // (S4G-32, group switcher) -- undefined untuk PA (lintas grup, tidak
   // difilter, perilaku lama), grup yang sedang aktif dipilih untuk GA.
   const outletContext = useOutletContext<GroupAdminOutletContext>()
   const isBareRender = !outletContext

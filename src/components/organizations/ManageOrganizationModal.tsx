@@ -22,6 +22,7 @@ import {
   type UpdateOrganizationFormValues,
   type UpdateStorageQuotaFormValues,
 } from '@/features/organizations/types'
+import { useGroups } from '@/features/platform-admin/hooks'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -138,6 +139,20 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
   const quotaBelowUsed = organization !== null && !Number.isNaN(quotaGbWatch) && quotaGbWatch < usedGb
   const confirmPending = deactivateOrganization.isPending || reactivateOrganization.isPending
 
+  // Plafon retensi TIER grup (S4G-34, Track S4G, desain "GA Add
+  // Organization.dc.html" -- hint "RANGE {min}-{max} (BATAS TIER
+  // {nama})"). Reuse GET /platform/groups yang sudah dipakai
+  // CreateOrganizationModal, dicocokkan lewat organization.group_id --
+  // tanpa endpoint baru. Fallback 30/365 (batas keras backend) sebelum
+  // data grup termuat.
+  const groups = useGroups('')
+  const orgGroup = groups.data?.find((g) => g.id === organization?.group_id) ?? null
+  const retentionDaysWatch = quotaForm.watch('retention_days')
+  const retentionMin = orgGroup?.min_retention_days ?? 30
+  const retentionMax = orgGroup?.max_retention_days ?? 365
+  const retentionOutOfRange =
+    !Number.isNaN(retentionDaysWatch) && (retentionDaysWatch < retentionMin || retentionDaysWatch > retentionMax)
+
   const hasWorkspaces = (organization?.workspace_count ?? 0) > 0
   const deleteMatches = organization !== null && deleteConfirmText === organization.slug
 
@@ -243,18 +258,24 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
                 <Button
                   type="submit"
                   variant="outline"
-                  disabled={updateQuota.isPending}
+                  disabled={updateQuota.isPending || retentionOutOfRange}
                   className="font-mono text-[10px] uppercase tracking-[0.06em]"
                 >
                   {updateQuota.isPending ? 'Menyimpan...' : 'Simpan Kuota & Retensi'}
                 </Button>
               </div>
               <p className="mt-2 font-mono text-[9px] text-text-muted">
-                Kuota minimal sebesar storage terpakai ({usedGb.toFixed(2)} GB) · retensi 30-365 hari — batas ditetapkan Platform Admin.
+                Kuota minimal sebesar storage terpakai ({usedGb.toFixed(2)} GB) · retensi {retentionMin}-{retentionMax} hari (batas tier{' '}
+                {(orgGroup?.tier ?? '-').toUpperCase()}).
               </p>
               {quotaBelowUsed && (
                 <p className="mt-1 text-[11px] text-destructive">
                   ⚠ Kuota tidak boleh lebih kecil dari storage terpakai ({usedGb.toFixed(2)} GB).
+                </p>
+              )}
+              {retentionOutOfRange && (
+                <p className="mt-1 text-[11px] text-destructive">
+                  ⚠ Retensi harus antara {retentionMin} dan {retentionMax} hari.
                 </p>
               )}
               {quotaForm.formState.errors.quota_gb && (

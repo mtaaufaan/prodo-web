@@ -54,7 +54,7 @@ const NAV_ITEMS = [
 // Konteks diteruskan ke halaman yang dibungkus lewat <Outlet context=.../>
 // -- `view` (S4G-03 fix) untuk baris tab tampilan (Semua/Aktif/Nonaktif),
 // `registerCta` (S4G-03 fix) supaya halaman anak mendaftarkan aksi tombol
-// CTA topbar tanpa shell perlu tahu detail halamannya. `groupId` (S4G-06,
+// CTA topbar tanpa shell perlu tahu detail halamannya. `groupId` (S4G-32,
 // group switcher) -- grup yang SEDANG AKTIF dipilih, satu-satunya sumber
 // kebenaran dipakai halaman anak (mis. OrganizationManagementPage,
 // CreateOrganizationModal) supaya tidak perlu resolve grup sendiri-sendiri.
@@ -104,7 +104,7 @@ export default function GroupAdminLayout() {
 
   const activeNav = useMemo(() => NAV_ITEMS.find((n) => n.to && location.pathname.startsWith(n.to)) ?? null, [location.pathname])
 
-  // Group switcher (S4G-06, Track S4G): sebagian besar GA cuma punya 1
+  // Group switcher (S4G-32, Track S4G): sebagian besar GA cuma punya 1
   // grup (switcher tidak dirender sama sekali di kasus itu) -- tapi
   // group_admin_assignments many-to-many (DATABASE_SCHEMA.md §5.6, bisa
   // terjadi lewat TransferGroup S4P-03) mengizinkan lebih dari satu. `?

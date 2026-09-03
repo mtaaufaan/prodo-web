@@ -33,7 +33,7 @@ export type GroupAdminFormMode = 'add' | 'edit' | 'view'
 interface GroupAdminFormModalProps {
   mode: GroupAdminFormMode
   groupAdminId: string | null // null di mode "add"
-  // groupId (S4G-07, Track S4G): grup SPESIFIK dari baris panel yang
+  // groupId (S4G-33, Track S4G): grup SPESIFIK dari baris panel yang
   // diklik -- satu akun bisa mengelola >1 grup (DATABASE_SCHEMA.md §5.6),
   // panel sekarang satu baris per grup, jadi modal ini WAJIB tahu grup
   // mana yang sedang dibuka, bukan menebak "grup pertama" lagi. null di
@@ -71,7 +71,7 @@ export default function GroupAdminFormModal({ mode, groupAdminId, groupId, open,
   const resendActivation = useResendActivation()
   const [resendSent, setResendSent] = useState(false)
   const [renewOpen, setRenewOpen] = useState(false)
-  // linkedExistingEmail (S4G-07): begitu email yang diisi match GA aktif
+  // linkedExistingEmail (S4G-33): begitu email yang diisi match GA aktif
   // existing, backend menautkan grup baru ke akun itu TANPA invitation
   // baru -- modal TIDAK auto-close seperti alur biasa, supaya PA sadar
   // ini bukan akun baru (dikonfirmasi user: harus ada peringatan

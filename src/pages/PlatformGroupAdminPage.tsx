@@ -50,7 +50,7 @@ function MetricCard({ label, value, sub }: { label: string; value: string; sub?:
 function PlatformGroupAdminPageContent() {
   const { t } = useTranslation()
   const list = useGroupAdminList()
-  // groupId (S4G-07, Track S4G): panel sekarang SATU BARIS PER GRUP yang
+  // groupId (S4G-33, Track S4G): panel sekarang SATU BARIS PER GRUP yang
   // dikelola (bukan satu baris per akun lagi) -- baris mana yang diklik
   // menentukan grup mana yang dibuka di modal, bukan "grup pertama" GA
   // itu lagi.
@@ -71,7 +71,7 @@ function PlatformGroupAdminPageContent() {
   }, [list.data])
 
   const nearQuotaCount = sortedGAs.filter((ga) => (usageRatio(ga) ?? 0) >= NEAR_QUOTA_THRESHOLD).length
-  // uniqueGACount/aktifCount (S4G-07): dedup per akun (id), bukan per
+  // uniqueGACount/aktifCount (S4G-33): dedup per akun (id), bukan per
   // baris -- satu GA yang mengelola N grup sekarang muncul sebagai N
   // baris (lihat GroupAdminSummary backend), jadi menghitung baris
   // mentah untuk "Total Group Admin"/"Aktif" akan menghitung orang yang

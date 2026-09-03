@@ -29,9 +29,9 @@ function slugify(name: string) {
     .replace(/^-+|-+$/g, '')
 }
 
-// S4G-05, Track S4G (desain "GA Add Organization.dc.html") -- diperkaya dari
+// S4G-31, Track S4G (desain "GA Add Organization.dc.html") -- diperkaya dari
 // versi minimal S3-07: domain/bahasa/retensi/kuota kini diisi sekali submit
-// (backend S4G-05 menerima seluruhnya di POST /organizations, reuse
+// (backend S4G-31 menerima seluruhnya di POST /organizations, reuse
 // validasi OrganizationRepository.UpdateStorageQuota). Slug tidak lagi
 // diinput manual -- diturunkan otomatis dari nama dan ditampilkan sebagai
 // hint saja, sama seperti desain. Logo TETAP di luar scope (task terpisah,
@@ -42,7 +42,7 @@ function slugify(name: string) {
 // modal). Urutan tombol footer: BUAT ORGANISASI (primer) DI KIRI, TUTUP DI
 // KANAN, sesuai desain.
 //
-// Picker "Grup Pemilik" (S4G-06, Track S4G): desain TIDAK PERNAH
+// Picker "Grup Pemilik" (S4G-32, Track S4G): desain TIDAK PERNAH
 // menampilkan picker -- grup selalu konteks ambient ("Buat organisasi
 // dalam grup {{groupName}}"). Group Admin sekarang punya group switcher
 // di GroupAdminLayout (outlet context `groupId`) yang menyelesaikan grup
@@ -64,6 +64,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
   const name = form.watch('name')
   const groupIdField = form.watch('group_id')
   const quotaGbWatch = form.watch('quota_gb')
+  const retentionDaysWatch = form.watch('retention_days')
 
   useEffect(() => {
     form.setValue('slug', slugify(name), { shouldValidate: false })
@@ -92,7 +93,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
 
   const activeGroup = groups.data?.find((g) => g.id === groupId) ?? null
 
-  // Plafon grup dibaca dari GET /organizations (S4G-03, S4G-06) -- 0
+  // Plafon grup dibaca dari GET /organizations (S4G-03, S4G-32) -- 0
   // berarti grup belum terpilih (PA bare render sebelum memilih dropdown).
   const ceilingBytes = orgList.data?.group_storage_ceiling_bytes ?? 0
   const { allocatedBytes, orgCount } = useMemo(() => {
@@ -102,6 +103,15 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
   const remainingBytes = Math.max(0, ceilingBytes - allocatedBytes)
   const showQuotaBar = ceilingBytes > 0
   const quotaExceedsRemaining = showQuotaBar && !Number.isNaN(quotaGbWatch) && quotaGbWatch * GB > remainingBytes
+
+  // Plafon retensi TIER grup (S4G-34, Track S4G, desain "GA Add
+  // Organization.dc.html" -- hint "RANGE {min}-{max} (BATAS TIER
+  // {nama})"). Fallback 30/365 (batas keras backend) kalau grup belum
+  // terpilih (PA bare render sebelum memilih dropdown).
+  const retentionMin = activeGroup?.min_retention_days ?? 30
+  const retentionMax = activeGroup?.max_retention_days ?? 365
+  const retentionOutOfRange =
+    !Number.isNaN(retentionDaysWatch) && (retentionDaysWatch < retentionMin || retentionDaysWatch > retentionMax)
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
@@ -185,6 +195,14 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
               <div className="space-y-2">
                 <Label htmlFor="retention_days">Retensi Data (Hari)</Label>
                 <Input id="retention_days" type="number" step="1" min="30" max="365" className="w-24" {...form.register('retention_days')} />
+                <p className="font-mono text-[9px] text-text-muted">
+                  RANGE {retentionMin}–{retentionMax} (BATAS TIER {(activeGroup?.tier ?? '-').toUpperCase()})
+                </p>
+                {retentionOutOfRange && (
+                  <p className="text-[11px] text-destructive">
+                    ⚠ Retensi harus antara {retentionMin} dan {retentionMax} hari.
+                  </p>
+                )}
                 {form.formState.errors.retention_days && (
                   <p className="text-[11px] text-destructive">{form.formState.errors.retention_days.message}</p>
                 )}
@@ -232,7 +250,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
           <DialogFooter>
             <Button
               type="submit"
-              disabled={createOrganization.isPending || quotaExceedsRemaining}
+              disabled={createOrganization.isPending || quotaExceedsRemaining || retentionOutOfRange}
               className="font-mono text-[10px] uppercase tracking-[0.06em]"
             >
               {createOrganization.isPending ? 'Membuat...' : 'Buat Organisasi'}

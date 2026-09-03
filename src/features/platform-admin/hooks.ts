@@ -41,7 +41,7 @@ import type {
 export const groupAdminKeys = {
   all: ['group-admins'] as const,
   list: () => [...groupAdminKeys.all, 'list'] as const,
-  // detail key menyertakan groupId (S4G-07) -- satu akun bisa punya
+  // detail key menyertakan groupId (S4G-33) -- satu akun bisa punya
   // beberapa entri cache berbeda sekarang, satu per grup yang dikelola.
   detail: (id: string, groupId: string | null) => [...groupAdminKeys.all, 'detail', id, groupId ?? ''] as const,
 }
@@ -57,7 +57,7 @@ export function useGroupAdminList() {
 }
 
 // useGroupAdminDetail -- S4P-06, mode Lihat/Ubah. enabled:false kalau id
-// kosong (mode Tambah tidak butuh fetch detail). groupId (S4G-07) --
+// kosong (mode Tambah tidak butuh fetch detail). groupId (S4G-33) --
 // grup SPESIFIK baris yang diklik, null berarti baris 0-grup.
 export function useGroupAdminDetail(id: string | null, groupId: string | null) {
   return useQuery({
@@ -85,7 +85,7 @@ export function useUpdateGroupAdmin(id: string, groupId: string | null) {
 
 // useRenewGroupContract -- kontrak grup (dikonfirmasi user 2026-08-29):
 // dipakai baik untuk kontrak pertama maupun perpanjangan. groupId
-// (S4G-07) WAJIB -- kontrak selalu milik satu grup spesifik.
+// (S4G-33) WAJIB -- kontrak selalu milik satu grup spesifik.
 export function useRenewGroupContract(id: string, groupId: string) {
   const queryClient = useQueryClient()
   return useMutation({
