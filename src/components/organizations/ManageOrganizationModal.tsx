@@ -139,7 +139,7 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
   const quotaBelowUsed = organization !== null && !Number.isNaN(quotaGbWatch) && quotaGbWatch < usedGb
   const confirmPending = deactivateOrganization.isPending || reactivateOrganization.isPending
 
-  // Plafon retensi TIER grup (S4G-08, Track S4G, desain "GA Add
+  // Plafon retensi TIER grup (S4G-34, Track S4G, desain "GA Add
   // Organization.dc.html" -- hint "RANGE {min}-{max} (BATAS TIER
   // {nama})"). Reuse GET /platform/groups yang sudah dipakai
   // CreateOrganizationModal, dicocokkan lewat organization.group_id --

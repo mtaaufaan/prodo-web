@@ -2,7 +2,7 @@ import { apiClient } from '@/lib/api'
 
 import type { CreateOrganizationFormValues, OrganizationListResult, UpdateOrganizationFormValues } from './types'
 
-// groupId (S4G-06, Track S4G, group switcher) -- opsional, scoping
+// groupId (S4G-32, Track S4G, group switcher) -- opsional, scoping
 // tambahan untuk Group Admin yang mengelola >1 grup (DATABASE_SCHEMA.md
 // §5.6 many-to-many). Kosong/tidak diberikan berarti tidak difilter,
 // sama seperti sebelumnya (backend RLS-only, dipakai default/Platform

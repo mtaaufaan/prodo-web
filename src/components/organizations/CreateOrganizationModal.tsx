@@ -29,9 +29,9 @@ function slugify(name: string) {
     .replace(/^-+|-+$/g, '')
 }
 
-// S4G-05, Track S4G (desain "GA Add Organization.dc.html") -- diperkaya dari
+// S4G-31, Track S4G (desain "GA Add Organization.dc.html") -- diperkaya dari
 // versi minimal S3-07: domain/bahasa/retensi/kuota kini diisi sekali submit
-// (backend S4G-05 menerima seluruhnya di POST /organizations, reuse
+// (backend S4G-31 menerima seluruhnya di POST /organizations, reuse
 // validasi OrganizationRepository.UpdateStorageQuota). Slug tidak lagi
 // diinput manual -- diturunkan otomatis dari nama dan ditampilkan sebagai
 // hint saja, sama seperti desain. Logo TETAP di luar scope (task terpisah,
@@ -42,7 +42,7 @@ function slugify(name: string) {
 // modal). Urutan tombol footer: BUAT ORGANISASI (primer) DI KIRI, TUTUP DI
 // KANAN, sesuai desain.
 //
-// Picker "Grup Pemilik" (S4G-06, Track S4G): desain TIDAK PERNAH
+// Picker "Grup Pemilik" (S4G-32, Track S4G): desain TIDAK PERNAH
 // menampilkan picker -- grup selalu konteks ambient ("Buat organisasi
 // dalam grup {{groupName}}"). Group Admin sekarang punya group switcher
 // di GroupAdminLayout (outlet context `groupId`) yang menyelesaikan grup
@@ -93,7 +93,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
 
   const activeGroup = groups.data?.find((g) => g.id === groupId) ?? null
 
-  // Plafon grup dibaca dari GET /organizations (S4G-03, S4G-06) -- 0
+  // Plafon grup dibaca dari GET /organizations (S4G-03, S4G-32) -- 0
   // berarti grup belum terpilih (PA bare render sebelum memilih dropdown).
   const ceilingBytes = orgList.data?.group_storage_ceiling_bytes ?? 0
   const { allocatedBytes, orgCount } = useMemo(() => {
@@ -104,7 +104,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
   const showQuotaBar = ceilingBytes > 0
   const quotaExceedsRemaining = showQuotaBar && !Number.isNaN(quotaGbWatch) && quotaGbWatch * GB > remainingBytes
 
-  // Plafon retensi TIER grup (S4G-08, Track S4G, desain "GA Add
+  // Plafon retensi TIER grup (S4G-34, Track S4G, desain "GA Add
   // Organization.dc.html" -- hint "RANGE {min}-{max} (BATAS TIER
   // {nama})"). Fallback 30/365 (batas keras backend) kalau grup belum
   // terpilih (PA bare render sebelum memilih dropdown).

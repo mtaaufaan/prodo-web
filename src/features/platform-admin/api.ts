@@ -25,7 +25,7 @@ export function listGroupAdmins() {
   return apiClient.get<GroupAdmin[]>('/api/v1/platform/group-admins')
 }
 
-// createGroupAdmin -- linked_existing_admin (S4G-07, Track S4G): true
+// createGroupAdmin -- linked_existing_admin (S4G-33, Track S4G): true
 // kalau email yang diminta match GA aktif existing -- grup baru ditautkan
 // ke akun itu, TANPA invitation baru (expires_at tidak ada di respons itu).
 export function createGroupAdmin(values: CreateGroupAdminFormValues) {
@@ -37,7 +37,7 @@ export function resendActivation(id: string) {
 }
 
 // getGroupAdmin/updateGroupAdmin -- S4P-06, mode Lihat/Ubah. groupId
-// (S4G-07) WAJIB disebut eksplisit -- satu baris panel PA sekarang satu
+// (S4G-33) WAJIB disebut eksplisit -- satu baris panel PA sekarang satu
 // grup, bukan "grup pertama" GA lagi (DATABASE_SCHEMA.md §5.6
 // many-to-many). null berarti baris 0-grup.
 export function getGroupAdmin(id: string, groupId: string | null) {
@@ -51,7 +51,7 @@ export function updateGroupAdmin(id: string, groupId: string | null, values: Upd
 // renewGroupContract -- kontrak grup (dikonfirmasi user 2026-08-29):
 // dipakai baik untuk kontrak PERTAMA (belum pernah ada) maupun
 // PERPANJANGAN, backend yang membedakan audit action-nya. groupId
-// (S4G-07) WAJIB.
+// (S4G-33) WAJIB.
 export function renewGroupContract(id: string, groupId: string, values: RenewGroupContractFormValues) {
   return apiClient.post<{ contract_end_at: string }>(`/api/v1/platform/group-admins/${id}/renew-contract`, { ...values, group_id: groupId })
 }

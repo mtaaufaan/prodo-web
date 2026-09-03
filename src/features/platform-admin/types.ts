@@ -243,7 +243,7 @@ export type CreatePlatformAdminFormValues = z.infer<typeof createPlatformAdminSc
 
 // GroupDirectoryEntry -- GET /platform/groups (S4P-34, US-083). Platform
 // Admin melihat semua grup; Group Admin cuma grup yang dia kelola sendiri.
-// min_retention_days/max_retention_days (S4G-08, Track S4G) -- plafon
+// min_retention_days/max_retention_days (S4G-34, Track S4G) -- plafon
 // retensi TIER grup ini (service_tiers.min/max_retention_days, di-clamp
 // [30,365] backend) -- dipakai hint "RANGE {min}-{max} (BATAS TIER
 // {nama})" di form Buat/Kelola Organisasi, desain "GA Add Organization.dc.html".

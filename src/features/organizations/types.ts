@@ -38,7 +38,7 @@ const domainSchema = z
   .refine((v) => v === '' || /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(v), 'Format domain tidak valid (mis. acme.co.id)')
 
 // group_id dipilih dari dropdown direktori grup (S4P-36, menutup
-// implementation_gaps.md IG-16). S4G-05 (Track S4G, desain
+// implementation_gaps.md IG-16). S4G-31 (Track S4G, desain
 // "GA Add Organization.dc.html"): domain/default_language/quota_gb/
 // retention_days ditambahkan supaya organisasi dibuat lengkap dalam satu
 // submit (sebelumnya cuma name/slug/group_id, sisanya harus diisi lewat
