@@ -238,7 +238,13 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                 onChange={(e) => setAdminUserId(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="">{workspace?.admin_name ? `${workspace.admin_name} (tidak diubah)` : 'Pilih Admin Workspace...'}</option>
+                <option value="">
+                  {workspace?.admin_name
+                    ? `${workspace.admin_name} (tidak diubah)`
+                    : workspace?.pending_admin_email
+                      ? `Undangan pending · ${workspace.pending_admin_email} (tidak diubah)`
+                      : 'Pilih Admin Workspace...'}
+                </option>
                 {candidates.data?.map((c) => (
                   <option key={c.user_id} value={c.user_id}>
                     {c.display_name} ({c.email})
@@ -249,6 +255,13 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                 Wajib terisi — workspace tidak boleh tanpa Admin Workspace. Pengalihan menurunkan admin lama ke role editor
                 dan mengirim notifikasi ke admin lama+baru.
               </p>
+              {!workspace?.admin_name && workspace?.pending_admin_email && (
+                <p className="text-[10px] text-amber">
+                  ⚠ Undangan ke {workspace.pending_admin_email} belum diterima — belum tercatat sebagai member workspace ini.
+                  Pilih member lain di sini untuk menggantikannya sekarang, atau tunggu sampai undangan diterima
+                  (berlaku 72 jam sejak workspace dibuat).
+                </p>
+              )}
             </div>
 
             {saveError && <p className="text-[11px] text-destructive">{saveError.message}</p>}

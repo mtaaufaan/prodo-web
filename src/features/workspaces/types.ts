@@ -12,10 +12,16 @@ export interface Workspace {
 // WorkspaceListRow -- GET /workspaces?group_id= (S4G-05, Track S4G, desain
 // "GA Workspaces.dc.html") -- grid LINTAS organisasi dalam satu grup, org
 // jadi kolom (bukan parameter route seperti Workspace/listWorkspaces di
-// atas). admin_name/admin_email null kalau Admin Workspace-nya masih
-// undangan PENDING (belum menerima). storage_used_bytes SELALU 0 untuk
-// sekarang -- task_attachments (S4G-06) belum py jalur JOIN ke workspace
-// sama sekali (tabel tasks belum ada), lihat implementation_gaps.md IG-19.
+// atas). admin_name/admin_email cuma terisi untuk Admin Workspace yang
+// SUDAH menerima undangan (workspace_members). pending_admin_email
+// (implementation_gaps.md IG-40, ditemukan lewat laporan user "admin
+// workspace tidak terdeteksi") -- terpisah dari admin_email, terisi kalau
+// undangan admin_workspace MASIH pending (belum diterima/dibatalkan/
+// kedaluwarsa), supaya FE bisa membedakan "belum ada admin sama sekali"
+// dari "sudah diundang, menunggu diterima". storage_used_bytes SELALU 0
+// untuk sekarang -- task_attachments (S4G-06) belum py jalur JOIN ke
+// workspace sama sekali (tabel tasks belum ada), lihat
+// implementation_gaps.md IG-19.
 export interface WorkspaceListRow {
   id: string
   name: string
@@ -25,6 +31,7 @@ export interface WorkspaceListRow {
   org_id: string
   org_name: string
   admin_name: string | null
+  pending_admin_email: string | null
   admin_email: string | null
   storage_used_bytes: number
   org_storage_quota_bytes: number
