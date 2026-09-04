@@ -277,7 +277,7 @@ function WorkspaceRow({ workspace, onManage }: { workspace: WorkspaceListRow; on
           </>
         ) : (
           <span className="font-mono text-[10px] text-amber">
-            {workspace.admin_email ? `Undangan pending · ${workspace.admin_email}` : '— belum ada admin'}
+            {workspace.pending_admin_email ? `Undangan pending · ${workspace.pending_admin_email}` : '— belum ada admin'}
           </span>
         )}
       </div>
