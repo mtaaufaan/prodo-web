@@ -88,11 +88,11 @@ export default function StepUpModal() {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={verifying}>
-            Batal
-          </Button>
           <Button onClick={handleSubmit} disabled={!code || verifying}>
             {verifying ? 'Memverifikasi…' : 'Verifikasi'}
+          </Button>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={verifying}>
+            Batal
           </Button>
         </DialogFooter>
       </DialogContent>
