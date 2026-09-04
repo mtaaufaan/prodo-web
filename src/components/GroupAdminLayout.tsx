@@ -49,7 +49,11 @@ const NAV_ITEMS = [
   // ARSIP dan NONAKTIF dua state independen di workspace, lihat
   // ManageWorkspaceModal).
   { key: 'workspace', icon: '◫', label: 'Workspace', to: '/workspaces', tabs: ['Semua', 'Aktif', 'Arsip', 'Nonaktif'], cta: '+ Workspace' },
-  { key: 'storage', icon: '▦', label: 'Storage & Kuota', to: null, tabs: null, cta: null },
+  // S4G-09, Track S4G (desain "GA Storage Quota.dc.html"): tab Ringkasan/
+  // Per-Organisasi ada DI DALAM halaman ini sendiri (view-mode toggle),
+  // BUKAN baris tab shell -- beda konsep dari filter status Semua/Aktif/
+  // dst di menu lain, jadi `tabs: null` di sini (bukan gap kelupaan).
+  { key: 'storage', icon: '▦', label: 'Storage & Kuota', to: '/storage-quota', tabs: null, cta: 'Atur Kuota' },
   { key: 'members', icon: '◉', label: 'Members & Roles', to: null, tabs: null, cta: null },
   { key: 'retensi', icon: '◷', label: 'Data Retention', to: null, tabs: null, cta: null },
   { key: 'import', icon: '⬇', label: 'Import Data', to: null, tabs: null, cta: null },
