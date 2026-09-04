@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 import { useAuthStore } from '@/store/useAuthStore'
+import { useStepUpStore } from '@/store/useStepUpStore'
 import { useUIStore } from '@/store/useUIStore'
 
 interface ApiErrorBody {
@@ -101,6 +102,21 @@ instance.interceptors.response.use(
       }
       clearSessionWithToast()
     }
+    // S16-04/05, Track S4G: 403 STEP_UP_REQUIRED -- tampilkan dialog OTP
+    // (StepUpModal, dipicu lewat useStepUpStore) dan retry request asli
+    // SEKALI setelah verifikasi sukses. Beda dari 401 di atas: token tetap
+    // valid, cuma butuh bukti OTP tambahan -- tidak ada refresh token yang
+    // terlibat. Kalau user membatalkan dialog, request() reject dan error
+    // asli diteruskan apa adanya ke caller.
+    if (body?.error?.code === 'STEP_UP_REQUIRED' && original && !original._stepUpRetried) {
+      original._stepUpRetried = true
+      try {
+        await useStepUpStore.getState().request()
+        return instance(original)
+      } catch {
+        // user membatalkan -- lanjut ke penanganan error biasa di bawah
+      }
+    }
     if (body?.error) {
       return Promise.reject(new ApiError(body.error.code, body.error.message, body.error.details))
     }
@@ -117,5 +133,6 @@ export const apiClient = instance as unknown as {
   get<T>(url: string, config?: Parameters<typeof instance.get>[1]): Promise<T>
   post<T>(url: string, data?: unknown, config?: Parameters<typeof instance.post>[1]): Promise<T>
   put<T>(url: string, data?: unknown, config?: Parameters<typeof instance.put>[1]): Promise<T>
+  patch<T>(url: string, data?: unknown, config?: Parameters<typeof instance.patch>[1]): Promise<T>
   delete<T>(url: string, config?: Parameters<typeof instance.delete>[1]): Promise<T>
 }

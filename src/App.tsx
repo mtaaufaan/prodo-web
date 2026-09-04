@@ -1,3 +1,4 @@
+import StepUpModal from '@/components/StepUpModal'
 import Toaster from '@/components/shared/Toaster'
 import AppRouter from '@/router/AppRouter'
 
@@ -6,6 +7,7 @@ function App() {
     <>
       <AppRouter />
       <Toaster />
+      <StepUpModal />
     </>
   )
 }
