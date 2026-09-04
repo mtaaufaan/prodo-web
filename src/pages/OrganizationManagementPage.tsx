@@ -7,7 +7,7 @@ import ManageOrganizationModal from '@/components/organizations/ManageOrganizati
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { useOrganizationList } from '@/features/organizations/hooks'
 import type { Organization } from '@/features/organizations/types'
-import { cn } from '@/lib/utils'
+import { cn, logoBgClass } from '@/lib/utils'
 
 const GB = 1024 * 1024 * 1024
 const ORG_PAGE_SIZE = 10
@@ -213,23 +213,6 @@ function OrganizationManagementPageContent() {
   )
 }
 
-// Palette badge logo (S4G-03 fix, ditemukan user 2026-08-31 dari screenshot
-// desain "GA Organizations.dc.html"): tiap baris organisasi desain punya
-// kotak inisial berwarna sebelum nama. Data dummy desain (ga-store.js)
-// hardcode warna per organisasi dari palet tetap {orange,mint,violet,amber,
-// blue,grey} -- backend TIDAK punya kolom warna/logo sama sekali (`logo`
-// upload sungguhan sengaja di luar scope, task terpisah, butuh infrastruktur
-// MinIO baru). Badge ini BUKAN logo upload -- cuma monogram dekoratif,
-// dihitung deterministik dari org.id supaya warnanya konsisten tiap render
-// tanpa kolom DB baru. Palet + urutan sama persis dengan desain.
-const LOGO_PALETTE = ['bg-signal', 'bg-mint', 'bg-violet', 'bg-amber', 'bg-blue', 'bg-text-muted'] as const
-
-function logoBgClass(id: string): string {
-  let hash = 0
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
-  return LOGO_PALETTE[hash % LOGO_PALETTE.length]
-}
-
 function OrganizationRow({ organization, onManage }: { organization: Organization; onManage: () => void }) {
   const isActive = organization.deactivated_at === null
   const pct = organization.storage_quota_bytes > 0 ? (organization.storage_used_bytes / organization.storage_quota_bytes) * 100 : 0
@@ -252,7 +235,7 @@ function OrganizationRow({ organization, onManage }: { organization: Organizatio
         </div>
       </div>
       <Link
-        to={`/organizations/${organization.id}/workspaces`}
+        to={`/workspaces?org_id=${organization.id}`}
         className="font-mono text-[11px] text-text-body hover:text-signal"
       >
         {organization.workspace_count} · {organization.member_count}
