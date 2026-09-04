@@ -41,7 +41,14 @@ const NAV_ITEMS = [
   { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: null as string | null, tabs: null as string[] | null, cta: null as string | null },
   { key: 'ringkasan', icon: '◧', label: 'Ringkasan', to: null, tabs: null, cta: null },
   { key: 'organisasi', icon: '▤', label: 'Organisasi', to: '/organizations', tabs: ['Semua', 'Aktif', 'Nonaktif'], cta: '+ Buat Organisasi' },
-  { key: 'workspace', icon: '◫', label: 'Workspace', to: null, tabs: null, cta: null },
+  // S4G-05, Track S4G (desain "GA Workspaces.dc.html"): grid GROUP-WIDE
+  // (lintas seluruh organisasi dalam grup, org jadi kolom) -- BEDA dari
+  // route lama /organizations/:orgId/workspaces (per-org, masih ada untuk
+  // link "WS · Member" di OrganizationManagementPage). Tab status sesuai
+  // desain: Semua/Aktif/Arsip/Nonaktif (4, bukan 3 seperti Organisasi --
+  // ARSIP dan NONAKTIF dua state independen di workspace, lihat
+  // ManageWorkspaceModal).
+  { key: 'workspace', icon: '◫', label: 'Workspace', to: '/workspaces', tabs: ['Semua', 'Aktif', 'Arsip', 'Nonaktif'], cta: '+ Workspace' },
   { key: 'storage', icon: '▦', label: 'Storage & Kuota', to: null, tabs: null, cta: null },
   { key: 'members', icon: '◉', label: 'Members & Roles', to: null, tabs: null, cta: null },
   { key: 'retensi', icon: '◷', label: 'Data Retention', to: null, tabs: null, cta: null },
