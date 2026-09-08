@@ -9,13 +9,18 @@ import { Label } from '@/components/ui/label'
 import { useOrganizationList } from '@/features/organizations/hooks'
 import { useGroups } from '@/features/platform-admin/hooks'
 import {
+  useCancelInvitation,
+  useCreateInvitations,
+  usePendingInvitations,
+  useRemoveMember,
+  useWorkspaceMembers,
+} from '@/features/workspace-members/hooks'
+import {
   useArchiveWorkspace,
-  useCandidateAdmins,
   useDeactivateWorkspace,
   useDeleteWorkspace,
   useMoveWorkspace,
   useReactivateWorkspace,
-  useReassignWorkspaceAdmin,
   useUnarchiveWorkspace,
   useUpdateWorkspace,
 } from '@/features/workspaces/hooks'
@@ -81,39 +86,50 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
 
   const [name, setName] = useState('')
   const [targetOrgId, setTargetOrgId] = useState('')
-  const [adminUserId, setAdminUserId] = useState('')
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [newAdminEmail, setNewAdminEmail] = useState('')
+  const [adminError, setAdminError] = useState<string | null>(null)
 
   useEffect(() => {
     if (workspace) {
       setName(workspace.name)
       setTargetOrgId(workspace.org_id)
-      setAdminUserId('')
       setDeleteConfirmText('')
       setConfirmAction(null)
+      setNewAdminEmail('')
+      setAdminError(null)
     }
   }, [workspace])
 
-  // Sesuai desain asli "GA Workspaces.dc.html" (dibaca ulang langsung lewat
-  // DesignSync setelah user menunjukkan build sebelumnya menyimpang):
-  // dropdown admin CUMA berisi kandidat asli, admin yang sedang menjabat
-  // TERMASUK di dalamnya (bukan dikecualikan) -- desain tidak pernah punya
-  // opsi placeholder "(tidak diubah)" sama sekali, cuma nilai terpilih
-  // di-default ke admin saat ini. "Fix duplikat" sebelumnya (exclude admin
-  // dari kandidat) salah arah -- itu placeholder buatan sendiri, bukan yang
-  // ada di desain.
-  const candidates = useCandidateAdmins(targetOrgId || '')
-  useEffect(() => {
-    if (!adminUserId && workspace?.admin_email && candidates.data) {
-      const current = candidates.data.find((c) => c.email === workspace.admin_email)
-      if (current) setAdminUserId(current.user_id)
+  // Daftar Admin Workspace (atas permintaan user, menggantikan dropdown
+  // ganti-admin tunggal sebelumnya): satu workspace bisa punya LEBIH dari
+  // satu admin_workspace sekaligus (kasus nyata ditemukan user -- admin
+  // diterima + undangan admin lain yang masih pending untuk workspace yang
+  // sama) -- reuse penuh endpoint workspace-members yang sudah ada
+  // (S2-07/08/16-24), tidak ada endpoint backend baru.
+  const workspaceMembers = useWorkspaceMembers(workspace?.id ?? '')
+  const pendingInvitations = usePendingInvitations(workspace?.id ?? '')
+  const createInvitations = useCreateInvitations(workspace?.id ?? '')
+  const removeMember = useRemoveMember(workspace?.id ?? '')
+  const cancelInvitation = useCancelInvitation(workspace?.id ?? '')
+  const admins = (workspaceMembers.data ?? []).filter((m) => m.role === 'admin_workspace')
+  const pendingAdmins = (pendingInvitations.data ?? []).filter((p) => p.role === 'admin_workspace')
+
+  const handleAddAdmin = async () => {
+    const email = newAdminEmail.trim()
+    if (!email) return
+    setAdminError(null)
+    try {
+      await createInvitations.mutateAsync({ emails: [email], role: 'admin_workspace' })
+      setNewAdminEmail('')
+    } catch (e) {
+      setAdminError(e instanceof ApiError ? e.message : 'Gagal menambah admin')
     }
-  }, [workspace, candidates.data, adminUserId])
+  }
 
   const updateWorkspace = useUpdateWorkspace(workspace?.id ?? '')
   const moveWorkspace = useMoveWorkspace(workspace?.id ?? '')
-  const reassignAdmin = useReassignWorkspaceAdmin(workspace?.id ?? '')
   const archiveWorkspace = useArchiveWorkspace()
   const unarchiveWorkspace = useUnarchiveWorkspace()
   const deactivateWorkspace = useDeactivateWorkspace()
@@ -132,21 +148,13 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
   const overflow = moving && !!workspace && workspace.storage_used_bytes > targetRemainingBytes
   const nameEmpty = name.trim() === ''
 
-  const saving = updateWorkspace.isPending || moveWorkspace.isPending || reassignAdmin.isPending
-  const saveError = [updateWorkspace.error, moveWorkspace.error, reassignAdmin.error].find((e) => e instanceof ApiError) as
-    | ApiError
-    | undefined
+  const saving = updateWorkspace.isPending || moveWorkspace.isPending
+  const saveError = [updateWorkspace.error, moveWorkspace.error].find((e) => e instanceof ApiError) as ApiError | undefined
 
   const handleSave = async () => {
     if (!workspace || nameEmpty || overflow) return
     if (name.trim() !== workspace.name) await updateWorkspace.mutateAsync(name.trim())
     if (moving) await moveWorkspace.mutateAsync(targetOrgId)
-    // Kirim reassign HANYA kalau pilihan benar-benar beda dari admin awal
-    // (pola sama desain: `if (this.state.fAdmin !== w.adminEmail)`) --
-    // bukan sekadar "adminUserId terisi", karena sekarang selalu ter-isi
-    // (di-default ke admin saat ini begitu kandidat termuat).
-    const currentAdminId = candidates.data?.find((c) => c.email === workspace.admin_email)?.user_id ?? ''
-    if (adminUserId && adminUserId !== currentAdminId) await reassignAdmin.mutateAsync({ admin_workspace_user_id: adminUserId })
   }
 
   const handleConfirm = () => {
@@ -227,10 +235,7 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                 <select
                   id="mw-org"
                   value={targetOrgId}
-                  onChange={(e) => {
-                    setTargetOrgId(e.target.value)
-                    setAdminUserId('')
-                  }}
+                  onChange={(e) => setTargetOrgId(e.target.value)}
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   {currentOrg === null && workspace && <option value={workspace.org_id}>{workspace.org_name}</option>}
@@ -251,43 +256,75 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="mw-admin">Admin Workspace Penanggung Jawab</Label>
-              <select
-                id="mw-admin"
-                value={adminUserId}
-                onChange={(e) => setAdminUserId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {/* Bukan bagian dari desain (demo GA Workspaces.dc.html tidak
-                    memodelkan undangan pending sama sekali) -- gap real yang
-                    perlu tetap kelihatan DI DALAM dropdown, bukan cuma di
-                    teks peringatan terpisah di bawah (atas permintaan user).
-                    Opsi disabled, value kosong sama seperti fallback biasa --
-                    otomatis jadi pilihan aktif karena adminUserId tetap ''
-                    (tidak ada kandidat yang cocok dengan admin_email null). */}
-                {!adminUserId && !workspace?.admin_name && workspace?.pending_admin_email && (
-                  <option value="" disabled>
-                    Menunggu: {workspace.pending_admin_email}
-                  </option>
-                )}
-                {!adminUserId && !workspace?.pending_admin_email && <option value="">Pilih Admin Workspace...</option>}
-                {candidates.data?.map((c) => (
-                  <option key={c.user_id} value={c.user_id}>
-                    {c.display_name} ({c.email})
-                  </option>
+              <Label>Admin Workspace</Label>
+              <div className="border border-line">
+                <div className="grid grid-cols-[1.2fr_1.3fr_1fr_1.1fr_0.6fr] gap-2 border-b border-line bg-raised-2 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.08em] text-text-dim">
+                  <span>Nama</span>
+                  <span>Email</span>
+                  <span>Jabatan</span>
+                  <span>Status</span>
+                  <span>Aksi</span>
+                </div>
+                {admins.map((m) => (
+                  <div
+                    key={m.user_id}
+                    className="grid grid-cols-[1.2fr_1.3fr_1fr_1.1fr_0.6fr] items-center gap-2 border-t border-line px-3 py-2 text-[12px]"
+                  >
+                    <span className="truncate">{m.display_name}</span>
+                    <span className="truncate font-mono text-[10.5px] text-text-muted">{m.email}</span>
+                    <span className="truncate text-text-muted">{m.title || '—'}</span>
+                    <span className="font-mono text-[10px] text-mint">Diterima {new Date(m.joined_at).toLocaleDateString('id-ID')}</span>
+                    <button
+                      type="button"
+                      disabled={removeMember.isPending}
+                      onClick={() => removeMember.mutate(m.user_id)}
+                      className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:opacity-40"
+                    >
+                      Cabut
+                    </button>
+                  </div>
                 ))}
-              </select>
-              <p className="text-[10px] text-text-muted">
-                Wajib terisi — workspace tidak boleh tanpa Admin Workspace. Pengalihan menurunkan admin lama ke role editor
-                dan mengirim notifikasi ke admin lama+baru.
-              </p>
-              {!workspace?.admin_name && workspace?.pending_admin_email && (
-                <p className="text-[10px] text-amber">
-                  ⚠ Undangan ke {workspace.pending_admin_email} belum diterima — belum tercatat sebagai member workspace ini.
-                  Pilih member lain di sini untuk menggantikannya sekarang, atau tunggu sampai undangan diterima
-                  (berlaku 72 jam sejak workspace dibuat).
-                </p>
-              )}
+                {pendingAdmins.map((p) => (
+                  <div
+                    key={p.id}
+                    className="grid grid-cols-[1.2fr_1.3fr_1fr_1.1fr_0.6fr] items-center gap-2 border-t border-line px-3 py-2 text-[12px]"
+                  >
+                    <span className="text-text-dim">—</span>
+                    <span className="truncate font-mono text-[10.5px] text-text-muted">{p.email}</span>
+                    <span className="text-text-dim">—</span>
+                    <span className="font-mono text-[10px] text-amber">Pending {new Date(p.created_at).toLocaleDateString('id-ID')}</span>
+                    <button
+                      type="button"
+                      disabled={cancelInvitation.isPending}
+                      onClick={() => cancelInvitation.mutate(p.id)}
+                      className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:opacity-40"
+                    >
+                      Cabut
+                    </button>
+                  </div>
+                ))}
+                {admins.length === 0 && pendingAdmins.length === 0 && (
+                  <p className="border-t border-line px-3 py-3 text-[11px] text-text-muted">Belum ada Admin Workspace.</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={newAdminEmail}
+                  onChange={(e) => setNewAdminEmail(e.target.value)}
+                  placeholder="email@perusahaan.com"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!newAdminEmail.trim() || createInvitations.isPending}
+                  onClick={handleAddAdmin}
+                  className="flex-shrink-0 font-mono text-[10px] uppercase tracking-[0.06em]"
+                >
+                  {createInvitations.isPending ? 'Menambah...' : '+ Tambah Admin'}
+                </Button>
+              </div>
+              {adminError && <p className="text-[11px] text-destructive">{adminError}</p>}
             </div>
 
             {saveError && <p className="text-[11px] text-destructive">{saveError.message}</p>}

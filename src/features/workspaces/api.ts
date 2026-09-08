@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api'
 
-import type { CandidateAdmin, ReassignAdminFormValues, UpdateWorkspaceFormValues, Workspace, WorkspaceListRow } from './types'
+import type { CandidateAdmin, UpdateWorkspaceFormValues, Workspace, WorkspaceListRow } from './types'
 
 // listWorkspacesByGroup -- GET /workspaces?group_id= (S4G-05, Track S4G),
 // grid lintas organisasi dalam satu grup. groupId kosong -- Platform Admin
@@ -35,10 +35,6 @@ export function updateWorkspace(id: string, values: Pick<UpdateWorkspaceFormValu
 
 export function moveWorkspace(id: string, targetOrgId: string) {
   return apiClient.put<{ id: string; org_id: string }>(`/api/v1/workspaces/${id}/move`, { target_org_id: targetOrgId })
-}
-
-export function reassignWorkspaceAdmin(id: string, values: ReassignAdminFormValues) {
-  return apiClient.put<{ id: string; admin_workspace_user_id: string }>(`/api/v1/workspaces/${id}/admin`, values)
 }
 
 export function archiveWorkspace(id: string) {

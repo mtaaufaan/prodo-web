@@ -72,8 +72,3 @@ export const updateWorkspaceSchema = z.object({
   org_id: z.string().min(1, 'Organisasi induk wajib dipilih'),
 })
 export type UpdateWorkspaceFormValues = z.infer<typeof updateWorkspaceSchema>
-
-export const reassignAdminSchema = z.object({
-  admin_workspace_user_id: z.string().min(1, 'Pilih Admin Workspace pengganti'),
-})
-export type ReassignAdminFormValues = z.infer<typeof reassignAdminSchema>
