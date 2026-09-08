@@ -108,6 +108,7 @@ export default function ManageMemberModal({ member, groupId, onClose }: ManageMe
                 variant={member.is_executive ? 'outline' : 'default'}
                 disabled={toggleExecutive.isPending}
                 onClick={() => toggleExecutive.mutate({ userId: member.user_id, assign: !member.is_executive })}
+                className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em]"
               >
                 {member.is_executive ? 'Cabut' : 'Jadikan Eksekutif'}
               </Button>
@@ -133,6 +134,7 @@ export default function ManageMemberModal({ member, groupId, onClose }: ManageMe
                 variant="outline"
                 disabled={updateIdentity.isPending || displayName.trim().length < 2}
                 onClick={() => updateIdentity.mutate({ userId: member.user_id, displayName: displayName.trim(), title: title.trim() })}
+                className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em]"
               >
                 Simpan Identitas
               </Button>
@@ -200,7 +202,12 @@ export default function ManageMemberModal({ member, groupId, onClose }: ManageMe
                   </option>
                 ))}
               </select>
-              <Button size="sm" disabled={!addWorkspaceId || addPending} onClick={handleAddAccess}>
+              <Button
+                size="sm"
+                disabled={!addWorkspaceId || addPending}
+                onClick={handleAddAccess}
+                className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]"
+              >
                 + Tambah
               </Button>
             </div>
@@ -218,11 +225,20 @@ export default function ManageMemberModal({ member, groupId, onClose }: ManageMe
                 </div>
               </div>
               {member.suspended ? (
-                <Button disabled={reactivate.isPending} onClick={() => reactivate.mutate(member.user_id)}>
+                <Button
+                  disabled={reactivate.isPending}
+                  onClick={() => reactivate.mutate(member.user_id)}
+                  className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em]"
+                >
                   Aktifkan
                 </Button>
               ) : (
-                <Button variant="destructive" disabled={deactivate.isPending} onClick={() => deactivate.mutate(member.user_id)}>
+                <Button
+                  variant="destructive"
+                  disabled={deactivate.isPending}
+                  onClick={() => deactivate.mutate(member.user_id)}
+                  className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em]"
+                >
                   Nonaktifkan
                 </Button>
               )}
@@ -231,7 +247,7 @@ export default function ManageMemberModal({ member, groupId, onClose }: ManageMe
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
             Tutup
           </Button>
         </DialogFooter>

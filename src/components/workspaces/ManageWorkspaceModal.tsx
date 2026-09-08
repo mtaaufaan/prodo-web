@@ -346,7 +346,7 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
               variant="outline"
               disabled={saving || nameEmpty || overflow}
               onClick={handleSave}
-              className="w-fit font-mono text-[10px] uppercase tracking-[0.06em]"
+              className="w-fit font-mono text-[10px] font-bold uppercase tracking-[0.06em]"
             >
               {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
             </Button>
@@ -394,7 +394,7 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                   variant="outline"
                   disabled={!deleteMatches}
                   onClick={() => setConfirmAction('delete')}
-                  className="border-destructive font-mono text-[10px] uppercase tracking-[0.06em] text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                  className="border-destructive font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-destructive disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Hapus Workspace
                 </Button>
@@ -427,7 +427,7 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                 <Button variant="outline" onClick={() => setConfirmAction(null)} className="font-mono text-[10px] uppercase tracking-[0.06em]">
                   Batal
                 </Button>
-                <Button onClick={handleConfirm} disabled={confirmPending} className="font-mono text-[10px] uppercase tracking-[0.06em]">
+                <Button onClick={handleConfirm} disabled={confirmPending} className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]">
                   {confirmPending ? 'Memproses...' : CONFIRM_COPY[confirmAction].confirmLabel}
                 </Button>
               </DialogFooter>

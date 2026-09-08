@@ -254,7 +254,7 @@ export default function CreateWorkspaceModal({ open, onClose }: CreateWorkspaceM
             <Button
               type="submit"
               disabled={createWorkspace.isPending || !orgId}
-              className="font-mono text-[10px] uppercase tracking-[0.06em]"
+              className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]"
             >
               {createWorkspace.isPending ? 'Membuat...' : 'Buat Workspace'}
             </Button>

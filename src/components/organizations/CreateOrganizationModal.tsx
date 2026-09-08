@@ -251,7 +251,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
             <Button
               type="submit"
               disabled={createOrganization.isPending || quotaExceedsRemaining || retentionOutOfRange}
-              className="font-mono text-[10px] uppercase tracking-[0.06em]"
+              className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]"
             >
               {createOrganization.isPending ? 'Membuat...' : 'Buat Organisasi'}
             </Button>
