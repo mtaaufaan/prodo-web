@@ -95,7 +95,17 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
     }
   }, [workspace])
 
-  const candidates = useCandidateAdmins(targetOrgId || '')
+  // ListOrgCandidates (backend) sengaja tidak tahu konsep "admin saat ini"
+  // -- dipakai ulang juga oleh picker "MEMBER YANG ADA" di Tambah Workspace
+  // yang tidak punya admin existing sama sekali. Exclude di sini saja
+  // (client-side, by email -- WorkspaceListRow tidak punya admin_user_id)
+  // supaya admin yang sedang menjabat tidak muncul dobel dengan opsi
+  // "(tidak diubah)" (ditemukan user lewat screenshot: "2 Eldwin Lo").
+  const candidatesQuery = useCandidateAdmins(targetOrgId || '')
+  const candidates = {
+    ...candidatesQuery,
+    data: candidatesQuery.data?.filter((c) => c.email !== workspace?.admin_email),
+  }
   const updateWorkspace = useUpdateWorkspace(workspace?.id ?? '')
   const moveWorkspace = useMoveWorkspace(workspace?.id ?? '')
   const reassignAdmin = useReassignWorkspaceAdmin(workspace?.id ?? '')
