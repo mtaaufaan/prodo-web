@@ -15,6 +15,7 @@ import GroupAdminLayout from '@/components/GroupAdminLayout'
 import GroupDirectoryPage from '@/pages/GroupDirectoryPage'
 import GroupMembersPage from '@/pages/GroupMembersPage'
 import GroupDataRetentionPage from '@/pages/GroupDataRetentionPage'
+import GroupAuditTrailPage from '@/pages/GroupAuditTrailPage'
 import GroupImportDataPage from '@/pages/GroupImportDataPage'
 import GroupStorageQuotaPage from '@/pages/GroupStorageQuotaPage'
 import GroupWebhookPage from '@/pages/GroupWebhookPage'
@@ -144,6 +145,11 @@ export default function AppRouter() {
                 GET/POST/PUT/PATCH/DELETE /groups/:groupId/webhooks* PA/GA
                 pengelola grup ini saja. */}
             <Route path="/webhooks" element={<GroupWebhookPage />} />
+            {/* Audit Trail (desain "GA Audit Trail.dc.html"): sama gate --
+                backend GET /groups/:groupId/audit-logs* PA/GA pengelola
+                grup ini saja, READ-ONLY di atas audit_logs yang sudah ada
+                (implementation_gaps.md IG-45). */}
+            <Route path="/audit-trail" element={<GroupAuditTrailPage />} />
             {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
                 (S3-25/27) PA/GA saja. */}
             <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />
