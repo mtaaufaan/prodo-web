@@ -63,7 +63,9 @@ const NAV_ITEMS = [
   // Jadwal Penghapusan DI DALAM halaman sendiri (sama pola Storage & Kuota
   // Ringkasan/Per-Organisasi), `tabs: null` di sini bukan gap.
   { key: 'retensi', icon: '◷', label: 'Data Retention', to: '/data-retention', tabs: null, cta: 'Atur Kebijakan' },
-  { key: 'import', icon: '⬇', label: 'Import Data', to: null, tabs: null, cta: null },
+  // Import Data (desain "GA Import Data.dc.html"): tab Unggah CSV/Riwayat
+  // DI DALAM halaman sendiri (sama pola Storage & Kuota/Data Retention).
+  { key: 'import', icon: '⬇', label: 'Import Data', to: '/data-import', tabs: null, cta: '+ Import CSV' },
   { key: 'webhook', icon: '⌗', label: 'Webhook', to: null, tabs: null, cta: null },
   { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: null, tabs: null, cta: null },
   { key: 'audit', icon: '☰', label: 'Audit Trail', to: null, tabs: null, cta: null },

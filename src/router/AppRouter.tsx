@@ -15,6 +15,7 @@ import GroupAdminLayout from '@/components/GroupAdminLayout'
 import GroupDirectoryPage from '@/pages/GroupDirectoryPage'
 import GroupMembersPage from '@/pages/GroupMembersPage'
 import GroupDataRetentionPage from '@/pages/GroupDataRetentionPage'
+import GroupImportDataPage from '@/pages/GroupImportDataPage'
 import GroupStorageQuotaPage from '@/pages/GroupStorageQuotaPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
@@ -135,6 +136,9 @@ export default function AppRouter() {
             {/* Data Retention (desain "GA Data Retention.dc.html"): sama gate --
                 backend GET/PUT /groups/:groupId/retention-* PA/GA pengelola grup ini saja. */}
             <Route path="/data-retention" element={<GroupDataRetentionPage />} />
+            {/* Import Data (desain "GA Import Data.dc.html"): sama gate --
+                backend GET/POST /groups/:groupId/data-import/* PA/GA pengelola grup ini saja. */}
+            <Route path="/data-import" element={<GroupImportDataPage />} />
             {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
                 (S3-25/27) PA/GA saja. */}
             <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />
