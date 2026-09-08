@@ -17,6 +17,7 @@ import GroupMembersPage from '@/pages/GroupMembersPage'
 import GroupDataRetentionPage from '@/pages/GroupDataRetentionPage'
 import GroupImportDataPage from '@/pages/GroupImportDataPage'
 import GroupStorageQuotaPage from '@/pages/GroupStorageQuotaPage'
+import GroupWebhookPage from '@/pages/GroupWebhookPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
@@ -139,6 +140,10 @@ export default function AppRouter() {
             {/* Import Data (desain "GA Import Data.dc.html"): sama gate --
                 backend GET/POST /groups/:groupId/data-import/* PA/GA pengelola grup ini saja. */}
             <Route path="/data-import" element={<GroupImportDataPage />} />
+            {/* Webhook (desain "GA Webhook.dc.html"): sama gate -- backend
+                GET/POST/PUT/PATCH/DELETE /groups/:groupId/webhooks* PA/GA
+                pengelola grup ini saja. */}
+            <Route path="/webhooks" element={<GroupWebhookPage />} />
             {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
                 (S3-25/27) PA/GA saja. */}
             <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />

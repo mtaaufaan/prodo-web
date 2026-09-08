@@ -66,7 +66,10 @@ const NAV_ITEMS = [
   // Import Data (desain "GA Import Data.dc.html"): tab Unggah CSV/Riwayat
   // DI DALAM halaman sendiri (sama pola Storage & Kuota/Data Retention).
   { key: 'import', icon: '⬇', label: 'Import Data', to: '/data-import', tabs: null, cta: '+ Import CSV' },
-  { key: 'webhook', icon: '⌗', label: 'Webhook', to: null, tabs: null, cta: null },
+  // Webhook (desain "GA Webhook.dc.html" + "GA Add Webhook.dc.html"): tab
+  // Endpoint/Log Pengiriman DI DALAM halaman sendiri, sama pola Import
+  // Data/Data Retention. CTA "+ Webhook" buka form Buat Webhook.
+  { key: 'webhook', icon: '⌗', label: 'Webhook', to: '/webhooks', tabs: null, cta: '+ Webhook' },
   { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: null, tabs: null, cta: null },
   { key: 'audit', icon: '☰', label: 'Audit Trail', to: null, tabs: null, cta: null },
 ]
