@@ -96,14 +96,6 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
     onClose()
   }
 
-  const onSubmitInfo = (values: UpdateOrganizationFormValues) => {
-    updateOrganization.mutate(values)
-  }
-
-  const onSubmitQuota = (values: UpdateStorageQuotaFormValues) => {
-    updateQuota.mutate({ quotaBytes: Math.round(values.quota_gb * GB), retentionDays: values.retention_days })
-  }
-
   const handleConfirm = () => {
     if (!organization || !confirmAction) return
     if (confirmAction === 'deactivate') {
@@ -113,9 +105,20 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
     }
   }
 
-  const handleSaveLanguage = () => {
-    updateSettings.mutate(language)
-  }
+  // onSubmitAll -- satu tombol SIMPAN PERUBAHAN (desain "GA Organizations.dc.html")
+  // menyimpan identitas+domain, bahasa, dan kuota+retensi sekaligus, walau di
+  // backend tetap 3 endpoint terpisah (S3-29/30/31 US-010, S3-32/34/36 US-011,
+  // dari sebelum konsolidasi tampilan S4G-03) -- reuse penuh, tidak ada
+  // endpoint baru. Validasi infoForm dulu, baru quotaForm, submit HANYA kalau
+  // keduanya valid.
+  const onSubmitAll = infoForm.handleSubmit((infoValues) =>
+    quotaForm.handleSubmit((quotaValues) => {
+      updateOrganization.mutate(infoValues)
+      updateSettings.mutate(language)
+      updateQuota.mutate({ quotaBytes: Math.round(quotaValues.quota_gb * GB), retentionDays: quotaValues.retention_days })
+    })(),
+  )
+  const savingAll = updateOrganization.isPending || updateSettings.isPending || updateQuota.isPending
 
   const handleDelete = () => {
     if (!organization) return
@@ -165,7 +168,8 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
           </DialogHeader>
 
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-5 py-4">
-            <form onSubmit={infoForm.handleSubmit(onSubmitInfo)} noValidate className="flex flex-col gap-4">
+            <form id="org-manage-form" onSubmit={onSubmitAll} noValidate className="flex flex-col gap-4">
+              <input type="hidden" {...infoForm.register('slug')} />
               <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Informasi Organisasi</p>
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Nama Organisasi</Label>
@@ -175,31 +179,12 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-slug">Slug</Label>
-                <Input id="edit-slug" {...infoForm.register('slug')} />
-                {infoForm.formState.errors.slug && (
-                  <p className="text-[11px] text-destructive">{infoForm.formState.errors.slug.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="edit-domain">Domain Email Resmi (Opsional)</Label>
                 <Input id="edit-domain" placeholder="acme.co.id" {...infoForm.register('domain')} />
                 {infoForm.formState.errors.domain && (
                   <p className="text-[11px] text-destructive">{infoForm.formState.errors.domain.message}</p>
                 )}
               </div>
-              {updateErrorMessage && <p className="text-[11px] text-destructive">{updateErrorMessage}</p>}
-              <Button
-                type="submit"
-                variant="outline"
-                disabled={updateOrganization.isPending}
-                className="w-fit font-mono text-[10px] uppercase tracking-[0.06em]"
-              >
-                {updateOrganization.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
-              </Button>
-            </form>
-
-            <div className="flex flex-wrap items-end gap-3 border-t border-line pt-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-language">Bahasa Default</Label>
                 <select
@@ -212,79 +197,63 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
                   <option value="en">English</option>
                 </select>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleSaveLanguage}
-                disabled={updateSettings.isPending}
-                className="font-mono text-[10px] uppercase tracking-[0.06em]"
-              >
-                {updateSettings.isPending ? 'Menyimpan...' : 'Simpan Bahasa'}
-              </Button>
+              {updateErrorMessage && <p className="text-[11px] text-destructive">{updateErrorMessage}</p>}
               {settingsErrorMessage && <p className="text-[11px] text-destructive">{settingsErrorMessage}</p>}
-            </div>
 
-            <form onSubmit={quotaForm.handleSubmit(onSubmitQuota)} noValidate className="border-t border-line pt-4">
-              <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Alokasi Kuota Storage</p>
-              {organization && (
-                <div className="mb-3">
-                  <div className="h-2 w-full bg-line-subtle">
-                    <div
-                      className={cn(
-                        'h-full',
-                        organization.storage_used_bytes / organization.storage_quota_bytes >= 0.8 ? 'bg-amber' : 'bg-mint',
-                      )}
-                      style={{
-                        width: `${Math.min(100, (organization.storage_used_bytes / organization.storage_quota_bytes) * 100)}%`,
-                      }}
-                    />
+              <div className="border-t border-line pt-4">
+                <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Alokasi Kuota Storage</p>
+                {organization && (
+                  <div className="mb-3">
+                    <div className="h-2 w-full bg-line-subtle">
+                      <div
+                        className={cn(
+                          'h-full',
+                          organization.storage_used_bytes / organization.storage_quota_bytes >= 0.8 ? 'bg-amber' : 'bg-mint',
+                        )}
+                        style={{
+                          width: `${Math.min(100, (organization.storage_used_bytes / organization.storage_quota_bytes) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <p className="mt-1 font-mono text-[9px] text-text-muted">
+                      {usedGb.toFixed(2)} GB / {(organization.storage_quota_bytes / GB).toFixed(1)} GB
+                      {' · maks '}
+                      {(organization.storage_max_bytes / GB).toFixed(0)} GB
+                    </p>
                   </div>
-                  <p className="mt-1 font-mono text-[9px] text-text-muted">
-                    {usedGb.toFixed(2)} GB / {(organization.storage_quota_bytes / GB).toFixed(1)} GB
-                    {' · maks '}
-                    {(organization.storage_max_bytes / GB).toFixed(0)} GB
+                )}
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-quota">Kuota (GB)</Label>
+                    <Input id="edit-quota" type="number" step="0.1" min="0" className="w-28" {...quotaForm.register('quota_gb')} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-retention">Retensi (Hari)</Label>
+                    <Input id="edit-retention" type="number" step="1" min="30" max="365" className="w-24" {...quotaForm.register('retention_days')} />
+                  </div>
+                </div>
+                <p className="mt-2 font-mono text-[9px] text-text-muted">
+                  Kuota minimal sebesar storage terpakai ({usedGb.toFixed(2)} GB) · retensi {retentionMin}-{retentionMax} hari (batas tier{' '}
+                  {(orgGroup?.tier ?? '-').toUpperCase()}).
+                </p>
+                {quotaBelowUsed && (
+                  <p className="mt-1 text-[11px] text-destructive">
+                    ⚠ Kuota tidak boleh lebih kecil dari storage terpakai ({usedGb.toFixed(2)} GB).
                   </p>
-                </div>
-              )}
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-quota">Kuota (GB)</Label>
-                  <Input id="edit-quota" type="number" step="0.1" min="0" className="w-28" {...quotaForm.register('quota_gb')} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-retention">Retensi (Hari)</Label>
-                  <Input id="edit-retention" type="number" step="1" min="30" max="365" className="w-24" {...quotaForm.register('retention_days')} />
-                </div>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  disabled={updateQuota.isPending || retentionOutOfRange}
-                  className="font-mono text-[10px] uppercase tracking-[0.06em]"
-                >
-                  {updateQuota.isPending ? 'Menyimpan...' : 'Simpan Kuota & Retensi'}
-                </Button>
+                )}
+                {retentionOutOfRange && (
+                  <p className="mt-1 text-[11px] text-destructive">
+                    ⚠ Retensi harus antara {retentionMin} dan {retentionMax} hari.
+                  </p>
+                )}
+                {quotaForm.formState.errors.quota_gb && (
+                  <p className="mt-1 text-[11px] text-destructive">{quotaForm.formState.errors.quota_gb.message}</p>
+                )}
+                {quotaForm.formState.errors.retention_days && (
+                  <p className="mt-1 text-[11px] text-destructive">{quotaForm.formState.errors.retention_days.message}</p>
+                )}
+                {quotaErrorMessage && <p className="mt-2 text-[11px] text-destructive">{quotaErrorMessage}</p>}
               </div>
-              <p className="mt-2 font-mono text-[9px] text-text-muted">
-                Kuota minimal sebesar storage terpakai ({usedGb.toFixed(2)} GB) · retensi {retentionMin}-{retentionMax} hari (batas tier{' '}
-                {(orgGroup?.tier ?? '-').toUpperCase()}).
-              </p>
-              {quotaBelowUsed && (
-                <p className="mt-1 text-[11px] text-destructive">
-                  ⚠ Kuota tidak boleh lebih kecil dari storage terpakai ({usedGb.toFixed(2)} GB).
-                </p>
-              )}
-              {retentionOutOfRange && (
-                <p className="mt-1 text-[11px] text-destructive">
-                  ⚠ Retensi harus antara {retentionMin} dan {retentionMax} hari.
-                </p>
-              )}
-              {quotaForm.formState.errors.quota_gb && (
-                <p className="mt-1 text-[11px] text-destructive">{quotaForm.formState.errors.quota_gb.message}</p>
-              )}
-              {quotaForm.formState.errors.retention_days && (
-                <p className="mt-1 text-[11px] text-destructive">{quotaForm.formState.errors.retention_days.message}</p>
-              )}
-              {quotaErrorMessage && <p className="mt-2 text-[11px] text-destructive">{quotaErrorMessage}</p>}
             </form>
 
             <div className="border-t border-line pt-4">
@@ -371,6 +340,14 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
           </div>
 
           <DialogFooter>
+            <Button
+              type="submit"
+              form="org-manage-form"
+              disabled={savingAll || retentionOutOfRange}
+              className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]"
+            >
+              {savingAll ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </Button>
             <Button type="button" variant="outline" onClick={handleClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
               Tutup
             </Button>
