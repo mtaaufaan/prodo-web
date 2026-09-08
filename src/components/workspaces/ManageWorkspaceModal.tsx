@@ -115,6 +115,11 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
   const cancelInvitation = useCancelInvitation(workspace?.id ?? '')
   const admins = (workspaceMembers.data ?? []).filter((m) => m.role === 'admin_workspace')
   const pendingAdmins = (pendingInvitations.data ?? []).filter((p) => p.role === 'admin_workspace')
+  // Workspace tidak boleh sampai tanpa Admin Workspace sama sekali (aturan
+  // lama dari dropdown ganti-admin, "Wajib terisi") -- cuma dicek client-side
+  // (konsisten pola lama, tidak ada penegakan backend), disable Cabut kalau
+  // ini satu-satunya baris tersisa (diterima ATAU pending, dihitung bersama).
+  const isLastAdmin = admins.length + pendingAdmins.length === 1
 
   const handleAddAdmin = async () => {
     const email = newAdminEmail.trim()
@@ -276,9 +281,10 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                     <span className="font-mono text-[10px] text-mint">Diterima {new Date(m.joined_at).toLocaleDateString('id-ID')}</span>
                     <button
                       type="button"
-                      disabled={removeMember.isPending}
+                      disabled={removeMember.isPending || isLastAdmin}
+                      title={isLastAdmin ? 'Workspace tidak boleh tanpa Admin Workspace — tambah admin lain dulu' : undefined}
                       onClick={() => removeMember.mutate(m.user_id)}
-                      className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:opacity-40"
+                      className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
                     >
                       Cabut
                     </button>
@@ -295,9 +301,10 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                     <span className="font-mono text-[10px] text-amber">Pending {new Date(p.created_at).toLocaleDateString('id-ID')}</span>
                     <button
                       type="button"
-                      disabled={cancelInvitation.isPending}
+                      disabled={cancelInvitation.isPending || isLastAdmin}
+                      title={isLastAdmin ? 'Workspace tidak boleh tanpa Admin Workspace — tambah admin lain dulu' : undefined}
                       onClick={() => cancelInvitation.mutate(p.id)}
-                      className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:opacity-40"
+                      className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
                     >
                       Cabut
                     </button>
@@ -307,6 +314,11 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                   <p className="border-t border-line px-3 py-3 text-[11px] text-text-muted">Belum ada Admin Workspace.</p>
                 )}
               </div>
+              {isLastAdmin && (
+                <p className="text-[10px] text-amber">
+                  ⚠ Ini satu-satunya Admin Workspace — tambah admin lain sebelum bisa mencabutnya.
+                </p>
+              )}
               <div className="flex gap-2">
                 <Input
                   value={newAdminEmail}
