@@ -266,7 +266,7 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
               <Button
                 type="button"
                 onClick={() => setConfirmAction(isDeactivated ? 'reactivate' : 'deactivate')}
-                className="font-mono text-[10px] uppercase tracking-[0.06em]"
+                className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em]"
               >
                 {isDeactivated ? 'Aktifkan Kembali' : 'Nonaktifkan'}
               </Button>
@@ -297,7 +297,7 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
                       variant="outline"
                       disabled={!deleteMatches || deleteOrganization.isPending}
                       onClick={handleDelete}
-                      className="border-destructive font-mono text-[10px] uppercase tracking-[0.06em] text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                      className="border-destructive font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-destructive disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {deleteOrganization.isPending ? 'Menghapus...' : 'Hapus Organisasi Permanen'}
                     </Button>
@@ -372,7 +372,7 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
                 <Button
                   onClick={handleConfirm}
                   disabled={confirmPending}
-                  className="font-mono text-[10px] uppercase tracking-[0.06em]"
+                  className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]"
                 >
                   {confirmPending ? 'Memproses...' : CONFIRM_COPY[confirmAction].confirmLabel}
                 </Button>

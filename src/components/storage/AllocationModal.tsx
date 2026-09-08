@@ -163,7 +163,7 @@ export default function AllocationModal({ open, onClose, groupId, orgs, capBytes
         </div>
 
         <DialogFooter>
-          <Button type="button" disabled={!canSubmit || bulkUpdate.isPending} onClick={onSave} className="font-mono text-[10px] uppercase tracking-[0.06em]">
+          <Button type="button" disabled={!canSubmit || bulkUpdate.isPending} onClick={onSave} className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]">
             {bulkUpdate.isPending ? 'Menyimpan...' : 'Simpan Alokasi'}
           </Button>
           <Button type="button" variant="outline" onClick={handleClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
