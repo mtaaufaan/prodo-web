@@ -2,6 +2,7 @@ export interface WorkspaceMember {
   user_id: string
   email: string
   display_name: string
+  title: string | null
   role: string
   joined_at: string
 }
@@ -22,6 +23,7 @@ export interface PendingInvitation {
   id: string
   email: string
   role: string
+  created_at: string
   expires_at: string
 }
 

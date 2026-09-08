@@ -10,11 +10,9 @@ import {
   listWorkspacesByGroup,
   moveWorkspace,
   reactivateWorkspace,
-  reassignWorkspaceAdmin,
   unarchiveWorkspace,
   updateWorkspace,
 } from './api'
-import type { ReassignAdminFormValues } from './types'
 
 export const workspaceKeys = {
   all: ['workspaces'] as const,
@@ -77,14 +75,6 @@ export function useMoveWorkspace(id: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (targetOrgId: string) => moveWorkspace(id, targetOrgId),
-    onSuccess: () => invalidateWorkspaceLists(queryClient),
-  })
-}
-
-export function useReassignWorkspaceAdmin(id: string) {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (values: ReassignAdminFormValues) => reassignWorkspaceAdmin(id, values),
     onSuccess: () => invalidateWorkspaceLists(queryClient),
   })
 }
