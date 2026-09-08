@@ -56,3 +56,9 @@ export function reactivateWorkspace(id: string) {
 export function deleteWorkspace(id: string) {
   return apiClient.delete<void>(`/api/v1/workspaces/${id}`)
 }
+
+// restoreWorkspace -- Data Retention: batalkan soft-delete deleteWorkspace
+// di atas (sejak 2026-09-08 workspace soft-delete, bukan hard-delete lagi).
+export function restoreWorkspace(id: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/workspaces/${id}/restore`)
+}

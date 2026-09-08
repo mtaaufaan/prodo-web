@@ -59,7 +59,10 @@ const NAV_ITEMS = [
   // Roles.dc.html") -- audit trail (S4G-10/11) sengaja dikerjakan
   // TERAKHIR (instruksi user), menu ini didahulukan.
   { key: 'members', icon: '◉', label: 'Members & Roles', to: '/members', tabs: null, cta: '+ Undang Member' },
-  { key: 'retensi', icon: '◷', label: 'Data Retention', to: null, tabs: null, cta: null },
+  // Data Retention (desain "GA Data Retention.dc.html"): tab Kebijakan/
+  // Jadwal Penghapusan DI DALAM halaman sendiri (sama pola Storage & Kuota
+  // Ringkasan/Per-Organisasi), `tabs: null` di sini bukan gap.
+  { key: 'retensi', icon: '◷', label: 'Data Retention', to: '/data-retention', tabs: null, cta: 'Atur Kebijakan' },
   { key: 'import', icon: '⬇', label: 'Import Data', to: null, tabs: null, cta: null },
   { key: 'webhook', icon: '⌗', label: 'Webhook', to: null, tabs: null, cta: null },
   { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: null, tabs: null, cta: null },

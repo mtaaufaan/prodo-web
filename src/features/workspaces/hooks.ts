@@ -10,6 +10,7 @@ import {
   listWorkspacesByGroup,
   moveWorkspace,
   reactivateWorkspace,
+  restoreWorkspace,
   unarchiveWorkspace,
   updateWorkspace,
 } from './api'
@@ -115,6 +116,14 @@ export function useDeleteWorkspace() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => deleteWorkspace(id),
+    onSuccess: () => invalidateWorkspaceLists(queryClient),
+  })
+}
+
+export function useRestoreWorkspace() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => restoreWorkspace(id),
     onSuccess: () => invalidateWorkspaceLists(queryClient),
   })
 }

@@ -22,3 +22,9 @@ export function setProjectArchived(projectId: string, archive: boolean) {
 export function deleteProject(projectId: string) {
   return apiClient.delete<void>(`/api/v1/projects/${projectId}`)
 }
+
+// restoreProject -- Data Retention: batalkan soft-delete deleteProject di
+// atas.
+export function restoreProject(projectId: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/projects/${projectId}/restore`)
+}
