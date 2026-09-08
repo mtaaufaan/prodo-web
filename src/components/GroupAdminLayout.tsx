@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
+import { useMyContext, useSwitchContext } from '@/features/context/hooks'
 import { useGroups } from '@/features/platform-admin/hooks'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -54,7 +55,10 @@ const NAV_ITEMS = [
   // BUKAN baris tab shell -- beda konsep dari filter status Semua/Aktif/
   // dst di menu lain, jadi `tabs: null` di sini (bukan gap kelupaan).
   { key: 'storage', icon: '▦', label: 'Storage & Kuota', to: '/storage-quota', tabs: null, cta: 'Atur Kuota' },
-  { key: 'members', icon: '◉', label: 'Members & Roles', to: null, tabs: null, cta: null },
+  // Members & Roles (forward-pull US-086, Track S4G, desain "GA Members
+  // Roles.dc.html") -- audit trail (S4G-10/11) sengaja dikerjakan
+  // TERAKHIR (instruksi user), menu ini didahulukan.
+  { key: 'members', icon: '◉', label: 'Members & Roles', to: '/members', tabs: null, cta: '+ Undang Member' },
   { key: 'retensi', icon: '◷', label: 'Data Retention', to: null, tabs: null, cta: null },
   { key: 'import', icon: '⬇', label: 'Import Data', to: null, tabs: null, cta: null },
   { key: 'webhook', icon: '⌗', label: 'Webhook', to: null, tabs: null, cta: null },
@@ -109,6 +113,14 @@ export default function GroupAdminLayout() {
   const user = useAuthStore((state) => state.user)
   const clearSession = useAuthStore((state) => state.clearSession)
   const groups = useGroups('')
+  const myContext = useMyContext()
+  const switchContext = useSwitchContext()
+  const handleSwitchToWorkspace = async () => {
+    const first = myContext.data?.workspace_memberships[0]
+    if (!first) return
+    await switchContext.mutateAsync('workspace')
+    navigate(`/workspaces/${first.workspace_id}/projects`)
+  }
   const [view, setView] = useState('Semua')
   const [ctaHandler, setCtaHandler] = useState<(() => void) | null>(null)
   const registerCta = useCallback((handler: (() => void) | null) => setCtaHandler(() => handler), [])
@@ -177,6 +189,20 @@ export default function GroupAdminLayout() {
             ⚙
           </button>
           <div className="mt-auto flex flex-col items-center gap-2.5">
+            {/* Reciprocal switcher (S16-01/02/03): kembali ke workspace
+                pertama yang ditugaskan -- versi minimal WorkspaceSwitcher,
+                cukup satu tombol (bukan dropdown penuh) karena arah ini
+                bukan fokus utama desain sumber. */}
+            {(myContext.data?.workspace_memberships.length ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={handleSwitchToWorkspace}
+                title="Kembali ke workspace"
+                className="flex h-[34px] w-[34px] items-center justify-center border border-line-strong text-[14px] text-text-muted hover:border-signal hover:text-signal"
+              >
+                ◫
+              </button>
+            )}
             <div
               className="grid h-8 w-8 place-items-center rounded-full bg-violet font-mono text-[11px] font-bold text-bg-deep"
               title={user?.display_name ?? ''}
