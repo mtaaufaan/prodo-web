@@ -12,6 +12,7 @@ import ErasureRequestsPage from '@/pages/ErasureRequestsPage'
 import Forbidden from '@/pages/Forbidden'
 import GroupAdminLayout from '@/components/GroupAdminLayout'
 import GroupDirectoryPage from '@/pages/GroupDirectoryPage'
+import GroupMembersPage from '@/pages/GroupMembersPage'
 import GroupStorageQuotaPage from '@/pages/GroupStorageQuotaPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
@@ -123,6 +124,9 @@ export default function AppRouter() {
                 untuk hitung ringkasan storage) + PUT /groups/:groupId/storage-
                 allocation PA/GA saja. */}
             <Route path="/storage-quota" element={<GroupStorageQuotaPage />} />
+            {/* Members & Roles (forward-pull US-086, Track S4G): sama gate --
+                backend GET /groups/:groupId/members PA/GA pengelola grup ini saja. */}
+            <Route path="/members" element={<GroupMembersPage />} />
             {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
                 (S3-25/27) PA/GA saja. */}
             <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />

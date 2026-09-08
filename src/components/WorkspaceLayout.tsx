@@ -1,8 +1,9 @@
 import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom'
 
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher'
+import { useWorkspace } from '@/features/workspaces/hooks'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
-import { useWorkspace } from '@/features/workspaces/hooks'
 
 // Kerangka aplikasi untuk role di dalam workspace (Admin Workspace, Project
 // Manager, Editor, Approver, Viewer) -- diekstrak dari desain "Master UI
@@ -85,6 +86,7 @@ export default function WorkspaceLayout() {
             {workspace?.name ?? '...'}
           </h1>
         </div>
+        <WorkspaceSwitcher activeWorkspaceId={workspaceId} />
       </div>
 
       <div className="mx-auto flex max-w-[1540px] overflow-hidden border border-line bg-bg-deep">
