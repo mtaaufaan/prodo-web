@@ -4,6 +4,7 @@ import AuthGuard from '@/components/AuthGuard'
 import PlatformAdminLayout from '@/components/PlatformAdminLayout'
 import RoleGuard from '@/components/RoleGuard'
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage'
+import RetentionExportDownloadPage from '@/pages/RetentionExportDownloadPage'
 import Activate from '@/pages/Activate'
 import ActivateMfaSetup from '@/pages/ActivateMfaSetup'
 import CrossOrgMembershipsPage from '@/pages/CrossOrgMembershipsPage'
@@ -13,6 +14,7 @@ import Forbidden from '@/pages/Forbidden'
 import GroupAdminLayout from '@/components/GroupAdminLayout'
 import GroupDirectoryPage from '@/pages/GroupDirectoryPage'
 import GroupMembersPage from '@/pages/GroupMembersPage'
+import GroupDataRetentionPage from '@/pages/GroupDataRetentionPage'
 import GroupStorageQuotaPage from '@/pages/GroupStorageQuotaPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
@@ -51,6 +53,9 @@ export default function AppRouter() {
       {/* PUBLIC (S2-27, US-006) -- alur token satu-pakai sama dengan /activate,
           tapi tanpa MFA wajib (member biasa, bukan Group Admin). */}
       <Route path="/invitations/accept" element={<AcceptInvitationPage />} />
+      {/* PUBLIC (Data Retention) -- tautan email ekspor, token di path
+          (bukan query string, konsisten format backend AppBaseURL). */}
+      <Route path="/retention-exports/:token" element={<RetentionExportDownloadPage />} />
 
       <Route element={<AuthGuard />}>
         {/* S1-22/25: "/" dulu unconditional redirect ke /login, sekarang
@@ -127,6 +132,9 @@ export default function AppRouter() {
             {/* Members & Roles (forward-pull US-086, Track S4G): sama gate --
                 backend GET /groups/:groupId/members PA/GA pengelola grup ini saja. */}
             <Route path="/members" element={<GroupMembersPage />} />
+            {/* Data Retention (desain "GA Data Retention.dc.html"): sama gate --
+                backend GET/PUT /groups/:groupId/retention-* PA/GA pengelola grup ini saja. */}
+            <Route path="/data-retention" element={<GroupDataRetentionPage />} />
             {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
                 (S3-25/27) PA/GA saja. */}
             <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />
