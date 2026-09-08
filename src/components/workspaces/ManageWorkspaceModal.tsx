@@ -58,9 +58,9 @@ const CONFIRM_COPY: Record<Exclude<ConfirmAction, null>, { title: string; body: 
     confirmLabel: 'Aktifkan',
   },
   delete: {
-    title: 'Hapus Workspace Permanen?',
-    body: 'Tindakan ini tidak bisa dibatalkan. Seluruh project dan task workspace ini ikut terhapus.',
-    confirmLabel: 'Hapus Permanen',
+    title: 'Hapus Workspace?',
+    body: 'Workspace masuk jadwal penghapusan sesuai kebijakan retensi organisasi -- masih dapat dipulihkan dari menu Data Retention selama tenggat itu berjalan.',
+    confirmLabel: 'Hapus',
   },
 }
 
@@ -379,8 +379,8 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
             <div className="border-t border-line pt-4">
               <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-destructive">Hapus Workspace</p>
               <p className="mb-2 text-[11px] text-text-muted">
-                Penghapusan bersifat permanen. Ketik <span className="font-mono text-text-body">{workspace?.name}</span> untuk
-                konfirmasi.
+                Workspace masuk jadwal penghapusan sesuai retensi organisasi -- lihat menu Data Retention untuk memulihkan.
+                Ketik <span className="font-mono text-text-body">{workspace?.name}</span> untuk konfirmasi.
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <Input

@@ -1,6 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { createProject, deleteProject, listProjects, setProjectArchived, updateProject } from './api'
+import { createProject, deleteProject, listProjects, restoreProject, setProjectArchived, updateProject } from './api'
 
 export const projectKeys = {
   all: ['projects'] as const,
@@ -48,5 +48,16 @@ export function useDeleteProject(workspaceId: string) {
   return useMutation({
     mutationFn: (projectId: string) => deleteProject(projectId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.list(workspaceId) }),
+  })
+}
+
+// useRestoreProject -- TANPA workspaceId (dipakai dari GA Data Retention,
+// bukan dari WorkspaceLayout project list) -- invalidasi seluruh
+// projectKeys, bukan satu workspace spesifik.
+export function useRestoreProject() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (projectId: string) => restoreProject(projectId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.all }),
   })
 }
