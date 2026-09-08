@@ -95,17 +95,22 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
     }
   }, [workspace])
 
-  // ListOrgCandidates (backend) sengaja tidak tahu konsep "admin saat ini"
-  // -- dipakai ulang juga oleh picker "MEMBER YANG ADA" di Tambah Workspace
-  // yang tidak punya admin existing sama sekali. Exclude di sini saja
-  // (client-side, by email -- WorkspaceListRow tidak punya admin_user_id)
-  // supaya admin yang sedang menjabat tidak muncul dobel dengan opsi
-  // "(tidak diubah)" (ditemukan user lewat screenshot: "2 Eldwin Lo").
-  const candidatesQuery = useCandidateAdmins(targetOrgId || '')
-  const candidates = {
-    ...candidatesQuery,
-    data: candidatesQuery.data?.filter((c) => c.email !== workspace?.admin_email),
-  }
+  // Sesuai desain asli "GA Workspaces.dc.html" (dibaca ulang langsung lewat
+  // DesignSync setelah user menunjukkan build sebelumnya menyimpang):
+  // dropdown admin CUMA berisi kandidat asli, admin yang sedang menjabat
+  // TERMASUK di dalamnya (bukan dikecualikan) -- desain tidak pernah punya
+  // opsi placeholder "(tidak diubah)" sama sekali, cuma nilai terpilih
+  // di-default ke admin saat ini. "Fix duplikat" sebelumnya (exclude admin
+  // dari kandidat) salah arah -- itu placeholder buatan sendiri, bukan yang
+  // ada di desain.
+  const candidates = useCandidateAdmins(targetOrgId || '')
+  useEffect(() => {
+    if (!adminUserId && workspace?.admin_email && candidates.data) {
+      const current = candidates.data.find((c) => c.email === workspace.admin_email)
+      if (current) setAdminUserId(current.user_id)
+    }
+  }, [workspace, candidates.data, adminUserId])
+
   const updateWorkspace = useUpdateWorkspace(workspace?.id ?? '')
   const moveWorkspace = useMoveWorkspace(workspace?.id ?? '')
   const reassignAdmin = useReassignWorkspaceAdmin(workspace?.id ?? '')
@@ -136,7 +141,12 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
     if (!workspace || nameEmpty || overflow) return
     if (name.trim() !== workspace.name) await updateWorkspace.mutateAsync(name.trim())
     if (moving) await moveWorkspace.mutateAsync(targetOrgId)
-    if (adminUserId && adminUserId !== '') await reassignAdmin.mutateAsync({ admin_workspace_user_id: adminUserId })
+    // Kirim reassign HANYA kalau pilihan benar-benar beda dari admin awal
+    // (pola sama desain: `if (this.state.fAdmin !== w.adminEmail)`) --
+    // bukan sekadar "adminUserId terisi", karena sekarang selalu ter-isi
+    // (di-default ke admin saat ini begitu kandidat termuat).
+    const currentAdminId = candidates.data?.find((c) => c.email === workspace.admin_email)?.user_id ?? ''
+    if (adminUserId && adminUserId !== currentAdminId) await reassignAdmin.mutateAsync({ admin_workspace_user_id: adminUserId })
   }
 
   const handleConfirm = () => {
@@ -248,13 +258,19 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                 onChange={(e) => setAdminUserId(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="">
-                  {workspace?.admin_name
-                    ? `${workspace.admin_name} (tidak diubah)`
-                    : workspace?.pending_admin_email
-                      ? `Undangan pending · ${workspace.pending_admin_email} (tidak diubah)`
-                      : 'Pilih Admin Workspace...'}
-                </option>
+                {/* Bukan bagian dari desain (demo GA Workspaces.dc.html tidak
+                    memodelkan undangan pending sama sekali) -- gap real yang
+                    perlu tetap kelihatan DI DALAM dropdown, bukan cuma di
+                    teks peringatan terpisah di bawah (atas permintaan user).
+                    Opsi disabled, value kosong sama seperti fallback biasa --
+                    otomatis jadi pilihan aktif karena adminUserId tetap ''
+                    (tidak ada kandidat yang cocok dengan admin_email null). */}
+                {!adminUserId && !workspace?.admin_name && workspace?.pending_admin_email && (
+                  <option value="" disabled>
+                    Menunggu: {workspace.pending_admin_email}
+                  </option>
+                )}
+                {!adminUserId && !workspace?.pending_admin_email && <option value="">Pilih Admin Workspace...</option>}
                 {candidates.data?.map((c) => (
                   <option key={c.user_id} value={c.user_id}>
                     {c.display_name} ({c.email})
