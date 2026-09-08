@@ -314,10 +314,10 @@ export default function InviteMemberModal({ open, onClose, groupId }: InviteMemb
         </div>
 
         <DialogFooter>
-          <Button disabled={submitting} onClick={handleSubmit}>
+          <Button disabled={submitting} onClick={handleSubmit} className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]">
             {submitting ? 'Mengirim…' : 'Kirim Undangan'}
           </Button>
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
             Tutup
           </Button>
         </DialogFooter>
