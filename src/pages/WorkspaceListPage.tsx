@@ -101,9 +101,7 @@ function WorkspaceListPageContent() {
     }
     const q = query.trim().toLowerCase()
     if (q) {
-      r = r.filter((w) =>
-        [w.name, w.org_name, w.admin_name ?? '', w.admin_email ?? ''].some((f) => f.toLowerCase().includes(q)),
-      )
+      r = r.filter((w) => [w.name, w.org_name].some((f) => f.toLowerCase().includes(q)))
     }
     return r
   }, [rows, orgIdFilter, view, query])
@@ -148,7 +146,7 @@ function WorkspaceListPageContent() {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari nama workspace, organisasi, atau admin..."
+            placeholder="Cari nama workspace atau organisasi..."
             className="max-w-[320px] flex-1 border border-line-strong bg-input-bg px-3 py-1.5 font-mono text-[11px] text-text-body outline-none placeholder:text-text-dim focus-visible:border-signal"
           />
           {orgIdFilter && (
@@ -270,15 +268,17 @@ function WorkspaceRow({ workspace, onManage }: { workspace: WorkspaceListRow; on
         <span className="truncate font-mono text-[11px] text-text-muted">{workspace.org_name}</span>
       </div>
       <div className="min-w-0">
-        {workspace.admin_name ? (
-          <>
-            <div className="truncate text-[12px] text-text-body">{workspace.admin_name}</div>
-            <div className="truncate font-mono text-[10px] text-text-muted">{workspace.admin_email}</div>
-          </>
+        {workspace.admin_count > 0 ? (
+          <div className="text-[12px] text-text-body">
+            {workspace.admin_count} Admin Workspace
+            {workspace.pending_admin_count > 0 && (
+              <span className="ml-1 font-mono text-[10px] text-amber">(+{workspace.pending_admin_count} pending)</span>
+            )}
+          </div>
+        ) : workspace.pending_admin_count > 0 ? (
+          <span className="font-mono text-[10px] text-amber">{workspace.pending_admin_count} undangan pending</span>
         ) : (
-          <span className="font-mono text-[10px] text-amber">
-            {workspace.pending_admin_email ? `Undangan pending · ${workspace.pending_admin_email}` : '— belum ada admin'}
-          </span>
+          <span className="font-mono text-[10px] text-amber">— belum ada admin</span>
         )}
       </div>
       <div>

@@ -12,16 +12,14 @@ export interface Workspace {
 // WorkspaceListRow -- GET /workspaces?group_id= (S4G-05, Track S4G, desain
 // "GA Workspaces.dc.html") -- grid LINTAS organisasi dalam satu grup, org
 // jadi kolom (bukan parameter route seperti Workspace/listWorkspaces di
-// atas). admin_name/admin_email cuma terisi untuk Admin Workspace yang
-// SUDAH menerima undangan (workspace_members). pending_admin_email
-// (implementation_gaps.md IG-40, ditemukan lewat laporan user "admin
-// workspace tidak terdeteksi") -- terpisah dari admin_email, terisi kalau
-// undangan admin_workspace MASIH pending (belum diterima/dibatalkan/
-// kedaluwarsa), supaya FE bisa membedakan "belum ada admin sama sekali"
-// dari "sudah diundang, menunggu diterima". storage_used_bytes SELALU 0
-// untuk sekarang -- task_attachments (S4G-06) belum py jalur JOIN ke
-// workspace sama sekali (tabel tasks belum ada), lihat
-// implementation_gaps.md IG-19.
+// atas). admin_count/pending_admin_count (bukan admin_name/admin_email/
+// pending_admin_email tunggal lagi -- diganti 2026-09-08 atas permintaan
+// user, "nama admin workspace dihilangkan, ganti jadi angka": 1 workspace
+// bisa punya LEBIH dari 1 admin_workspace sekaligus, lihat
+// ManageWorkspaceModal.tsx yang sudah lebih dulu diubah dari dropdown
+// ganti-admin jadi daftar tambah/cabut). storage_used_bytes SELALU 0 untuk
+// sekarang -- task_attachments (S4G-06) belum py jalur JOIN ke workspace
+// sama sekali (tabel tasks belum ada), lihat implementation_gaps.md IG-19.
 export interface WorkspaceListRow {
   id: string
   name: string
@@ -30,9 +28,8 @@ export interface WorkspaceListRow {
   created_at: string
   org_id: string
   org_name: string
-  admin_name: string | null
-  pending_admin_email: string | null
-  admin_email: string | null
+  admin_count: number
+  pending_admin_count: number
   storage_used_bytes: number
   org_storage_quota_bytes: number
 }
@@ -72,8 +69,3 @@ export const updateWorkspaceSchema = z.object({
   org_id: z.string().min(1, 'Organisasi induk wajib dipilih'),
 })
 export type UpdateWorkspaceFormValues = z.infer<typeof updateWorkspaceSchema>
-
-export const reassignAdminSchema = z.object({
-  admin_workspace_user_id: z.string().min(1, 'Pilih Admin Workspace pengganti'),
-})
-export type ReassignAdminFormValues = z.infer<typeof reassignAdminSchema>
