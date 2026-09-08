@@ -262,15 +262,24 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                     memodelkan undangan pending sama sekali) -- gap real yang
                     perlu tetap kelihatan DI DALAM dropdown, bukan cuma di
                     teks peringatan terpisah di bawah (atas permintaan user).
-                    Opsi disabled, value kosong sama seperti fallback biasa --
-                    otomatis jadi pilihan aktif karena adminUserId tetap ''
-                    (tidak ada kandidat yang cocok dengan admin_email null). */}
+                    Backend (LATERAL join pending_admin_email, workspace_
+                    repository.go) TIDAK bergantung pada admin_name -- dua
+                    admin_workspace sekaligus (satu diterima, satu masih
+                    pending) itu skenario SAH (dikonfirmasi user), jadi opsi
+                    ini muncul terlepas dari admin_name ada atau tidak --
+                    beda dari versi awal yang salah mengira pending cuma
+                    relevan kalau belum ada admin sama sekali. */}
                 {!adminUserId && !workspace?.admin_name && workspace?.pending_admin_email && (
                   <option value="" disabled>
                     Menunggu: {workspace.pending_admin_email}
                   </option>
                 )}
                 {!adminUserId && !workspace?.pending_admin_email && <option value="">Pilih Admin Workspace...</option>}
+                {workspace?.admin_name && workspace?.pending_admin_email && (
+                  <option value="__pending_admin__" disabled>
+                    + Menunggu: {workspace.pending_admin_email}
+                  </option>
+                )}
                 {candidates.data?.map((c) => (
                   <option key={c.user_id} value={c.user_id}>
                     {c.display_name} ({c.email})
