@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api'
 
-import type { CustomStatus, Sprint, Task, TaskDependency, TaskFormValues, TaskPicPhase } from './types'
+import type { CustomStatus, Sprint, Task, TaskDependency, TaskFormValues, TaskPicPhase, TaskStatusSession } from './types'
 
 export function getWorkspaceStatuses(workspaceId: string) {
   return apiClient.get<CustomStatus[]>(`/api/v1/workspaces/${workspaceId}/statuses`)
@@ -82,4 +82,15 @@ export function addTaskDependency(taskId: string, predecessorTaskId: string) {
 
 export function removeTaskDependency(taskId: string, predecessorTaskId: string) {
   return apiClient.delete<void>(`/api/v1/tasks/${taskId}/dependencies/${predecessorTaskId}`)
+}
+
+// startWork -- Phase 4 (US-018b/S4-63): "Mulai Pengerjaan", cuma tampil FE
+// saat status aktif require_start_confirmation=true dan sesi aktif belum
+// start (backend 404/409 kalau tidak ada sesi aktif / sudah start).
+export function startWork(taskId: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/tasks/${taskId}/start-work`)
+}
+
+export function getTaskStatusSessions(taskId: string) {
+  return apiClient.get<TaskStatusSession[]>(`/api/v1/tasks/${taskId}/status-sessions`)
 }

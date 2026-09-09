@@ -13,11 +13,13 @@ import {
   getProjectTasks,
   getTask,
   getTaskDependencies,
+  getTaskStatusSessions,
   getWorkspaceStatuses,
   removeTaskDependency,
   setTaskCompleteness,
   setTaskStatus,
   startSprint,
+  startWork,
   updateTask,
 } from './api'
 import type { TaskFormValues } from './types'
@@ -30,6 +32,7 @@ export const taskKeys = {
   detail: (taskId: string) => [...taskKeys.all, 'detail', taskId] as const,
   picHistory: (taskId: string) => [...taskKeys.all, 'pic-history', taskId] as const,
   dependencies: (taskId: string) => [...taskKeys.all, 'dependencies', taskId] as const,
+  statusSessions: (taskId: string) => [...taskKeys.all, 'status-sessions', taskId] as const,
 }
 
 export function useWorkspaceStatuses(workspaceId: string) {
@@ -126,6 +129,7 @@ export function useSetTaskStatus(projectId: string) {
       queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
       queryClient.invalidateQueries({ queryKey: taskKeys.picHistory(vars.taskId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.statusSessions(vars.taskId) })
     },
   })
 }
@@ -197,5 +201,27 @@ export function useRemoveDependency(projectId: string) {
       queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
     },
+  })
+}
+
+// useStartWork/useTaskStatusSessions -- Phase 4 (US-018b). "Mulai
+// Pengerjaan" invalidate status-sessions (kolom work_started_at berubah)
+// DAN detail (dipakai cek "sudah start?" di tombol).
+export function useStartWork(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => startWork(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.statusSessions(taskId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) })
+    },
+  })
+}
+
+export function useTaskStatusSessions(taskId: string | null) {
+  return useQuery({
+    queryKey: taskKeys.statusSessions(taskId ?? ''),
+    queryFn: () => getTaskStatusSessions(taskId ?? ''),
+    enabled: taskId !== null,
   })
 }
