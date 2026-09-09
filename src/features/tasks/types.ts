@@ -1,0 +1,67 @@
+// Task Management Core Phase 1 (forward-pull, US-013/014). PIC Handoff/
+// dependencies/story-point enforcement penuh/time tracking adalah Phase
+// 2-4 terpisah, lihat implementation_gaps.md.
+export interface CustomStatus {
+  id: string
+  name: string
+  color_token: string | null
+  position: number
+  is_system: boolean
+  is_undefined: boolean
+}
+
+export interface Sprint {
+  id: string
+  project_id: string
+  name: string
+  start_date: string | null
+  end_date: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface TaskAssignee {
+  user_id: string
+  display_name: string
+  email: string
+  role: 'lead' | 'contributor'
+}
+
+export type TaskPriority = 'critical' | 'high' | 'medium' | 'low'
+
+export interface Task {
+  id: string
+  project_id: string
+  sprint_id: string | null
+  sprint_name: string | null
+  parent_task_id: string | null
+  status_id: string
+  status_name: string
+  status_color: string | null
+  title: string
+  description: unknown
+  priority: TaskPriority
+  completeness: 'complete' | 'incomplete' | null
+  due_date: string | null
+  estimated_hours: number | null
+  story_points: number | null
+  task_code: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+  assignees: TaskAssignee[]
+}
+
+export interface TaskFormValues {
+  title: string
+  description?: string
+  priority: TaskPriority
+  due_date: string
+  estimated_hours: number | null
+  story_points: number | null
+  sprint_id: string | null
+  assignee_ids: string[]
+}
+
+export const FIBONACCI_STORY_POINTS = [1, 2, 3, 5, 8, 13] as const

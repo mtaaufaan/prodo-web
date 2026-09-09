@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 
 import AddProjectModal from '@/components/projects/AddProjectModal'
 import ManageProjectModal from '@/components/projects/ManageProjectModal'
@@ -121,7 +121,9 @@ function ProjectListPageContent() {
                       <span className="border border-signal/40 px-1.5 py-1 font-mono text-[9px] font-bold text-signal">
                         {p.code}
                       </span>
-                      <span className="text-[13px] text-text-bone">{p.name}</span>
+                      <Link to={`/workspaces/${workspaceId}/projects/${p.id}/board`} className="text-[13px] text-text-bone hover:text-signal hover:underline">
+                        {p.name}
+                      </Link>
                     </div>
                   </td>
                   <td className="py-3 pr-4">

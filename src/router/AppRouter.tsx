@@ -30,6 +30,7 @@ import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
 import PlatformLoginPage from '@/pages/PlatformLoginPage'
 import PlatformSecuritySettingsPage from '@/pages/PlatformSecuritySettingsPage'
 import PlatformTiersPage from '@/pages/PlatformTiersPage'
+import ProjectBoardPage from '@/pages/ProjectBoardPage'
 import ProjectListPage from '@/pages/ProjectListPage'
 import ProjectMembersPage from '@/pages/ProjectMembersPage'
 import SessionsPage from '@/pages/SessionsPage'
@@ -76,6 +77,10 @@ export default function AppRouter() {
         <Route element={<WorkspaceLayout />}>
           <Route path="/workspaces/:wsId/members" element={<WorkspaceMembersPage />} />{/* S2-07/08 */}
           <Route path="/workspaces/:wsId/projects" element={<ProjectListPage />} />{/* S4-04, US-012 */}
+          {/* Task Management Core Phase 1 (forward-pull, desain "PM
+              Board.dc.html" disederhanakan -- lihat komentar
+              ProjectBoardPage.tsx). */}
+          <Route path="/workspaces/:wsId/projects/:projectId/board" element={<ProjectBoardPage />} />
         </Route>
         {/* S3-24, US-009b: TANPA RoleGuard platform-role -- aktor sah (AW/PM)
             platform_role-nya "member" biasa, otorisasi penuh di backend
