@@ -18,6 +18,7 @@ import GroupPerformancePage from '@/pages/GroupPerformancePage'
 import GroupDataRetentionPage from '@/pages/GroupDataRetentionPage'
 import GroupAuditTrailPage from '@/pages/GroupAuditTrailPage'
 import GroupImportDataPage from '@/pages/GroupImportDataPage'
+import GroupLocalePage from '@/pages/GroupLocalePage'
 import GroupStorageQuotaPage from '@/pages/GroupStorageQuotaPage'
 import GroupWebhookPage from '@/pages/GroupWebhookPage'
 import Home from '@/pages/Home'
@@ -163,6 +164,13 @@ export default function AppRouter() {
                 GET/POST/PUT/PATCH/DELETE /groups/:groupId/webhooks* PA/GA
                 pengelola grup ini saja. */}
             <Route path="/webhooks" element={<GroupWebhookPage />} />
+            {/* Bahasa & Lokal (desain "GA Bahasa Lokal.dc.html", US-010
+                lanjutan, S4G-27/28): tab Bahasa Default (reuse
+                organizations.default_language, S3-29-31) + Cakupan
+                Terjemahan (statis, lihat komentar COVERAGE_ROWS) di dalam
+                halaman sendiri. Backend GET/PUT /groups/:groupId/locale
+                PA/GA pengelola grup ini saja. */}
+            <Route path="/locale" element={<GroupLocalePage />} />
             {/* Audit Trail (desain "GA Audit Trail.dc.html"): sama gate --
                 backend GET /groups/:groupId/audit-logs* PA/GA pengelola
                 grup ini saja, READ-ONLY di atas audit_logs yang sudah ada

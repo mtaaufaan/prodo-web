@@ -75,7 +75,13 @@ const NAV_ITEMS = [
   // Endpoint/Log Pengiriman DI DALAM halaman sendiri, sama pola Import
   // Data/Data Retention. CTA "+ Webhook" buka form Buat Webhook.
   { key: 'webhook', icon: '⌗', label: 'Webhook', to: '/webhooks', tabs: null, cta: '+ Webhook' },
-  { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: null, tabs: null, cta: null },
+  // Bahasa & Lokal (desain "GA Bahasa Lokal.dc.html", US-010 lanjutan,
+  // S4G-27/28) -- tab Bahasa Default/Cakupan Terjemahan DI DALAM halaman
+  // sendiri (sama pola Storage & Kuota/Data Retention), `tabs: null` di
+  // sini bukan gap. Tombol SIMPAN ada di toolbar ATAS halaman sendiri
+  // (bukan CTA shell) karena harus muncul/nonaktif mengikuti dirty state
+  // form, bukan aksi "buat baru" seperti CTA menu lain -- `cta: null`.
+  { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: '/locale', tabs: null, cta: null },
   // Audit Trail (desain "GA Audit Trail.dc.html") -- tombol "Ekspor CSV"
   // ada DI DALAM halaman sendiri (bagian tab bar desain), bukan CTA layout
   // seperti menu lain, jadi cta: null di sini bukan gap.
