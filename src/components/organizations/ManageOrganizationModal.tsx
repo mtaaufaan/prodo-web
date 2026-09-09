@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 
+import SsoConfigModal from '@/components/organizations/SsoConfigModal'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -61,6 +62,7 @@ const CONFIRM_COPY: Record<Exclude<ConfirmAction, null>, { title: string; body: 
 export default function ManageOrganizationModal({ organization, onClose }: ManageOrganizationModalProps) {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
+  const [ssoModalOpen, setSsoModalOpen] = useState(false)
   const updateOrganization = useUpdateOrganization(organization?.id ?? '')
   const deactivateOrganization = useDeactivateOrganization()
   const reactivateOrganization = useReactivateOrganization()
@@ -93,6 +95,7 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
 
   const handleClose = () => {
     setConfirmAction(null)
+    setSsoModalOpen(false)
     onClose()
   }
 
@@ -335,12 +338,13 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
                 >
                   Lihat Cross-Org Membership →
                 </Link>
-                <Link
-                  to={`/organizations/${organization.id}/sso-config`}
+                <button
+                  type="button"
+                  onClick={() => setSsoModalOpen(true)}
                   className="mt-2 block font-mono text-[10px] text-text-muted hover:text-signal"
                 >
                   Konfigurasi SSO →
-                </Link>
+                </button>
               </div>
             )}
           </div>
@@ -387,6 +391,8 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
           )}
         </DialogContent>
       </Dialog>
+
+      <SsoConfigModal organization={ssoModalOpen ? organization : null} onClose={() => setSsoModalOpen(false)} />
     </>
   )
 }
