@@ -39,7 +39,12 @@ import { useAuthStore } from '@/store/useAuthStore'
 // tahu apa pun soal CreateOrganizationModal, pola yang sama akan dipakai
 // nav lain begitu halamannya nyata (mis. "+ Workspace" untuk Workspace).
 const NAV_ITEMS = [
-  { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: null as string | null, tabs: null as string[] | null, cta: null as string | null },
+  // Performance Dashboard (Track S4G, desain "GA Kinerja Grup.dc.html",
+  // US-079/S4G-25/26) -- forward-pull SETELAH Task Management Core (Phase
+  // 1-4) selesai. Tab Project Health/Bottleneck & Flow DI DALAM halaman
+  // sendiri (view-mode toggle), sama pola Storage & Kuota/Data Retention,
+  // jadi `tabs: null` bukan gap.
+  { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: '/performance', tabs: null as string[] | null, cta: null as string | null },
   { key: 'ringkasan', icon: '◧', label: 'Ringkasan', to: null, tabs: null, cta: null },
   { key: 'organisasi', icon: '▤', label: 'Organisasi', to: '/organizations', tabs: ['Semua', 'Aktif', 'Nonaktif'], cta: '+ Buat Organisasi' },
   // S4G-05, Track S4G (desain "GA Workspaces.dc.html"): grid GROUP-WIDE

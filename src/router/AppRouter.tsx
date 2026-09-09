@@ -14,6 +14,7 @@ import Forbidden from '@/pages/Forbidden'
 import GroupAdminLayout from '@/components/GroupAdminLayout'
 import GroupDirectoryPage from '@/pages/GroupDirectoryPage'
 import GroupMembersPage from '@/pages/GroupMembersPage'
+import GroupPerformancePage from '@/pages/GroupPerformancePage'
 import GroupDataRetentionPage from '@/pages/GroupDataRetentionPage'
 import GroupAuditTrailPage from '@/pages/GroupAuditTrailPage'
 import GroupImportDataPage from '@/pages/GroupImportDataPage'
@@ -125,6 +126,11 @@ export default function AppRouter() {
               platform_admin dan render children polos (PA punya konsol
               sendiri di /platform/*), shell cuma tampil untuk group_admin. */}
           <Route element={<GroupAdminLayout />}>
+            {/* Performance Dashboard (Track S4G, desain "GA Kinerja
+                Grup.dc.html", US-079/S4G-25/26) -- forward-pull SETELAH Task
+                Management Core (Phase 1-4) selesai, backend GET
+                /groups/:groupId/performance PA/GA pengelola grup ini saja. */}
+            <Route path="/performance" element={<GroupPerformancePage />} />
             <Route path="/organizations" element={<OrganizationManagementPage />} />
             {/* S4G-05, Track S4G (desain "GA Workspaces.dc.html"): grid
                 GROUP-WIDE, org jadi kolom -- GANTIKAN route lama per-org
