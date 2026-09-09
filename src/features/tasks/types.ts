@@ -1,6 +1,6 @@
-// Task Management Core Phase 1/2 (forward-pull, US-013/014/017). Task
-// dependencies/story-point enforcement penuh/time tracking adalah Phase
-// 3-4 terpisah, lihat implementation_gaps.md IG-46/47.
+// Task Management Core Phase 1/2/3 (forward-pull, US-013/014/017/017c/018).
+// Story-point enforcement penuh/time tracking adalah Phase 4, lihat
+// implementation_gaps.md IG-46/47/48.
 export interface CustomStatus {
   id: string
   name: string
@@ -50,6 +50,7 @@ export interface Task {
   created_at: string
   updated_at: string
   completed_at: string | null
+  is_blocked: boolean
   assignees: TaskAssignee[]
   active_pics: TaskPicPhase[]
 }
@@ -69,6 +70,16 @@ export interface TaskPicPhase {
   activated_at: string
   deactivated_at: string | null
   assigned_by: string | null
+}
+
+// TaskDependency (Phase 3, US-018 Finish-to-Start Hard-Block) -- satu
+// entry predecessor ATAU successor (arah ditentukan endpoint yang
+// memanggil, bukan field di sini).
+export interface TaskDependency {
+  task_id: string
+  task_code: string | null
+  title: string
+  status: string
 }
 
 export interface TaskFormValues {

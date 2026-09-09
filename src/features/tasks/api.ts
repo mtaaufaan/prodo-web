@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api'
 
-import type { CustomStatus, Sprint, Task, TaskFormValues, TaskPicPhase } from './types'
+import type { CustomStatus, Sprint, Task, TaskDependency, TaskFormValues, TaskPicPhase } from './types'
 
 export function getWorkspaceStatuses(workspaceId: string) {
   return apiClient.get<CustomStatus[]>(`/api/v1/workspaces/${workspaceId}/statuses`)
@@ -58,4 +58,28 @@ export function acknowledgePic(taskId: string) {
 
 export function getPicHistory(taskId: string) {
   return apiClient.get<TaskPicPhase[]>(`/api/v1/tasks/${taskId}/pic-history`)
+}
+
+// setTaskCompleteness -- Phase 3 (US-017c): cuma pembuat task/PIC aktif
+// yang diizinkan backend (403 selain itu).
+export function setTaskCompleteness(taskId: string, completeness: 'complete' | 'incomplete') {
+  return apiClient.put<{ id: string; completeness: string }>(`/api/v1/tasks/${taskId}/completeness`, { completeness })
+}
+
+export function getTaskDependencies(taskId: string) {
+  return apiClient.get<{ predecessors: TaskDependency[]; successors: TaskDependency[] }>(`/api/v1/tasks/${taskId}/dependencies`)
+}
+
+// addTaskDependency -- taskId jadi successor, predecessorTaskId jadi
+// predecessor (taskId menunggu predecessorTaskId selesai duluan). 409
+// CIRCULAR_DEPENDENCY / 422 DEPENDENCY_SELF_REFERENCE|DEPENDENCY_CROSS_PROJECT
+// ditangani pemanggil lewat ApiError.code (lib/api.ts).
+export function addTaskDependency(taskId: string, predecessorTaskId: string) {
+  return apiClient.post<{ predecessor_id: string; successor_id: string; created_at: string }>(`/api/v1/tasks/${taskId}/dependencies`, {
+    predecessor_task_id: predecessorTaskId,
+  })
+}
+
+export function removeTaskDependency(taskId: string, predecessorTaskId: string) {
+  return apiClient.delete<void>(`/api/v1/tasks/${taskId}/dependencies/${predecessorTaskId}`)
 }

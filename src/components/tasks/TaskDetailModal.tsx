@@ -3,7 +3,19 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useProjectMembers } from '@/features/project-members/hooks'
-import { useAcknowledgePic, useDeleteTask, usePicHistory, useSetTaskStatus, useTask, useUpdateTask } from '@/features/tasks/hooks'
+import {
+  useAcknowledgePic,
+  useAddDependency,
+  useDeleteTask,
+  usePicHistory,
+  useProjectTasks,
+  useRemoveDependency,
+  useSetCompleteness,
+  useSetTaskStatus,
+  useTask,
+  useTaskDependencies,
+  useUpdateTask,
+} from '@/features/tasks/hooks'
 import { FIBONACCI_STORY_POINTS, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -17,21 +29,29 @@ interface TaskDetailModalProps {
   statuses: CustomStatus[]
 }
 
-// TaskDetailModal (Task Management Core Phase 1/2). Versi DISEDERHANAKAN
+// TaskDetailModal (Task Management Core Phase 1/2/3). Versi DISEDERHANAKAN
 // dari desain "PM Task Detail.dc.html" (panel raksasa dengan file upload,
-// history, drag-drop) -- Phase 1/2 cuma lihat+edit field dasar, ganti
-// status via chip + pilih PIC (Phase 2, S4-31/32), dan riwayat PIC.
-// Attachment/dependency/story-point-permission-gate/time-tracking menyusul
-// Phase 3-4, dicatat sebagai gap yang disengaja, bukan kelupaan.
+// history, drag-drop) -- lihat+edit field dasar, ganti status via chip +
+// pilih PIC (Phase 2, S4-31/32) + riwayat PIC, toggle kelengkapan (Phase 3,
+// S4-44/45), dan dependency Finish-to-Start (Phase 3, S4-51/52 --
+// "autocomplete" disederhanakan jadi <select> native atas daftar task
+// project yang sudah di-fetch, bukan widget pencarian terpisah).
+// Attachment/story-point-permission-gate/time-tracking menyusul Phase 4,
+// dicatat sebagai gap yang disengaja, bukan kelupaan.
 export default function TaskDetailModal({ taskId, onClose, projectId, statuses }: TaskDetailModalProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const task = useTask(taskId)
   const members = useProjectMembers(projectId)
+  const projectTasks = useProjectTasks(projectId)
   const update = useUpdateTask(projectId)
   const setStatus = useSetTaskStatus(projectId)
   const remove = useDeleteTask(projectId)
   const acknowledge = useAcknowledgePic(taskId ?? '')
   const picHistory = usePicHistory(taskId)
+  const setCompleteness = useSetCompleteness(projectId)
+  const dependencies = useTaskDependencies(taskId)
+  const addDependency = useAddDependency(projectId)
+  const removeDependency = useRemoveDependency(projectId)
 
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState('')
@@ -44,6 +64,8 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const [picSelection, setPicSelection] = useState<string[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
   const [picError, setPicError] = useState('')
+  const [depCandidateId, setDepCandidateId] = useState('')
+  const [depError, setDepError] = useState('')
 
   useEffect(() => {
     if (task.data) {
@@ -59,6 +81,8 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     setPicSelection([])
     setPicError('')
     setHistoryOpen(false)
+    setDepCandidateId('')
+    setDepError('')
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sinkron SEKALI saat task berganti (by id), bukan tiap refetch
   }, [task.data?.id, taskId])
 
@@ -112,8 +136,17 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
           setPicSelection([])
         },
         onError: (err: unknown) => {
-          const code = (err as { code?: string })?.code
-          setPicError(code === 'PIC_NOT_IN_GROUP' ? 'PIC Group status ini belum memuat member yang Anda pilih. Minta Project Manager menambah anggota PIC Group.' : 'Gagal mengubah status task.')
+          const apiErr = err as { code?: string; details?: { blocking_tasks?: { task_code: string; title: string }[] } }
+          if (apiErr.code === 'PIC_NOT_IN_GROUP') {
+            setPicError('PIC Group status ini belum memuat member yang Anda pilih. Minta Project Manager menambah anggota PIC Group.')
+          } else if (apiErr.code === 'TASK_INCOMPLETE') {
+            setPicError('Task ini masih ditandai "Belum Lengkap" -- tandai Lengkap dulu sebelum mengubah status (kecuali ke BLOCKED).')
+          } else if (apiErr.code === 'DEPENDENCY_HARD_BLOCK') {
+            const names = (apiErr.details?.blocking_tasks ?? []).map((t) => `${t.task_code} (${t.title})`).join(', ')
+            setPicError(`Task ini diblokir predecessor yang belum selesai: ${names || '-'}.`)
+          } else {
+            setPicError('Gagal mengubah status task.')
+          }
         },
       },
     )
@@ -123,14 +156,46 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     remove.mutate(taskId, { onSuccess: onClose })
   }
 
+  // onAddDependency -- S4-47/51/52: backend deteksi circular (409
+  // CIRCULAR_DEPENDENCY dengan cycle_path) -- FE TIDAK menghitung ulang
+  // graph di client, cukup tampilkan pesan dari server.
+  const onAddDependency = () => {
+    if (!depCandidateId) return
+    addDependency.mutate(
+      { taskId, predecessorTaskId: depCandidateId },
+      {
+        onSuccess: () => setDepCandidateId(''),
+        onError: (err: unknown) => {
+          const apiErr = err as { code?: string; details?: { cycle_path?: string[] } }
+          if (apiErr.code === 'CIRCULAR_DEPENDENCY') {
+            setDepError(`Menutup lingkaran: ${(apiErr.details?.cycle_path ?? []).join(' → ')}`)
+          } else if (apiErr.code === 'DEPENDENCY_ALREADY_EXISTS') {
+            setDepError('Dependency ini sudah ada.')
+          } else {
+            setDepError('Gagal menambah dependency.')
+          }
+        },
+      },
+    )
+  }
+
   const activePics = task.data?.active_pics ?? []
   const myPendingAck = activePics.find((p) => p.user_id === currentUserId && p.acknowledged_at === null)
+  const isCreatorOrActivePic = task.data != null && (task.data.created_by === currentUserId || activePics.some((p) => p.user_id === currentUserId))
+  const showCompletenessToggle = task.data?.status_name === 'BACKLOG' && isCreatorOrActivePic
+  const predecessors = dependencies.data?.predecessors ?? []
+  const successors = dependencies.data?.successors ?? []
+  const linkedTaskIds = new Set([taskId, ...predecessors.map((p) => p.task_id)])
+  const dependencyCandidates = (projectTasks.data ?? []).filter((t) => !linkedTaskIds.has(t.id))
 
   return (
     <Dialog open={taskId !== null} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-[680px]">
         <DialogHeader>
-          <DialogTitle>{task.data?.task_code ?? '...'} · {task.data?.title ?? ''}</DialogTitle>
+          <DialogTitle>
+            {task.data?.is_blocked && <span title="Diblokir -- ada predecessor yang belum selesai">🔒 </span>}
+            {task.data?.task_code ?? '...'} · {task.data?.title ?? ''}
+          </DialogTitle>
         </DialogHeader>
 
         {task.isLoading && <p className="px-5 py-5 text-sm text-text-muted">Memuat...</p>}
@@ -290,7 +355,26 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                 </div>
                 <div>
                   <div className="text-[9px] tracking-[0.1em] text-text-dim">KELENGKAPAN</div>
-                  <div className="mt-1 text-text-bone">{task.data.completeness === 'complete' ? 'Lengkap' : 'Belum Lengkap'}</div>
+                  {showCompletenessToggle ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCompleteness.mutate({
+                          taskId,
+                          completeness: task.data!.completeness === 'complete' ? 'incomplete' : 'complete',
+                        })
+                      }
+                      disabled={setCompleteness.isPending}
+                      className={cn(
+                        'mt-1 border px-2 py-1 font-mono text-[10.5px] font-semibold',
+                        task.data.completeness === 'complete' ? 'border-mint text-mint' : 'border-amber text-amber',
+                      )}
+                    >
+                      {task.data.completeness === 'complete' ? '✓ Lengkap' : '○ Belum Lengkap'}
+                    </button>
+                  ) : (
+                    <div className="mt-1 text-text-bone">{task.data.completeness === 'complete' ? 'Lengkap' : 'Belum Lengkap'}</div>
+                  )}
                 </div>
               </div>
             )}
@@ -350,6 +434,58 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                   {(picHistory.data ?? []).length === 0 && <p className="font-mono text-[9px] text-text-dim">Belum ada riwayat.</p>}
                 </div>
               )}
+            </div>
+
+            <div>
+              <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">DEPENDENCY (FINISH-TO-START)</div>
+              <div className="flex flex-col gap-2">
+                <div>
+                  <div className="mb-1 font-mono text-[8.5px] text-text-dim">MENUNGGU SELESAI (PREDECESSOR)</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {predecessors.map((p) => (
+                      <span key={p.task_id} className={cn('flex items-center gap-1.5 border px-2 py-1 font-mono text-[9px]', p.status === 'DONE' ? 'border-mint text-mint' : 'border-amber text-amber')}>
+                        {p.task_code ?? p.title} · {p.status}
+                        <button type="button" onClick={() => removeDependency.mutate({ taskId, predecessorTaskId: p.task_id })} className="text-text-dim hover:text-destructive">
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                    {predecessors.length === 0 && <span className="font-mono text-[9px] text-text-dim">Tidak ada predecessor.</span>}
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-1 font-mono text-[8.5px] text-text-dim">MEMBLOKIR (SUCCESSOR)</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {successors.map((s) => (
+                      <span key={s.task_id} className="border border-line-strong px-2 py-1 font-mono text-[9px] text-text-muted">
+                        {s.task_code ?? s.title} · {s.status}
+                      </span>
+                    ))}
+                    {successors.length === 0 && <span className="font-mono text-[9px] text-text-dim">Tidak memblokir task lain.</span>}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <select
+                    value={depCandidateId}
+                    onChange={(e) => { setDepCandidateId(e.target.value); setDepError('') }}
+                    className="flex-1 border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[10.5px] text-text-bone outline-none focus-visible:border-signal"
+                  >
+                    <option value="">Pilih task predecessor...</option>
+                    {dependencyCandidates.map((t) => (
+                      <option key={t.id} value={t.id}>{t.task_code ?? t.title} · {t.title}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={onAddDependency}
+                    disabled={!depCandidateId || addDependency.isPending}
+                    className="border border-signal px-3 py-2 font-mono text-[9.5px] font-bold uppercase text-signal disabled:opacity-40"
+                  >
+                    + Dependency
+                  </button>
+                </div>
+                {depError && <p className="text-[10px] text-destructive">⚠ {depError}</p>}
+              </div>
             </div>
 
             {notice && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {notice}</p>}
