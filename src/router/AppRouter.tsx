@@ -14,9 +14,12 @@ import Forbidden from '@/pages/Forbidden'
 import GroupAdminLayout from '@/components/GroupAdminLayout'
 import GroupDirectoryPage from '@/pages/GroupDirectoryPage'
 import GroupMembersPage from '@/pages/GroupMembersPage'
+import GroupPerformancePage from '@/pages/GroupPerformancePage'
 import GroupDataRetentionPage from '@/pages/GroupDataRetentionPage'
+import GroupAuditTrailPage from '@/pages/GroupAuditTrailPage'
 import GroupImportDataPage from '@/pages/GroupImportDataPage'
 import GroupStorageQuotaPage from '@/pages/GroupStorageQuotaPage'
+import GroupWebhookPage from '@/pages/GroupWebhookPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
@@ -28,6 +31,7 @@ import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
 import PlatformLoginPage from '@/pages/PlatformLoginPage'
 import PlatformSecuritySettingsPage from '@/pages/PlatformSecuritySettingsPage'
 import PlatformTiersPage from '@/pages/PlatformTiersPage'
+import ProjectBoardPage from '@/pages/ProjectBoardPage'
 import ProjectListPage from '@/pages/ProjectListPage'
 import ProjectMembersPage from '@/pages/ProjectMembersPage'
 import SessionsPage from '@/pages/SessionsPage'
@@ -74,6 +78,10 @@ export default function AppRouter() {
         <Route element={<WorkspaceLayout />}>
           <Route path="/workspaces/:wsId/members" element={<WorkspaceMembersPage />} />{/* S2-07/08 */}
           <Route path="/workspaces/:wsId/projects" element={<ProjectListPage />} />{/* S4-04, US-012 */}
+          {/* Task Management Core Phase 1 (forward-pull, desain "PM
+              Board.dc.html" disederhanakan -- lihat komentar
+              ProjectBoardPage.tsx). */}
+          <Route path="/workspaces/:wsId/projects/:projectId/board" element={<ProjectBoardPage />} />
         </Route>
         {/* S3-24, US-009b: TANPA RoleGuard platform-role -- aktor sah (AW/PM)
             platform_role-nya "member" biasa, otorisasi penuh di backend
@@ -118,6 +126,11 @@ export default function AppRouter() {
               platform_admin dan render children polos (PA punya konsol
               sendiri di /platform/*), shell cuma tampil untuk group_admin. */}
           <Route element={<GroupAdminLayout />}>
+            {/* Performance Dashboard (Track S4G, desain "GA Kinerja
+                Grup.dc.html", US-079/S4G-25/26) -- forward-pull SETELAH Task
+                Management Core (Phase 1-4) selesai, backend GET
+                /groups/:groupId/performance PA/GA pengelola grup ini saja. */}
+            <Route path="/performance" element={<GroupPerformancePage />} />
             <Route path="/organizations" element={<OrganizationManagementPage />} />
             {/* S4G-05, Track S4G (desain "GA Workspaces.dc.html"): grid
                 GROUP-WIDE, org jadi kolom -- GANTIKAN route lama per-org
@@ -139,6 +152,15 @@ export default function AppRouter() {
             {/* Import Data (desain "GA Import Data.dc.html"): sama gate --
                 backend GET/POST /groups/:groupId/data-import/* PA/GA pengelola grup ini saja. */}
             <Route path="/data-import" element={<GroupImportDataPage />} />
+            {/* Webhook (desain "GA Webhook.dc.html"): sama gate -- backend
+                GET/POST/PUT/PATCH/DELETE /groups/:groupId/webhooks* PA/GA
+                pengelola grup ini saja. */}
+            <Route path="/webhooks" element={<GroupWebhookPage />} />
+            {/* Audit Trail (desain "GA Audit Trail.dc.html"): sama gate --
+                backend GET /groups/:groupId/audit-logs* PA/GA pengelola
+                grup ini saja, READ-ONLY di atas audit_logs yang sudah ada
+                (implementation_gaps.md IG-45). */}
+            <Route path="/audit-trail" element={<GroupAuditTrailPage />} />
             {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
                 (S3-25/27) PA/GA saja. */}
             <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />

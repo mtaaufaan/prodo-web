@@ -39,7 +39,12 @@ import { useAuthStore } from '@/store/useAuthStore'
 // tahu apa pun soal CreateOrganizationModal, pola yang sama akan dipakai
 // nav lain begitu halamannya nyata (mis. "+ Workspace" untuk Workspace).
 const NAV_ITEMS = [
-  { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: null as string | null, tabs: null as string[] | null, cta: null as string | null },
+  // Performance Dashboard (Track S4G, desain "GA Kinerja Grup.dc.html",
+  // US-079/S4G-25/26) -- forward-pull SETELAH Task Management Core (Phase
+  // 1-4) selesai. Tab Project Health/Bottleneck & Flow DI DALAM halaman
+  // sendiri (view-mode toggle), sama pola Storage & Kuota/Data Retention,
+  // jadi `tabs: null` bukan gap.
+  { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: '/performance', tabs: null as string[] | null, cta: null as string | null },
   { key: 'ringkasan', icon: '◧', label: 'Ringkasan', to: null, tabs: null, cta: null },
   { key: 'organisasi', icon: '▤', label: 'Organisasi', to: '/organizations', tabs: ['Semua', 'Aktif', 'Nonaktif'], cta: '+ Buat Organisasi' },
   // S4G-05, Track S4G (desain "GA Workspaces.dc.html"): grid GROUP-WIDE
@@ -66,9 +71,15 @@ const NAV_ITEMS = [
   // Import Data (desain "GA Import Data.dc.html"): tab Unggah CSV/Riwayat
   // DI DALAM halaman sendiri (sama pola Storage & Kuota/Data Retention).
   { key: 'import', icon: '⬇', label: 'Import Data', to: '/data-import', tabs: null, cta: '+ Import CSV' },
-  { key: 'webhook', icon: '⌗', label: 'Webhook', to: null, tabs: null, cta: null },
+  // Webhook (desain "GA Webhook.dc.html" + "GA Add Webhook.dc.html"): tab
+  // Endpoint/Log Pengiriman DI DALAM halaman sendiri, sama pola Import
+  // Data/Data Retention. CTA "+ Webhook" buka form Buat Webhook.
+  { key: 'webhook', icon: '⌗', label: 'Webhook', to: '/webhooks', tabs: null, cta: '+ Webhook' },
   { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: null, tabs: null, cta: null },
-  { key: 'audit', icon: '☰', label: 'Audit Trail', to: null, tabs: null, cta: null },
+  // Audit Trail (desain "GA Audit Trail.dc.html") -- tombol "Ekspor CSV"
+  // ada DI DALAM halaman sendiri (bagian tab bar desain), bukan CTA layout
+  // seperti menu lain, jadi cta: null di sini bukan gap.
+  { key: 'audit', icon: '☰', label: 'Audit Trail', to: '/audit-trail', tabs: null, cta: null },
 ]
 
 // Konteks diteruskan ke halaman yang dibungkus lewat <Outlet context=.../>

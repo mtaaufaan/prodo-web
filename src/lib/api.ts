@@ -86,7 +86,24 @@ function refreshAccessToken(): Promise<string | null> {
 instance.interceptors.response.use(
   (response) => response.data?.data ?? response.data,
   async (error) => {
-    const body = error?.response?.data as ApiErrorBody | undefined
+    // responseType:'blob' (unduhan CSV/file) -- error.response.data DIAM-DIAM
+    // tetap Blob walau server merespons JSON (axios tidak menebak ulang dari
+    // status code), jadi body?.error di bawah selalu undefined dan error
+    // rate-limit/lainnya jatuh ke Error generik alih-alih ApiError (ditemukan
+    // saat build GA Audit Trail: ekspor CSV yang di-rate-limit tidak pernah
+    // menampilkan pesan 429 spesifik). Baca ulang sebagai teks+JSON di sini,
+    // SEKALI, supaya semua pemanggil blob (bukan cuma audit trail) ikut benar.
+    const rawData: unknown = error?.response?.data
+    let body: ApiErrorBody | undefined
+    if (rawData instanceof Blob) {
+      try {
+        body = JSON.parse(await rawData.text())
+      } catch {
+        body = undefined
+      }
+    } else {
+      body = rawData as ApiErrorBody | undefined
+    }
     const original = error?.config
     // Token ditolak (expired/invalid) saat request TERAUTENTIKASI -- coba
     // refresh SEKALI dan ulangi request asli sebelum menyerah. Kalau
