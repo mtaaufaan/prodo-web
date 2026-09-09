@@ -335,6 +335,12 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
                 >
                   Lihat Cross-Org Membership →
                 </Link>
+                <Link
+                  to={`/organizations/${organization.id}/sso-config`}
+                  className="mt-2 block font-mono text-[10px] text-text-muted hover:text-signal"
+                >
+                  Konfigurasi SSO →
+                </Link>
               </div>
             )}
           </div>
