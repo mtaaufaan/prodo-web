@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
+  acknowledgePic,
   completeSprint,
   createSprint,
   createTask,
   deleteSprint,
   deleteTask,
+  getPicHistory,
   getProjectSprints,
   getProjectTasks,
   getTask,
@@ -22,6 +24,7 @@ export const taskKeys = {
   sprints: (projectId: string) => [...taskKeys.all, 'sprints', projectId] as const,
   list: (projectId: string) => [...taskKeys.all, 'list', projectId] as const,
   detail: (taskId: string) => [...taskKeys.all, 'detail', taskId] as const,
+  picHistory: (taskId: string) => [...taskKeys.all, 'pic-history', taskId] as const,
 }
 
 export function useWorkspaceStatuses(workspaceId: string) {
@@ -113,10 +116,11 @@ export function useUpdateTask(projectId: string) {
 export function useSetTaskStatus(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ taskId, statusId }: { taskId: string; statusId: string }) => setTaskStatus(taskId, statusId),
+    mutationFn: ({ taskId, statusId, picIds }: { taskId: string; statusId: string; picIds: string[] }) => setTaskStatus(taskId, statusId, picIds),
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.picHistory(vars.taskId) })
     },
   })
 }
@@ -126,5 +130,21 @@ export function useDeleteTask(projectId: string) {
   return useMutation({
     mutationFn: (taskId: string) => deleteTask(taskId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) }),
+  })
+}
+
+export function useAcknowledgePic(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => acknowledgePic(taskId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) }),
+  })
+}
+
+export function usePicHistory(taskId: string | null) {
+  return useQuery({
+    queryKey: taskKeys.picHistory(taskId ?? ''),
+    queryFn: () => getPicHistory(taskId ?? ''),
+    enabled: taskId !== null,
   })
 }
