@@ -20,6 +20,7 @@ import GroupAuditTrailPage from '@/pages/GroupAuditTrailPage'
 import GroupImportDataPage from '@/pages/GroupImportDataPage'
 import GroupLocalePage from '@/pages/GroupLocalePage'
 import GroupStorageQuotaPage from '@/pages/GroupStorageQuotaPage'
+import GroupSummaryPage from '@/pages/GroupSummaryPage'
 import GroupWebhookPage from '@/pages/GroupWebhookPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
@@ -127,6 +128,13 @@ export default function AppRouter() {
               platform_admin dan render children polos (PA punya konsol
               sendiri di /platform/*), shell cuma tampil untuk group_admin. */}
           <Route element={<GroupAdminLayout />}>
+            {/* Ringkasan / Dashboard Landing GA (Track S4G S4G-29/30, desain
+                "GA Ringkasan.dc.html") -- landing default GA setelah login
+                (Login.tsx), menggantikan redirect sementara ke
+                /organizations (IG-34). Backend GET /groups/:groupId/summary
+                PA/GA pengelola grup ini saja, murni agregasi fitur yang
+                sudah ada (tidak ada tabel baru). */}
+            <Route path="/summary" element={<GroupSummaryPage />} />
             {/* Performance Dashboard (Track S4G, desain "GA Kinerja
                 Grup.dc.html", US-079/S4G-25/26) -- forward-pull SETELAH Task
                 Management Core (Phase 1-4) selesai, backend GET

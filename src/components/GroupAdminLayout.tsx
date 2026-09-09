@@ -45,7 +45,11 @@ const NAV_ITEMS = [
   // sendiri (view-mode toggle), sama pola Storage & Kuota/Data Retention,
   // jadi `tabs: null` bukan gap.
   { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: '/performance', tabs: null as string[] | null, cta: null as string | null },
-  { key: 'ringkasan', icon: '◧', label: 'Ringkasan', to: null, tabs: null, cta: null },
+  // Ringkasan / Dashboard Landing GA (desain "GA Ringkasan.dc.html",
+  // S4G-29/30) -- tab Aktivitas/Peringatan Kuota/Keanggotaan Lintas
+  // Organisasi DI DALAM halaman sendiri, `tabs: null` bukan gap. Landing
+  // default GA setelah login (Login.tsx), lihat IG-34.
+  { key: 'ringkasan', icon: '◧', label: 'Ringkasan', to: '/summary', tabs: null, cta: null },
   { key: 'organisasi', icon: '▤', label: 'Organisasi', to: '/organizations', tabs: ['Semua', 'Aktif', 'Nonaktif'], cta: '+ Buat Organisasi' },
   // S4G-05, Track S4G (desain "GA Workspaces.dc.html"): grid GROUP-WIDE
   // (lintas seluruh organisasi dalam grup, org jadi kolom) -- BEDA dari
