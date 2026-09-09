@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import type { CustomStatus } from '@/features/tasks/types'
-import { useDeleteTask, useSetTaskStatus, useTask, useUpdateTask } from '@/features/tasks/hooks'
-import { FIBONACCI_STORY_POINTS, type TaskPriority } from '@/features/tasks/types'
+import { useProjectMembers } from '@/features/project-members/hooks'
+import { useAcknowledgePic, useDeleteTask, usePicHistory, useSetTaskStatus, useTask, useUpdateTask } from '@/features/tasks/hooks'
+import { FIBONACCI_STORY_POINTS, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/useAuthStore'
 
 const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high', 'critical']
 
@@ -16,17 +17,21 @@ interface TaskDetailModalProps {
   statuses: CustomStatus[]
 }
 
-// TaskDetailModal (Task Management Core Phase 1). Versi DISEDERHANAKAN
+// TaskDetailModal (Task Management Core Phase 1/2). Versi DISEDERHANAKAN
 // dari desain "PM Task Detail.dc.html" (panel raksasa dengan file upload,
-// history, PIC handoff, drag-drop) -- Phase 1 cuma lihat+edit field dasar
-// dan ganti status via chip (bukan drag board). PIC Handoff/attachment/
-// history/dependency menyusul Phase 2-4, dicatat sebagai gap yang
-// disengaja, bukan kelupaan.
+// history, drag-drop) -- Phase 1/2 cuma lihat+edit field dasar, ganti
+// status via chip + pilih PIC (Phase 2, S4-31/32), dan riwayat PIC.
+// Attachment/dependency/story-point-permission-gate/time-tracking menyusul
+// Phase 3-4, dicatat sebagai gap yang disengaja, bukan kelupaan.
 export default function TaskDetailModal({ taskId, onClose, projectId, statuses }: TaskDetailModalProps) {
+  const currentUserId = useAuthStore((s) => s.user?.id)
   const task = useTask(taskId)
+  const members = useProjectMembers(projectId)
   const update = useUpdateTask(projectId)
   const setStatus = useSetTaskStatus(projectId)
   const remove = useDeleteTask(projectId)
+  const acknowledge = useAcknowledgePic(taskId ?? '')
+  const picHistory = usePicHistory(taskId)
 
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState('')
@@ -35,6 +40,10 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const [estimatedHours, setEstimatedHours] = useState('')
   const [storyPoints, setStoryPoints] = useState<number | null>(null)
   const [notice, setNotice] = useState('')
+  const [pendingStatusId, setPendingStatusId] = useState<string | null>(null)
+  const [picSelection, setPicSelection] = useState<string[]>([])
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [picError, setPicError] = useState('')
 
   useEffect(() => {
     if (task.data) {
@@ -46,6 +55,10 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     }
     setEditing(false)
     setNotice('')
+    setPendingStatusId(null)
+    setPicSelection([])
+    setPicError('')
+    setHistoryOpen(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sinkron SEKALI saat task berganti (by id), bukan tiap refetch
   }, [task.data?.id, taskId])
 
@@ -70,13 +83,48 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     )
   }
 
-  const onChangeStatus = (statusId: string) => {
-    setStatus.mutate({ taskId, statusId }, { onSuccess: () => setNotice('Status task diperbarui.') })
+  // openPicPicker -- klik chip status membuka panel pilih PIC (S4-31/32:
+  // ganti status SELALU butuh PIC baru), bukan langsung berpindah seperti
+  // Phase 1.
+  const openPicPicker = (statusId: string) => {
+    setPendingStatusId(statusId)
+    setPicSelection([])
+    setPicError('')
+  }
+
+  const togglePic = (userId: string) => {
+    setPicSelection((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]))
+    setPicError('')
+  }
+
+  const onConfirmMove = () => {
+    if (!pendingStatusId) return
+    if (picSelection.length === 0) {
+      setPicError('Pilih minimal satu PIC untuk fase status baru ini.')
+      return
+    }
+    setStatus.mutate(
+      { taskId, statusId: pendingStatusId, picIds: picSelection },
+      {
+        onSuccess: () => {
+          setNotice('Status task diperbarui dan PIC fase baru ditetapkan.')
+          setPendingStatusId(null)
+          setPicSelection([])
+        },
+        onError: (err: unknown) => {
+          const code = (err as { code?: string })?.code
+          setPicError(code === 'PIC_NOT_IN_GROUP' ? 'PIC Group status ini belum memuat member yang Anda pilih. Minta Project Manager menambah anggota PIC Group.' : 'Gagal mengubah status task.')
+        },
+      },
+    )
   }
 
   const onDelete = () => {
     remove.mutate(taskId, { onSuccess: onClose })
   }
+
+  const activePics = task.data?.active_pics ?? []
+  const myPendingAck = activePics.find((p) => p.user_id === currentUserId && p.acknowledged_at === null)
 
   return (
     <Dialog open={taskId !== null} onOpenChange={(next) => !next && onClose()}>
@@ -96,8 +144,8 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                   <button
                     key={s.id}
                     type="button"
-                    disabled={s.is_undefined || setStatus.isPending}
-                    onClick={() => onChangeStatus(s.id)}
+                    disabled={s.is_undefined}
+                    onClick={() => openPicPicker(s.id)}
                     className={cn(
                       'border px-2.5 py-1.5 font-mono text-[9.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-40',
                       s.id === task.data.status_id ? 'border-signal bg-signal text-bg-deep' : 'border-line-strong text-text-muted hover:text-text-bone',
@@ -107,6 +155,49 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                   </button>
                 ))}
               </div>
+
+              {pendingStatusId && (
+                <div className="mt-3 border border-amber bg-amber/5 p-3">
+                  <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-amber">PILIH PIC FASE</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(members.data ?? []).map((m) => {
+                      const on = picSelection.includes(m.user_id)
+                      return (
+                        <button
+                          key={m.user_id}
+                          type="button"
+                          onClick={() => togglePic(m.user_id)}
+                          className={cn(
+                            'border px-2.5 py-1.5 font-mono text-[9.5px]',
+                            on ? 'border-mint bg-mint/10 text-mint' : 'border-line-strong text-text-muted',
+                          )}
+                        >
+                          {on ? '● ' : ''}
+                          {m.display_name || m.email}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {picError && <p className="mt-2 text-[10px] text-destructive">⚠ {picError}</p>}
+                  <div className="mt-2.5 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={onConfirmMove}
+                      disabled={setStatus.isPending}
+                      className="border border-amber px-3 py-1.5 font-mono text-[9.5px] font-bold uppercase text-amber"
+                    >
+                      Pindahkan &amp; Tetapkan PIC
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingStatusId(null)}
+                      className="border border-line-strong px-3 py-1.5 font-mono text-[9.5px] uppercase text-text-muted"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {editing ? (
@@ -215,8 +306,54 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
               </div>
             </div>
 
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <span className="font-mono text-[9px] tracking-[0.14em] text-text-dim">PIC AKTIF</span>
+                <button type="button" onClick={() => setHistoryOpen((v) => !v)} className="font-mono text-[9px] text-text-muted hover:text-signal">
+                  {historyOpen ? '▴ Tutup riwayat' : '▾ Riwayat PIC'}
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {activePics.map((p) => (
+                  <span
+                    key={p.id}
+                    className={cn(
+                      'border px-2.5 py-1.5 font-mono text-[9.5px]',
+                      p.acknowledged_at ? 'border-mint text-mint' : 'border-amber text-amber',
+                    )}
+                  >
+                    {p.user_name || p.user_email} · {p.acknowledged_at ? 'AKTIF' : 'PENDING'}
+                  </span>
+                ))}
+                {activePics.length === 0 && <span className="font-mono text-[9.5px] text-text-dim">Tidak ada PIC aktif.</span>}
+              </div>
+              {myPendingAck && (
+                <Button
+                  type="button"
+                  onClick={() => acknowledge.mutate(undefined, { onSuccess: () => setNotice('Serah terima PIC dikonfirmasi.') })}
+                  disabled={acknowledge.isPending}
+                  className="mt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.06em]"
+                >
+                  ✓ Konfirmasi Serah Terima PIC
+                </Button>
+              )}
+              {historyOpen && (
+                <div className="mt-2.5 flex flex-col gap-1.5 border-t border-line pt-2.5">
+                  {(picHistory.data ?? []).map((p) => (
+                    <div key={p.id} className="flex items-center justify-between font-mono text-[9px] text-text-muted">
+                      <span>{p.status_name} · {p.user_name || p.user_email}</span>
+                      <span className={p.is_active ? 'text-mint' : 'text-text-dim'}>
+                        {p.acknowledged_at ? 'Acknowledged' : p.is_active ? 'Pending' : 'Non-aktif'}
+                      </span>
+                    </div>
+                  ))}
+                  {(picHistory.data ?? []).length === 0 && <p className="font-mono text-[9px] text-text-dim">Belum ada riwayat.</p>}
+                </div>
+              )}
+            </div>
+
             {notice && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {notice}</p>}
-            {(update.isError || setStatus.isError) && <p className="text-[11px] text-destructive">Gagal menyimpan perubahan.</p>}
+            {(update.isError) && <p className="text-[11px] text-destructive">Gagal menyimpan perubahan.</p>}
           </div>
         )}
 

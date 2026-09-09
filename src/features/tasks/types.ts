@@ -1,6 +1,6 @@
-// Task Management Core Phase 1 (forward-pull, US-013/014). PIC Handoff/
+// Task Management Core Phase 1/2 (forward-pull, US-013/014/017). Task
 // dependencies/story-point enforcement penuh/time tracking adalah Phase
-// 2-4 terpisah, lihat implementation_gaps.md.
+// 3-4 terpisah, lihat implementation_gaps.md IG-46/47.
 export interface CustomStatus {
   id: string
   name: string
@@ -51,6 +51,24 @@ export interface Task {
   updated_at: string
   completed_at: string | null
   assignees: TaskAssignee[]
+  active_pics: TaskPicPhase[]
+}
+
+// TaskPicPhase (Phase 2, US-017 Phase PIC Handoff) -- satu baris per PIC
+// per fase, immutable (riwayat lengkap, bukan diupdate di tempat).
+export interface TaskPicPhase {
+  id: string
+  task_id: string
+  status_id: string
+  status_name: string
+  user_id: string
+  user_name: string
+  user_email: string
+  is_active: boolean
+  acknowledged_at: string | null
+  activated_at: string
+  deactivated_at: string | null
+  assigned_by: string | null
 }
 
 export interface TaskFormValues {
