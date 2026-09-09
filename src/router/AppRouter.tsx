@@ -15,6 +15,7 @@ import GroupAdminLayout from '@/components/GroupAdminLayout'
 import GroupDirectoryPage from '@/pages/GroupDirectoryPage'
 import GroupMembersPage from '@/pages/GroupMembersPage'
 import GroupPerformancePage from '@/pages/GroupPerformancePage'
+import GroupSsoSettingsPage from '@/pages/GroupSsoSettingsPage'
 import GroupDataRetentionPage from '@/pages/GroupDataRetentionPage'
 import GroupAuditTrailPage from '@/pages/GroupAuditTrailPage'
 import GroupImportDataPage from '@/pages/GroupImportDataPage'
@@ -132,6 +133,13 @@ export default function AppRouter() {
                 /groups/:groupId/performance PA/GA pengelola grup ini saja. */}
             <Route path="/performance" element={<GroupPerformancePage />} />
             <Route path="/organizations" element={<OrganizationManagementPage />} />
+            {/* Konfigurasi SSO (US-074, Track S4G S4G-24, freehand -- tidak
+                ada file desain) -- dijangkau dari ManageOrganizationModal
+                (link "Konfigurasi SSO ->"), sama pola link "Lihat Cross-Org
+                Membership ->", bukan menu top-level baru (SSO per-organisasi,
+                bukan per-grup). Backend GET/PUT /organizations/:id/sso-config
+                PA/GA pengelola grup organisasi ini saja. */}
+            <Route path="/organizations/:orgId/sso-config" element={<GroupSsoSettingsPage />} />
             {/* S4G-05, Track S4G (desain "GA Workspaces.dc.html"): grid
                 GROUP-WIDE, org jadi kolom -- GANTIKAN route lama per-org
                 /organizations/:orgId/workspaces (S3-13). Link "WS · Member"
