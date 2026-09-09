@@ -12,8 +12,10 @@ import {
   useRemoveDependency,
   useSetCompleteness,
   useSetTaskStatus,
+  useStartWork,
   useTask,
   useTaskDependencies,
+  useTaskStatusSessions,
   useUpdateTask,
 } from '@/features/tasks/hooks'
 import { FIBONACCI_STORY_POINTS, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
@@ -22,6 +24,17 @@ import { useAuthStore } from '@/store/useAuthStore'
 
 const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high', 'critical']
 
+// formatDuration -- Phase 4 (US-018b/S4-66): "2j 15m", dipakai StatusTimeline.
+// Queue/Active/Lead Time dihitung di klien dari raw session rows (bukan
+// agregat backend terpisah -- lihat komentar TaskStatusSession di types.ts).
+function formatDuration(ms: number): string {
+  if (ms <= 0) return '0m'
+  const totalMinutes = Math.floor(ms / 60000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  return hours > 0 ? `${hours}j ${minutes}m` : `${minutes}m`
+}
+
 interface TaskDetailModalProps {
   taskId: string | null
   onClose: () => void
@@ -29,15 +42,17 @@ interface TaskDetailModalProps {
   statuses: CustomStatus[]
 }
 
-// TaskDetailModal (Task Management Core Phase 1/2/3). Versi DISEDERHANAKAN
-// dari desain "PM Task Detail.dc.html" (panel raksasa dengan file upload,
-// history, drag-drop) -- lihat+edit field dasar, ganti status via chip +
-// pilih PIC (Phase 2, S4-31/32) + riwayat PIC, toggle kelengkapan (Phase 3,
-// S4-44/45), dan dependency Finish-to-Start (Phase 3, S4-51/52 --
-// "autocomplete" disederhanakan jadi <select> native atas daftar task
-// project yang sudah di-fetch, bukan widget pencarian terpisah).
-// Attachment/story-point-permission-gate/time-tracking menyusul Phase 4,
-// dicatat sebagai gap yang disengaja, bukan kelupaan.
+// TaskDetailModal (Task Management Core Phase 1/2/3/4). Versi
+// DISEDERHANAKAN dari desain "PM Task Detail.dc.html" (panel raksasa
+// dengan file upload, history, drag-drop) -- lihat+edit field dasar, ganti
+// status via chip + pilih PIC (Phase 2, S4-31/32) + riwayat PIC, toggle
+// kelengkapan (Phase 3, S4-44/45), dependency Finish-to-Start (Phase 3,
+// S4-51/52 -- "autocomplete" disederhanakan jadi <select> native atas
+// daftar task project yang sudah di-fetch), tombol "Mulai Pengerjaan" +
+// widget Status Time Tracking (Phase 4, S4-65/66 -- Queue/Active/Lead Time
+// dihitung di klien dari raw session rows, bukan agregat backend
+// terpisah). Attachment menyusul (belum ada task backlog untuk itu di
+// Task Core), dicatat sebagai gap yang disengaja, bukan kelupaan.
 export default function TaskDetailModal({ taskId, onClose, projectId, statuses }: TaskDetailModalProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const task = useTask(taskId)
@@ -52,6 +67,8 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const dependencies = useTaskDependencies(taskId)
   const addDependency = useAddDependency(projectId)
   const removeDependency = useRemoveDependency(projectId)
+  const startWork = useStartWork(taskId ?? '')
+  const statusSessions = useTaskStatusSessions(taskId)
 
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState('')
@@ -66,6 +83,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const [picError, setPicError] = useState('')
   const [depCandidateId, setDepCandidateId] = useState('')
   const [depError, setDepError] = useState('')
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     if (task.data) {
@@ -83,6 +101,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     setHistoryOpen(false)
     setDepCandidateId('')
     setDepError('')
+    setSaveError('')
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sinkron SEKALI saat task berganti (by id), bukan tiap refetch
   }, [task.data?.id, taskId])
 
@@ -90,6 +109,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
 
   const onSave = () => {
     if (!task.data) return
+    setSaveError('')
     update.mutate(
       {
         taskId,
@@ -103,7 +123,17 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
           assignee_ids: task.data.assignees.map((a) => a.user_id),
         },
       },
-      { onSuccess: () => { setEditing(false); setNotice('Task diperbarui.') } },
+      {
+        onSuccess: () => { setEditing(false); setNotice('Task diperbarui.') },
+        onError: (err: unknown) => {
+          const apiErr = err as { code?: string }
+          setSaveError(
+            apiErr.code === 'STORY_POINTS_NOT_ALLOWED'
+              ? 'Anda tidak berwenang mengubah story point task ini -- hanya PM/AW atau Editor yang diizinkan project ini.'
+              : 'Gagal menyimpan perubahan.',
+          )
+        },
+      },
     )
   }
 
@@ -188,6 +218,23 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const linkedTaskIds = new Set([taskId, ...predecessors.map((p) => p.task_id)])
   const dependencyCandidates = (projectTasks.data ?? []).filter((t) => !linkedTaskIds.has(t.id))
 
+  // Status Time Tracking (Phase 4, US-018b) -- sesi aktif = exited_at NULL.
+  const sessions = statusSessions.data ?? []
+  const activeSession = sessions.find((s) => s.exited_at === null) ?? null
+  const activeStatus = statuses.find((s) => s.id === task.data?.status_id)
+  const showStartWorkButton = Boolean(activeStatus?.require_start_confirmation) && activeSession != null && activeSession.work_started_at === null
+
+  let queueMs = 0
+  let activeMs = 0
+  for (const s of sessions) {
+    const entered = new Date(s.entered_at).getTime()
+    const started = s.work_started_at ? new Date(s.work_started_at).getTime() : null
+    const exited = s.exited_at ? new Date(s.exited_at).getTime() : null
+    if (started != null) queueMs += started - entered
+    if (started != null) activeMs += (exited ?? Date.now()) - started
+  }
+  const leadMs = sessions.length > 0 ? (sessions[sessions.length - 1].exited_at ? new Date(sessions[sessions.length - 1].exited_at!).getTime() : Date.now()) - new Date(sessions[0].entered_at).getTime() : 0
+
   return (
     <Dialog open={taskId !== null} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-[680px]">
@@ -220,6 +267,17 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                   </button>
                 ))}
               </div>
+
+              {showStartWorkButton && (
+                <Button
+                  type="button"
+                  onClick={() => startWork.mutate()}
+                  disabled={startWork.isPending}
+                  className="mt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.06em]"
+                >
+                  ▶ Mulai Pengerjaan
+                </Button>
+              )}
 
               {pendingStatusId && (
                 <div className="mt-3 border border-amber bg-amber/5 p-3">
@@ -488,8 +546,40 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
               </div>
             </div>
 
+            <div>
+              <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">STATUS TIME TRACKING</div>
+              <div className="grid grid-cols-3 gap-2 font-mono text-[10px]">
+                <div className="border border-line-strong p-2 text-center">
+                  <div className="text-[8px] text-text-dim">QUEUE TIME</div>
+                  <div className="mt-1 text-text-bone">{formatDuration(queueMs)}</div>
+                </div>
+                <div className="border border-line-strong p-2 text-center">
+                  <div className="text-[8px] text-text-dim">ACTIVE TIME</div>
+                  <div className="mt-1 text-text-bone">{formatDuration(activeMs)}</div>
+                </div>
+                <div className="border border-line-strong p-2 text-center">
+                  <div className="text-[8px] text-text-dim">LEAD TIME</div>
+                  <div className="mt-1 text-text-bone">{formatDuration(leadMs)}</div>
+                </div>
+              </div>
+              {sessions.length > 0 && (
+                <div className="mt-2.5 flex flex-col gap-1 border-t border-line pt-2.5">
+                  {sessions.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between font-mono text-[9px] text-text-muted">
+                      <span>
+                        {s.status_name} #{s.session_no}
+                        {s.is_regression && <span className="ml-1 text-amber">↩ regresi</span>}
+                        {s.is_auto_start && <span className="ml-1 text-text-dim" title="Mulai pengerjaan diisi otomatis (tidak diklik manual)">⏱ auto</span>}
+                      </span>
+                      <span className="text-text-dim">{s.exited_at ? 'Selesai' : 'Aktif'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {notice && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {notice}</p>}
-            {(update.isError) && <p className="text-[11px] text-destructive">Gagal menyimpan perubahan.</p>}
+            {saveError && <p className="text-[11px] text-destructive">⚠ {saveError}</p>}
           </div>
         )}
 

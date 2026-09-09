@@ -46,11 +46,19 @@ function TaskCard({ task, onOpen }: { task: Task; onOpen: () => void }) {
         <span className="truncate">{firstAssignee ? firstAssignee.display_name || firstAssignee.email : '—'}</span>
         <span>{task.due_date ?? '—'}</span>
       </div>
-      {task.story_points != null && (
-        <div className="mt-1.5 inline-block border border-line-strong px-1.5 py-0.5 font-mono text-[8.5px] text-text-dim">
-          SP {task.story_points}
-        </div>
-      )}
+      <div className="mt-1.5 flex items-center gap-1.5">
+        <span className="inline-block border border-line-strong px-1.5 py-0.5 font-mono text-[8.5px] text-text-dim">
+          SP {task.story_points ?? '?'}
+        </span>
+        {task.regression_count > 0 && (
+          <span
+            title={`Task mengalami ${task.regression_count} kali regresi`}
+            className="inline-block border border-amber px-1.5 py-0.5 font-mono text-[8.5px] text-amber"
+          >
+            ↩ {task.regression_count}×
+          </span>
+        )}
+      </div>
     </button>
   )
 }

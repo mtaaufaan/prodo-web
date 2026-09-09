@@ -1,6 +1,5 @@
-// Task Management Core Phase 1/2/3 (forward-pull, US-013/014/017/017c/018).
-// Story-point enforcement penuh/time tracking adalah Phase 4, lihat
-// implementation_gaps.md IG-46/47/48.
+// Task Management Core Phase 1/2/3/4 (forward-pull, US-013/014/017/017c/
+// 018/018a/018b/018c). Lihat implementation_gaps.md IG-46/47/48/49.
 export interface CustomStatus {
   id: string
   name: string
@@ -8,6 +7,7 @@ export interface CustomStatus {
   position: number
   is_system: boolean
   is_undefined: boolean
+  require_start_confirmation: boolean
 }
 
 export interface Sprint {
@@ -51,6 +51,7 @@ export interface Task {
   updated_at: string
   completed_at: string | null
   is_blocked: boolean
+  regression_count: number
   assignees: TaskAssignee[]
   active_pics: TaskPicPhase[]
 }
@@ -80,6 +81,23 @@ export interface TaskDependency {
   task_code: string | null
   title: string
   status: string
+}
+
+// TaskStatusSession (Phase 4, US-018b Status Time Tracking) -- satu sesi
+// task di satu status; Queue/Active/Lead Time dihitung di klien dari
+// timestamp mentah (bukan agregat backend terpisah).
+export interface TaskStatusSession {
+  id: string
+  task_id: string
+  status_id: string
+  status_name: string
+  session_no: number
+  entered_at: string
+  work_started_at: string | null
+  is_auto_start: boolean
+  exited_at: string | null
+  is_regression: boolean
+  triggered_by: string | null
 }
 
 export interface TaskFormValues {
