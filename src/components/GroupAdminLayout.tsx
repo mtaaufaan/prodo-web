@@ -71,7 +71,10 @@ const NAV_ITEMS = [
   // Data/Data Retention. CTA "+ Webhook" buka form Buat Webhook.
   { key: 'webhook', icon: '⌗', label: 'Webhook', to: '/webhooks', tabs: null, cta: '+ Webhook' },
   { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: null, tabs: null, cta: null },
-  { key: 'audit', icon: '☰', label: 'Audit Trail', to: null, tabs: null, cta: null },
+  // Audit Trail (desain "GA Audit Trail.dc.html") -- tombol "Ekspor CSV"
+  // ada DI DALAM halaman sendiri (bagian tab bar desain), bukan CTA layout
+  // seperti menu lain, jadi cta: null di sini bukan gap.
+  { key: 'audit', icon: '☰', label: 'Audit Trail', to: '/audit-trail', tabs: null, cta: null },
 ]
 
 // Konteks diteruskan ke halaman yang dibungkus lewat <Outlet context=.../>
