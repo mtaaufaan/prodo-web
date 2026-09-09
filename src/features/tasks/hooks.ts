@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
   acknowledgePic,
+  addTaskDependency,
   completeSprint,
   createSprint,
   createTask,
@@ -11,7 +12,10 @@ import {
   getProjectSprints,
   getProjectTasks,
   getTask,
+  getTaskDependencies,
   getWorkspaceStatuses,
+  removeTaskDependency,
+  setTaskCompleteness,
   setTaskStatus,
   startSprint,
   updateTask,
@@ -25,6 +29,7 @@ export const taskKeys = {
   list: (projectId: string) => [...taskKeys.all, 'list', projectId] as const,
   detail: (taskId: string) => [...taskKeys.all, 'detail', taskId] as const,
   picHistory: (taskId: string) => [...taskKeys.all, 'pic-history', taskId] as const,
+  dependencies: (taskId: string) => [...taskKeys.all, 'dependencies', taskId] as const,
 }
 
 export function useWorkspaceStatuses(workspaceId: string) {
@@ -146,5 +151,51 @@ export function usePicHistory(taskId: string | null) {
     queryKey: taskKeys.picHistory(taskId ?? ''),
     queryFn: () => getPicHistory(taskId ?? ''),
     enabled: taskId !== null,
+  })
+}
+
+export function useSetCompleteness(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskId, completeness }: { taskId: string; completeness: 'complete' | 'incomplete' }) => setTaskCompleteness(taskId, completeness),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
+    },
+  })
+}
+
+export function useTaskDependencies(taskId: string | null) {
+  return useQuery({
+    queryKey: taskKeys.dependencies(taskId ?? ''),
+    queryFn: () => getTaskDependencies(taskId ?? ''),
+    enabled: taskId !== null,
+  })
+}
+
+// useAddDependency/useRemoveDependency invalidate list+detail JUGA (bukan
+// cuma dependencies) -- Task.is_blocked (S4-53, kolom komputasi backend)
+// ikut berubah begitu grafik dependency berubah.
+export function useAddDependency(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskId, predecessorTaskId }: { taskId: string; predecessorTaskId: string }) => addTaskDependency(taskId, predecessorTaskId),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.dependencies(vars.taskId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
+    },
+  })
+}
+
+export function useRemoveDependency(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskId, predecessorTaskId }: { taskId: string; predecessorTaskId: string }) => removeTaskDependency(taskId, predecessorTaskId),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.dependencies(vars.taskId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
+    },
   })
 }

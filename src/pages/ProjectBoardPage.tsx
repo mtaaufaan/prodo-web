@@ -33,7 +33,10 @@ function TaskCard({ task, onOpen }: { task: Task; onOpen: () => void }) {
       className="w-full border border-line bg-panel p-3 text-left hover:border-signal"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-mono text-[8.5px] text-text-dim">{task.task_code}</span>
+        <span className="flex items-center gap-1 font-mono text-[8.5px] text-text-dim">
+          {task.is_blocked && <span title="Diblokir -- ada predecessor yang belum selesai">🔒</span>}
+          {task.task_code}
+        </span>
         <span className={cn('border px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase', PRIORITY_TONE[task.priority])}>
           {task.priority}
         </span>
