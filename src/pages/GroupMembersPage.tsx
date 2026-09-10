@@ -4,8 +4,15 @@ import { useOutletContext } from 'react-router-dom'
 import type { GroupAdminOutletContext } from '@/components/GroupAdminLayout'
 import InviteMemberModal from '@/components/members/InviteMemberModal'
 import ManageMemberModal from '@/components/members/ManageMemberModal'
+import ManagePendingExecutiveModal from '@/components/members/ManagePendingExecutiveModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { useCancelPendingInvite, useGroupMembers, useResendPendingInvite } from '@/features/members/hooks'
+import {
+  useCancelExecutiveInvitation,
+  useCancelPendingInvite,
+  useGroupMembers,
+  useResendExecutiveInvitation,
+  useResendPendingInvite,
+} from '@/features/members/hooks'
 import type { GroupMember, PendingGroupMember } from '@/features/members/types'
 import { cn, logoBgClass } from '@/lib/utils'
 
@@ -70,6 +77,7 @@ function GroupMembersPageContent() {
   const [page, setPage] = useState(1)
   const [inviteOpen, setInviteOpen] = useState(false)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [selectedPendingId, setSelectedPendingId] = useState<string | null>(null)
 
   const dir = useGroupMembers(groupId)
   const members = useMemo(() => dir.data?.members ?? [], [dir.data])
@@ -113,6 +121,7 @@ function GroupMembersPageContent() {
   }
 
   const selectedMember = members.find((m) => m.user_id === selectedUserId) ?? null
+  const selectedPending = pending.find((p) => p.id === selectedPendingId) ?? null
 
   return (
     <>
@@ -160,7 +169,7 @@ function GroupMembersPageContent() {
             row.kind === 'member' ? (
               <MemberRow key={row.key} member={row.member} onManage={() => setSelectedUserId(row.member.user_id)} />
             ) : (
-              <PendingRow key={row.key} pending={row.pending} groupId={groupId} />
+              <PendingRow key={row.key} pending={row.pending} groupId={groupId} onManage={() => setSelectedPendingId(row.pending.id)} />
             ),
           )}
           {filteredRows.length > PAGE_SIZE && (
@@ -210,6 +219,7 @@ function GroupMembersPageContent() {
 
       <InviteMemberModal open={inviteOpen} onClose={() => setInviteOpen(false)} groupId={groupId} />
       <ManageMemberModal member={selectedMember} groupId={groupId} onClose={() => setSelectedUserId(null)} />
+      <ManagePendingExecutiveModal pending={selectedPending} groupId={groupId} onClose={() => setSelectedPendingId(null)} />
     </>
   )
 }
@@ -259,17 +269,21 @@ function MemberRow({ member, onManage }: { member: GroupMember; onManage: () => 
   )
 }
 
-function PendingRow({ pending, groupId }: { pending: PendingGroupMember; groupId: string }) {
+function PendingRow({ pending, groupId, onManage }: { pending: PendingGroupMember; groupId: string; onManage: () => void }) {
   const resend = useResendPendingInvite(groupId)
   const cancel = useCancelPendingInvite(groupId)
-  const busy = resend.isPending || cancel.isPending
+  const resendExecutive = useResendExecutiveInvitation(groupId)
+  const cancelExecutive = useCancelExecutiveInvitation(groupId)
+  const busy = pending.is_executive ? resendExecutive.isPending || cancelExecutive.isPending : resend.isPending || cancel.isPending
 
   return (
     <div className="grid grid-cols-[1.6fr_1.6fr_0.8fr_0.6fr] items-center gap-3 border-t border-line px-4 py-3">
       <div className="min-w-0">
-        <div className="truncate text-[13px] text-text-body">{pending.email}</div>
+        <div className="truncate text-[13px] text-text-body">{pending.is_executive && pending.display_name ? pending.display_name : pending.email}</div>
         <div className="font-mono text-[10px] text-text-muted">
-          {pending.is_executive ? 'Undangan Eksekutif' : `${pending.workspace_name} · ${pending.org_name}`}
+          {pending.is_executive
+            ? `Undangan Eksekutif${pending.title ? ` · ${pending.title}` : ''}${pending.display_name ? ` · ${pending.email}` : ''}`
+            : `${pending.workspace_name} · ${pending.org_name}`}
         </div>
       </div>
       <div>
@@ -281,7 +295,25 @@ function PendingRow({ pending, groupId }: { pending: PendingGroupMember; groupId
       </div>
       <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-amber">Pending</span>
       {pending.is_executive ? (
-        <span className="font-mono text-[10px] text-text-dim">—</span>
+        <div className="flex flex-col gap-1">
+          <button onClick={onManage} className="w-fit font-mono text-[9.5px] text-text-muted hover:text-signal">
+            ✎ Kelola
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => resendExecutive.mutate(pending.id)}
+            className="w-fit font-mono text-[9.5px] text-text-muted hover:text-signal disabled:opacity-40"
+          >
+            Kirim Ulang
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => cancelExecutive.mutate(pending.id)}
+            className="w-fit font-mono text-[9.5px] text-text-muted hover:text-destructive disabled:opacity-40"
+          >
+            Batalkan
+          </button>
+        </div>
       ) : (
         <div className="flex flex-col gap-1">
           <button

@@ -3,11 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { cancelInvitation, createInvitations, removeMember, resendInvitation, updateMemberRole } from '@/features/workspace-members/api'
 
 import {
+  cancelExecutiveInvitation,
   deactivateMemberAccess,
   inviteExecutive,
   listGroupMembers,
   reactivateMemberAccess,
+  resendExecutiveInvitation,
   toggleExecutive,
+  updateExecutiveInvitationIdentity,
   updateMemberIdentity,
 } from './api'
 
@@ -119,6 +122,31 @@ export function useCancelPendingInvite(groupId: string) {
   return useMutation({
     mutationFn: ({ workspaceId, invitationId }: { workspaceId: string; invitationId: string }) =>
       cancelInvitation(workspaceId, invitationId),
+    onSuccess: () => invalidate(queryClient, groupId),
+  })
+}
+
+export function useUpdateExecutiveInvitationIdentity(groupId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ invitationId, displayName, title }: { invitationId: string; displayName: string; title: string }) =>
+      updateExecutiveInvitationIdentity(groupId, invitationId, displayName, title),
+    onSuccess: () => invalidate(queryClient, groupId),
+  })
+}
+
+export function useCancelExecutiveInvitation(groupId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (invitationId: string) => cancelExecutiveInvitation(groupId, invitationId),
+    onSuccess: () => invalidate(queryClient, groupId),
+  })
+}
+
+export function useResendExecutiveInvitation(groupId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (invitationId: string) => resendExecutiveInvitation(groupId, invitationId),
     onSuccess: () => invalidate(queryClient, groupId),
   })
 }
