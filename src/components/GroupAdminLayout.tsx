@@ -43,13 +43,17 @@ const NAV_ITEMS = [
   // US-079/S4G-25/26) -- forward-pull SETELAH Task Management Core (Phase
   // 1-4) selesai. Tab Project Health/Bottleneck & Flow DI DALAM halaman
   // sendiri (view-mode toggle), sama pola Storage & Kuota/Data Retention,
-  // jadi `tabs: null` bukan gap.
+  // jadi `tabs: null` bukan gap. Disembunyikan dari nav sementara atas
+  // permintaan user (2026-09-10) -- route/halaman TETAP ada, cuma link
+  // navnya yang dilepas (filter `key !== 'kinerja'` di render nav bawah).
   { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: '/performance', tabs: null as string[] | null, cta: null as string | null },
   // Ringkasan / Dashboard Landing GA (desain "GA Ringkasan.dc.html",
   // S4G-29/30) -- tab Aktivitas/Peringatan Kuota/Keanggotaan Lintas
   // Organisasi DI DALAM halaman sendiri, `tabs: null` bukan gap. Landing
-  // default GA setelah login (Login.tsx), lihat IG-34.
-  { key: 'ringkasan', icon: '◧', label: 'Ringkasan', to: '/summary', tabs: null, cta: null },
+  // default GA setelah login (Login.tsx), lihat IG-34. Label diubah jadi
+  // "Dashboard" atas permintaan user (2026-09-10) -- key/route tidak
+  // berubah, cuma teks tampilan.
+  { key: 'ringkasan', icon: '◧', label: 'Dashboard', to: '/summary', tabs: null, cta: null },
   { key: 'organisasi', icon: '▤', label: 'Organisasi', to: '/organizations', tabs: ['Semua', 'Aktif', 'Nonaktif'], cta: '+ Buat Organisasi' },
   // S4G-05, Track S4G (desain "GA Workspaces.dc.html"): grid GROUP-WIDE
   // (lintas seluruh organisasi dalam grup, org jadi kolom) -- BEDA dari
@@ -277,7 +281,7 @@ export default function GroupAdminLayout() {
           </div>
           <div className="flex flex-1 flex-col gap-0.5 overflow-auto px-1.5 py-3">
             <div className="px-2.5 pb-1 pt-1.5 font-mono text-[9px] tracking-[0.14em] text-text-faint">KELOLA GRUP</div>
-            {NAV_ITEMS.map((item) => (
+            {NAV_ITEMS.filter((item) => item.key !== 'kinerja').map((item) => (
               <GroupAdminNavItem key={item.key} icon={item.icon} label={item.label} to={item.to} />
             ))}
           </div>
@@ -298,7 +302,7 @@ export default function GroupAdminLayout() {
             <div className="flex items-center gap-2 font-mono text-[11px] text-text-muted">
               <span>{groupName}</span>
               <span className="text-text-faint">/</span>
-              <span className="text-text-bone">{activeNav ? `${activeNav.label} · ${view}` : 'Ringkasan'}</span>
+              <span className="text-text-bone">{activeNav ? `${activeNav.label} · ${view}` : 'Dashboard'}</span>
             </div>
             <div className="flex-1" />
             <input
