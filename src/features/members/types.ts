@@ -16,13 +16,15 @@ export interface GroupMember {
   suspended: boolean
   is_group_admin: boolean
   is_executive: boolean
-  executive_title: string
+  title: string
   workspace_roles: MemberWorkspaceRole[]
 }
 
 // PendingGroupMember -- satu baris undangan pending. is_executive true ->
 // workspace_id/workspace_name/org_name/role kosong (undangan Eksekutif
-// murni, tanpa target workspace).
+// murni, tanpa target workspace). display_name/title -- pre-filled lewat
+// "Kelola" SEBELUM aktivasi (Eksekutif saja, permintaan user 2026-09-10),
+// "" untuk undangan workspace biasa/yang belum diisi.
 export interface PendingGroupMember {
   id: string
   email: string
@@ -33,6 +35,8 @@ export interface PendingGroupMember {
   is_executive: boolean
   created_at: string
   expires_at: string
+  display_name: string
+  title: string
 }
 
 export interface GroupMemberDirectory {

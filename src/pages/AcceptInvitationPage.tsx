@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useSearchParams } from 'react-router-dom'
 
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getPasswordChecks } from '@/features/activation/types'
-import { useAcceptInvitation } from '@/features/invitation-accept/hooks'
+import { useAcceptInvitation, useInvitationPreview } from '@/features/invitation-accept/hooks'
 import { acceptInvitationFormSchema, type AcceptInvitationFormValues } from '@/features/invitation-accept/types'
 import { ApiError } from '@/lib/api'
 
@@ -26,15 +26,27 @@ function AcceptInvitationPageContent() {
 
   const form = useForm<AcceptInvitationFormValues>({
     resolver: zodResolver(acceptInvitationFormSchema),
-    defaultValues: { displayName: '', password: '', confirmPassword: '' },
+    defaultValues: { displayName: '', title: '', password: '', confirmPassword: '' },
   })
   const password = form.watch('password')
   const confirmPassword = form.watch('confirmPassword')
 
+  const preview = useInvitationPreview(token)
+  const isExecutive = preview.data?.is_executive ?? false
+
+  // Pre-fill Nama/Jabatan kalau GA sudah mengisikannya lewat "Kelola"
+  // SEBELUM aktivasi (Eksekutif saja, permintaan user 2026-09-10) -- tetap
+  // bisa diedit invitee, ini cuma DEFAULT form begitu preview termuat.
+  useEffect(() => {
+    if (preview.data?.display_name) form.setValue('displayName', preview.data.display_name)
+    if (preview.data?.title) form.setValue('title', preview.data.title)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview.data])
+
   const accept = useAcceptInvitation()
 
   const onSubmit = (values: AcceptInvitationFormValues) => {
-    accept.mutate({ token, displayName: values.displayName, password: values.password })
+    accept.mutate({ token, displayName: values.displayName, title: values.title, password: values.password })
   }
 
   if (!token) {
@@ -52,8 +64,10 @@ function AcceptInvitationPageContent() {
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-mint">✓ Berhasil</p>
         <h2 className="mt-1 text-xl font-bold text-text-bone">Akun {accept.data.email} aktif</h2>
         <p className="mt-3 text-sm leading-relaxed text-text-muted">
-          Anda sudah ditambahkan ke workspace dengan role {accept.data.role}. Masuk dengan email dan password yang
-          baru saja Anda buat.
+          {isExecutive
+            ? 'Anda sudah aktif sebagai Eksekutif grup ini.'
+            : `Anda sudah ditambahkan ke workspace dengan role ${accept.data.role}.`}{' '}
+          Masuk dengan email dan password yang baru saja Anda buat.
         </p>
         <Link to="/login">
           <Button className="mt-5 w-full font-mono text-[11px] font-bold tracking-[0.1em]">Masuk ke PRODO</Button>
@@ -72,9 +86,15 @@ function AcceptInvitationPageContent() {
   return (
     <ActivationSplitLayout
       heroTitle="Terima Undangan"
-      heroBody="Anda diundang bergabung ke sebuah workspace di PRODO. Buat nama tampilan dan password untuk mengaktifkan akun."
+      heroBody={
+        isExecutive
+          ? 'Anda diundang sebagai Eksekutif di sebuah grup di PRODO. Buat nama tampilan dan password untuk mengaktifkan akun.'
+          : 'Anda diundang bergabung ke sebuah workspace di PRODO. Buat nama tampilan dan password untuk mengaktifkan akun.'
+      }
     >
-      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-dim">Undangan Workspace</p>
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-dim">
+        {isExecutive ? 'Undangan Eksekutif' : 'Undangan Workspace'}
+      </p>
       <h2 className="mt-1 text-xl font-bold text-text-bone">Buat akun Anda</h2>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="mt-5 space-y-4">
@@ -91,6 +111,13 @@ function AcceptInvitationPageContent() {
           {form.formState.errors.displayName && (
             <p className="mt-2 text-[10px] text-destructive">⚠ {form.formState.errors.displayName.message}</p>
           )}
+        </div>
+
+        <div>
+          <Label htmlFor="title" className="mb-2 block text-[9.5px] tracking-[0.14em] text-text-dim">
+            Jabatan (Opsional)
+          </Label>
+          <Input id="title" autoComplete="organization-title" placeholder="mis. Chief Operating Officer" {...form.register('title')} />
         </div>
 
         <div>

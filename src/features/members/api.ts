@@ -34,3 +34,23 @@ export function inviteExecutive(groupId: string, email: string) {
     { email },
   )
 }
+
+// Cancel/Resend/UpdateIdentity undangan Eksekutif -- paritas dengan
+// undangan workspace biasa (workspace-members/api.ts cancelInvitation/
+// resendInvitation), plus pre-fill Nama/Jabatan SEBELUM aktivasi
+// (permintaan user 2026-09-10 -- tidak realistis meminta Direksi mengisi
+// sendiri sebelum akun aktif).
+export function updateExecutiveInvitationIdentity(groupId: string, invitationId: string, displayName: string, title: string) {
+  return apiClient.put<{ id: string; display_name: string; title: string }>(
+    `/api/v1/groups/${groupId}/executive-invitations/${invitationId}/identity`,
+    { display_name: displayName, title },
+  )
+}
+
+export function cancelExecutiveInvitation(groupId: string, invitationId: string) {
+  return apiClient.delete<void>(`/api/v1/groups/${groupId}/executive-invitations/${invitationId}`)
+}
+
+export function resendExecutiveInvitation(groupId: string, invitationId: string) {
+  return apiClient.post<void>(`/api/v1/groups/${groupId}/executive-invitations/${invitationId}/resend`)
+}
