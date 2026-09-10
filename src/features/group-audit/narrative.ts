@@ -60,6 +60,8 @@ export function formatGroupAuditNarrative(entry: GroupAuditLogEntry): AuditNarra
       return { text: `Secret webhook "${targetOf(entry)}" dibuat ulang`, scope: `WEBHOOK · ${org}` }
     case 'webhook.deleted':
       return { text: `Webhook "${targetOf(entry)}" dihapus`, scope: `WEBHOOK · ${org}` }
+    case 'group.locale_updated':
+      return { text: 'Format regional grup (tanggal/waktu/zona waktu/angka) diperbarui', scope: `BAHASA & LOKAL · ${org}` }
     default:
       return { text: `${entry.action} pada ${entry.entity_type}`, scope: `${entry.entity_type.toUpperCase()} · ${org}` }
   }

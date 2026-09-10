@@ -73,10 +73,13 @@ export default function Login() {
       {
         // S1-22 cuma navigate('/') tanpa lihat role -- Group Admin (dan siapa
         // pun) selalu mendarat di placeholder generik Home.tsx, padahal
-        // konsolnya sendiri (GroupAdminLayout, S4G-01) sudah ada di
-        // /organizations. Role member/workspace lain TETAP ke '/' -- belum
-        // ada dashboard untuk mereka (menyusul Task Core).
-        onSuccess: (result) => navigate(result.user.platform_role === 'group_admin' ? '/organizations' : '/'),
+        // konsolnya sendiri (GroupAdminLayout, S4G-01) sudah ada. Sempat
+        // diarahkan ke /organizations (belum ada dashboard nyata) --
+        // diarahkan ke /summary (GA Ringkasan, S4G-29/30) begitu halaman
+        // itu ada, sesuai AC "Login GA -> mendarat di halaman ini". Role
+        // member/workspace lain TETAP ke '/' -- belum ada dashboard untuk
+        // mereka (menyusul Task Core).
+        onSuccess: (result) => navigate(result.user.platform_role === 'group_admin' ? '/summary' : '/'),
         onError: (err) => {
           if (err instanceof ApiError && err.code === 'INVALID_OTP') {
             setMfaRequired(true)

@@ -18,7 +18,9 @@ import GroupPerformancePage from '@/pages/GroupPerformancePage'
 import GroupDataRetentionPage from '@/pages/GroupDataRetentionPage'
 import GroupAuditTrailPage from '@/pages/GroupAuditTrailPage'
 import GroupImportDataPage from '@/pages/GroupImportDataPage'
+import GroupLocalePage from '@/pages/GroupLocalePage'
 import GroupStorageQuotaPage from '@/pages/GroupStorageQuotaPage'
+import GroupSummaryPage from '@/pages/GroupSummaryPage'
 import GroupWebhookPage from '@/pages/GroupWebhookPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
@@ -126,6 +128,13 @@ export default function AppRouter() {
               platform_admin dan render children polos (PA punya konsol
               sendiri di /platform/*), shell cuma tampil untuk group_admin. */}
           <Route element={<GroupAdminLayout />}>
+            {/* Ringkasan / Dashboard Landing GA (Track S4G S4G-29/30, desain
+                "GA Ringkasan.dc.html") -- landing default GA setelah login
+                (Login.tsx), menggantikan redirect sementara ke
+                /organizations (IG-34). Backend GET /groups/:groupId/summary
+                PA/GA pengelola grup ini saja, murni agregasi fitur yang
+                sudah ada (tidak ada tabel baru). */}
+            <Route path="/summary" element={<GroupSummaryPage />} />
             {/* Performance Dashboard (Track S4G, desain "GA Kinerja
                 Grup.dc.html", US-079/S4G-25/26) -- forward-pull SETELAH Task
                 Management Core (Phase 1-4) selesai, backend GET
@@ -163,6 +172,13 @@ export default function AppRouter() {
                 GET/POST/PUT/PATCH/DELETE /groups/:groupId/webhooks* PA/GA
                 pengelola grup ini saja. */}
             <Route path="/webhooks" element={<GroupWebhookPage />} />
+            {/* Bahasa & Lokal (desain "GA Bahasa Lokal.dc.html", US-010
+                lanjutan, S4G-27/28): tab Bahasa Default (reuse
+                organizations.default_language, S3-29-31) + Cakupan
+                Terjemahan (statis, lihat komentar COVERAGE_ROWS) di dalam
+                halaman sendiri. Backend GET/PUT /groups/:groupId/locale
+                PA/GA pengelola grup ini saja. */}
+            <Route path="/locale" element={<GroupLocalePage />} />
             {/* Audit Trail (desain "GA Audit Trail.dc.html"): sama gate --
                 backend GET /groups/:groupId/audit-logs* PA/GA pengelola
                 grup ini saja, READ-ONLY di atas audit_logs yang sudah ada

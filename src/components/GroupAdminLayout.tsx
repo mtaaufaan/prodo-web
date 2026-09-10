@@ -45,7 +45,11 @@ const NAV_ITEMS = [
   // sendiri (view-mode toggle), sama pola Storage & Kuota/Data Retention,
   // jadi `tabs: null` bukan gap.
   { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: '/performance', tabs: null as string[] | null, cta: null as string | null },
-  { key: 'ringkasan', icon: '◧', label: 'Ringkasan', to: null, tabs: null, cta: null },
+  // Ringkasan / Dashboard Landing GA (desain "GA Ringkasan.dc.html",
+  // S4G-29/30) -- tab Aktivitas/Peringatan Kuota/Keanggotaan Lintas
+  // Organisasi DI DALAM halaman sendiri, `tabs: null` bukan gap. Landing
+  // default GA setelah login (Login.tsx), lihat IG-34.
+  { key: 'ringkasan', icon: '◧', label: 'Ringkasan', to: '/summary', tabs: null, cta: null },
   { key: 'organisasi', icon: '▤', label: 'Organisasi', to: '/organizations', tabs: ['Semua', 'Aktif', 'Nonaktif'], cta: '+ Buat Organisasi' },
   // S4G-05, Track S4G (desain "GA Workspaces.dc.html"): grid GROUP-WIDE
   // (lintas seluruh organisasi dalam grup, org jadi kolom) -- BEDA dari
@@ -75,7 +79,13 @@ const NAV_ITEMS = [
   // Endpoint/Log Pengiriman DI DALAM halaman sendiri, sama pola Import
   // Data/Data Retention. CTA "+ Webhook" buka form Buat Webhook.
   { key: 'webhook', icon: '⌗', label: 'Webhook', to: '/webhooks', tabs: null, cta: '+ Webhook' },
-  { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: null, tabs: null, cta: null },
+  // Bahasa & Lokal (desain "GA Bahasa Lokal.dc.html", US-010 lanjutan,
+  // S4G-27/28) -- tab Bahasa Default/Cakupan Terjemahan DI DALAM halaman
+  // sendiri (sama pola Storage & Kuota/Data Retention), `tabs: null` di
+  // sini bukan gap. Tombol SIMPAN ada di toolbar ATAS halaman sendiri
+  // (bukan CTA shell) karena harus muncul/nonaktif mengikuti dirty state
+  // form, bukan aksi "buat baru" seperti CTA menu lain -- `cta: null`.
+  { key: 'bahasa', icon: '🌐', label: 'Bahasa & Lokal', to: '/locale', tabs: null, cta: null },
   // Audit Trail (desain "GA Audit Trail.dc.html") -- tombol "Ekspor CSV"
   // ada DI DALAM halaman sendiri (bagian tab bar desain), bukan CTA layout
   // seperti menu lain, jadi cta: null di sini bukan gap.
