@@ -287,11 +287,9 @@ function PendingRow({ pending, groupId, onManage }: { pending: PendingGroupMembe
         </div>
       </div>
       <div>
-        {!pending.is_executive && (
-          <span className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] tracking-[0.04em] text-text-muted">
-            {pending.role.toUpperCase().replace(/_/g, ' ')}
-          </span>
-        )}
+        <span className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] tracking-[0.04em] text-text-muted">
+          {pending.is_executive ? 'EKSEKUTIF' : pending.role.toUpperCase().replace(/_/g, ' ')}
+        </span>
       </div>
       <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-amber">Pending</span>
       {pending.is_executive ? (
