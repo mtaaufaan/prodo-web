@@ -55,7 +55,7 @@ export default function ManageMemberModal({ member, groupId, onClose }: ManageMe
   useEffect(() => {
     if (member) {
       setDisplayName(member.display_name)
-      setTitle(member.executive_title)
+      setTitle(member.title)
       setAddWorkspaceId('')
       setAddRole('viewer')
       setAddError(null)

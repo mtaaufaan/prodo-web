@@ -1,10 +1,19 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 
-import { acceptInvitation } from './api'
+import { acceptInvitation, previewInvitation } from './api'
 
 export function useAcceptInvitation() {
   return useMutation({
-    mutationFn: ({ token, displayName, password }: { token: string; displayName: string; password: string }) =>
-      acceptInvitation(token, displayName, password),
+    mutationFn: ({ token, displayName, title, password }: { token: string; displayName: string; title: string; password: string }) =>
+      acceptInvitation(token, displayName, title, password),
+  })
+}
+
+export function useInvitationPreview(token: string) {
+  return useQuery({
+    queryKey: ['invitation-preview', token],
+    queryFn: () => previewInvitation(token),
+    enabled: token !== '',
+    retry: false,
   })
 }
