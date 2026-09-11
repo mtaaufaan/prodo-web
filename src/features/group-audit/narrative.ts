@@ -36,6 +36,22 @@ function domainOf(entry: GroupAuditLogEntry): string {
   return typeof entry.metadata?.domain === 'string' ? entry.metadata.domain : 'tidak diketahui'
 }
 
+// roleLabel -- user.login/user.backup_code_used (IG-57) dipakai lintas
+// role (group_admin/executive/member, platform_admin tidak pernah muncul
+// di sini -- tetap masuk platform_audit_logs terpisah).
+function roleLabel(entry: GroupAuditLogEntry): string {
+  switch (entry.actor_role) {
+    case 'group_admin':
+      return 'Group Admin'
+    case 'executive':
+      return 'Eksekutif'
+    case 'member':
+      return 'Member'
+    default:
+      return 'Pengguna'
+  }
+}
+
 export function formatGroupAuditNarrative(entry: GroupAuditLogEntry): AuditNarrative {
   const org = entry.org_name ?? 'Seluruh grup'
   switch (entry.action) {
@@ -115,6 +131,18 @@ export function formatGroupAuditNarrative(entry: GroupAuditLogEntry): AuditNarra
       }
     case 'invitation.identity_updated':
       return { text: `Nama/Jabatan Eksekutif "${emailOf(entry)}" diperbarui sebelum aktivasi`, scope: `MEMBERS & ROLES · ${org}` }
+    // user.login/user.backup_code_used (IG-57): entity_type 'user',
+    // org_id NULL + metadata.group_id (cakupan seluruh grup, pola sama
+    // organization.domain_*/group.locale_updated -- login tidak melekat ke
+    // satu organisasi/workspace tunggal). Ditulis SATU baris PER grup yang
+    // relevan bagi aktor (group_admin_assignments/executive_assignments/
+    // workspace_members, lihat AccountRepository.resolveAuditGroupIDs) --
+    // satu login GA yang kelola 2 grup jadi 2 baris terpisah, satu di
+    // masing-masing Audit Trail grup.
+    case 'user.login':
+      return { text: `Login ${roleLabel(entry)} berhasil`, scope: `AKSES & KEAMANAN · ${org}` }
+    case 'user.backup_code_used':
+      return { text: `Login ${roleLabel(entry)} menggunakan kode cadangan MFA`, scope: `AKSES & KEAMANAN · ${org}` }
     default:
       return { text: `${entry.action} pada ${entry.entity_type}`, scope: `${entry.entity_type.toUpperCase()} · ${org}` }
   }
