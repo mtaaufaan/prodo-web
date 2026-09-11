@@ -5,7 +5,7 @@ export interface Organization {
   group_id: string
   name: string
   slug: string
-  domain: string
+  domains: string[]
   default_language: string
   storage_quota_bytes: number
   storage_max_bytes: number
@@ -63,9 +63,17 @@ export type CreateOrganizationFormValues = z.infer<typeof createOrganizationSche
 export const updateOrganizationSchema = z.object({
   name: z.string().min(1, 'Nama wajib diisi'),
   slug: slugSchema,
-  domain: domainSchema,
 })
 export type UpdateOrganizationFormValues = z.infer<typeof updateOrganizationSchema>
+
+// addOrganizationDomainSchema (2026-09-11): organisasi bisa punya lebih
+// dari satu domain email resmi -- dipisah dari updateOrganizationSchema,
+// dikelola lewat POST/DELETE .../domains sendiri-sendiri (bukan draft
+// state form gabungan seperti name/slug).
+export const addOrganizationDomainSchema = z.object({
+  domain: z.string().min(1, 'Domain wajib diisi').regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i, 'Format domain tidak valid (mis. acme.co.id)'),
+})
+export type AddOrganizationDomainFormValues = z.infer<typeof addOrganizationDomainSchema>
 
 // S3-29/30/31 (US-010).
 export const updateSettingsSchema = z.object({
