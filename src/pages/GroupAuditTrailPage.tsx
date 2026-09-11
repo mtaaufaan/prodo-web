@@ -20,6 +20,16 @@ const TYPE_TONE: Record<AuditActionType, string> = {
   ACCESS: 'border-amber text-amber',
 }
 
+// shortRequestPath -- request_path disimpan lengkap "METHOD scheme://host/path"
+// (middleware/request_meta.go, disengaja supaya baris audit bisa dibedakan
+// asal dev/production kalau log dikumpulkan lintas environment). Untuk
+// tampilan grid yang sempit, scheme+host dilepas (redundan untuk satu
+// environment yang sama) -- nilai LENGKAP tetap ada di metadata mentah,
+// cuma tidak ditampilkan apa adanya di sini.
+function shortRequestPath(path: string): string {
+  return path.replace(/^(\S+)\s+https?:\/\/[^/]+/, '$1')
+}
+
 function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -38,7 +48,7 @@ function EntryRow({ entry }: { entry: GroupAuditLogEntry }) {
 
   return (
     <div className="border-t border-line">
-      <div onClick={() => setExpanded((v) => !v)} className="grid cursor-pointer grid-cols-[1fr_2.4fr_0.9fr_0.6fr] items-start gap-3 px-4 py-3 hover:bg-raised-2">
+      <div onClick={() => setExpanded((v) => !v)} className="grid cursor-pointer grid-cols-[0.9fr_2.1fr_0.7fr_1.1fr] items-start gap-3 px-4 py-3 hover:bg-raised-2">
         <span className="font-mono text-[9.5px] text-text-muted">{time}</span>
         <div className="flex min-w-0 items-start gap-2.5">
           <span className={cn('mt-0.5 flex-shrink-0 border px-1.5 py-0.5 font-mono text-[8.5px] font-semibold tracking-[0.04em]', TYPE_TONE[entry.type])}>{entry.type}</span>
@@ -48,7 +58,12 @@ function EntryRow({ entry }: { entry: GroupAuditLogEntry }) {
           </div>
         </div>
         <span className="truncate font-mono text-[9.5px] text-text-muted">{entry.actor_display_name ?? 'Sistem'}</span>
-        <span className="truncate font-mono text-[9px] text-text-muted">{entry.actor_ip ?? '—'}</span>
+        <div className="min-w-0 font-mono text-[9px] text-text-muted">
+          <div>{entry.actor_ip ?? '—'}</div>
+          {typeof entry.metadata?.request_path === 'string' && (
+            <div className="mt-0.5 break-all text-text-dim">{shortRequestPath(entry.metadata.request_path)}</div>
+          )}
+        </div>
       </div>
       {expanded && (
         <div className="flex flex-col gap-2.5 px-4 pb-4">
@@ -231,7 +246,7 @@ function GroupAuditTrailPageContent() {
       {exportError && <p className="font-mono text-[10.5px] text-destructive">⚠ {exportError}</p>}
 
       <div className="border border-line">
-        <div className="grid grid-cols-[1fr_2.4fr_0.9fr_0.6fr] gap-3 border-b border-line bg-raised-2 px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
+        <div className="grid grid-cols-[0.9fr_2.1fr_0.7fr_1.1fr] gap-3 border-b border-line bg-raised-2 px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
           <span>Timestamp</span>
           <span>Aksi</span>
           <span>Aktor</span>
