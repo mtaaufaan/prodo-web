@@ -282,7 +282,7 @@ function PendingRow({ pending, groupId, onManage }: { pending: PendingGroupMembe
         <div className="truncate text-[13px] text-text-body">{pending.is_executive && pending.display_name ? pending.display_name : pending.email}</div>
         <div className="font-mono text-[10px] text-text-muted">
           {pending.is_executive
-            ? `Undangan Eksekutif${pending.title ? ` · ${pending.title}` : ''}${pending.display_name ? ` · ${pending.email}` : ''}`
+            ? [pending.title, pending.display_name ? pending.email : null].filter(Boolean).join(' · ')
             : `${pending.workspace_name} · ${pending.org_name}`}
         </div>
       </div>
