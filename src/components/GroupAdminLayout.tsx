@@ -24,10 +24,15 @@ import { useAuthStore } from '@/store/useAuthStore'
 // - Search bar (⌘K) -- tidak ada endpoint pencarian lintas-entity.
 // - Ikon notifikasi -- tidak ada GET /notifications (in-app notification
 //   CUMA ditulis saat AssignRole, S2-05, tidak pernah dibaca ulang).
-// - Ikon pengaturan di icon rail + dropdown profil (bahasa/pengaturan akun)
-//   -- halaman "GA Pengaturan Akun" belum dibangun; toggle bahasa GA area
-//   belum di-wire ke i18next (sama keterbatasan PlatformAdminLayout, IG-30
-//   sengaja membatasi cakupan i18n ke PA saja).
+// - Ikon pengaturan di icon rail (⚙) SEKARANG mengarah ke /account-settings
+//   (2026-09-11, implementation_gaps.md IG-59, "GA Pengaturan Akun.dc.html")
+//   -- TAPI dropdown profil ringkas di footer sidebar (avatar+nama+"⚙
+//   Pengaturan akun"+toggle Bahasa cepat, terlihat di screenshot desain)
+//   MASIH belum dibangun, cuma jalur ⚙ topbar yang tersambung. Toggle
+//   bahasa GA area juga belum di-wire ke i18next (sama keterbatasan
+//   PlatformAdminLayout, IG-30 sengaja membatasi cakupan i18n ke PA saja) --
+//   locale tersimpan ke backend dari tab Profil, tapi belum mengubah teks
+//   UI mana pun.
 // Tombol CTA topbar (S4G-03 fix, ditemukan user 2026-08-31 lewat login
 // sungguhan ke demo interaktif "PRODO Alur Aplikasi - Standalone.html"):
 // desain menaruh SATU tombol create di topbar (beda label per menu aktif,
@@ -212,9 +217,9 @@ export default function GroupAdminLayout() {
           </button>
           <button
             type="button"
-            disabled
-            title="Pengaturan akun belum tersedia"
-            className="flex h-[38px] w-[38px] cursor-not-allowed items-center justify-center border-l-2 border-transparent font-mono text-[15px] text-text-dim"
+            onClick={() => navigate('/account-settings')}
+            title="Pengaturan akun"
+            className="flex h-[38px] w-[38px] items-center justify-center border-l-2 border-transparent font-mono text-[15px] text-text-dim hover:text-signal"
           >
             ⚙
           </button>

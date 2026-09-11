@@ -26,7 +26,13 @@ function formatRelative(iso: string): string {
 
 type PendingConfirm = { kind: 'single'; jti: string; label: string } | { kind: 'all' } | null
 
-function SessionsPageContent() {
+// SessionsPanel -- diekspor (bukan cuma lokal file ini) supaya bisa dipakai
+// ULANG di tab "Sesi & Perangkat" GA Pengaturan Akun (Track S4G), TANPA
+// duplikasi markup/logic revoke yang sudah teruji di sini (S1-31/33/34).
+// Beda dari SessionsPage di bawah: TIDAK membungkus <div className="min-h-
+// screen ...">, cuma konten grid+tombol -- pemanggil yang menentukan layout
+// sekitarnya (halaman standalone vs. tab di dalam halaman lain).
+export function SessionsPanel() {
   const { data, isLoading, isError } = useSessionList()
   const revokeSession = useRevokeSession()
   const revokeAll = useRevokeAllSessions()
@@ -47,10 +53,8 @@ function SessionsPageContent() {
   const isConfirming = pending?.kind === 'single' ? revokeSession.isPending : revokeAll.isPending
 
   return (
-    <div className="min-h-screen bg-bg-deep">
-      <div className="mx-auto max-w-4xl space-y-6 p-6">
-        <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Sesi & Perangkat</h1>
-
+    <>
+      <div className="space-y-6">
         {isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
         {isError && <p className="text-sm text-destructive">Gagal memuat daftar sesi.</p>}
 
@@ -140,7 +144,7 @@ function SessionsPageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   )
 }
 
@@ -185,7 +189,12 @@ function SessionRow({ session, onRevoke }: { session: SessionSummary; onRevoke: 
 export default function SessionsPage() {
   return (
     <ErrorBoundary>
-      <SessionsPageContent />
+      <div className="min-h-screen bg-bg-deep">
+        <div className="mx-auto max-w-4xl space-y-6 p-6">
+          <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Sesi & Perangkat</h1>
+          <SessionsPanel />
+        </div>
+      </div>
     </ErrorBoundary>
   )
 }
