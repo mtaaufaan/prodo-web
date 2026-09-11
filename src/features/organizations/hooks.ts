@@ -1,11 +1,14 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
+  addOrganizationDomain,
   createOrganization,
   deactivateOrganization,
   deleteOrganization,
+  listOrganizationDomains,
   listOrganizations,
   reactivateOrganization,
+  removeOrganizationDomain,
   updateOrganization,
   updateOrganizationSettings,
   updateOrganizationStorageQuota,
@@ -15,6 +18,7 @@ import type { CreateOrganizationFormValues, UpdateOrganizationFormValues } from 
 export const organizationKeys = {
   all: ['organizations'] as const,
   list: (groupId?: string) => [...organizationKeys.all, 'list', groupId ?? ''] as const,
+  domains: (orgId: string) => [...organizationKeys.all, 'domains', orgId] as const,
 }
 
 const organizationListQuery = (groupId?: string) =>
@@ -75,6 +79,39 @@ export function useUpdateOrganizationStorageQuota(id: string) {
     mutationFn: ({ quotaBytes, retentionDays }: { quotaBytes: number; retentionDays: number }) =>
       updateOrganizationStorageQuota(id, quotaBytes, retentionDays),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: organizationKeys.all }),
+  })
+}
+
+// Domain email resmi (2026-09-11): satu organisasi bisa punya lebih dari
+// satu domain -- query terpisah dari list organisasi (butuh `id` per
+// domain untuk tombol hapus, lihat komentar listOrganizationDomains di api.ts).
+export function useOrganizationDomains(orgId: string) {
+  return useQuery({
+    queryKey: organizationKeys.domains(orgId),
+    queryFn: () => listOrganizationDomains(orgId),
+    enabled: orgId !== '',
+  })
+}
+
+export function useAddOrganizationDomain(orgId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (domainValue: string) => addOrganizationDomain(orgId, domainValue),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: organizationKeys.domains(orgId) })
+      queryClient.invalidateQueries({ queryKey: organizationKeys.all })
+    },
+  })
+}
+
+export function useRemoveOrganizationDomain(orgId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (domainId: string) => removeOrganizationDomain(orgId, domainId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: organizationKeys.domains(orgId) })
+      queryClient.invalidateQueries({ queryKey: organizationKeys.all })
+    },
   })
 }
 
