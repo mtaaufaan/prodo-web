@@ -62,6 +62,29 @@ export function formatGroupAuditNarrative(entry: GroupAuditLogEntry): AuditNarra
       return { text: `Webhook "${targetOf(entry)}" dihapus`, scope: `WEBHOOK · ${org}` }
     case 'group.locale_updated':
       return { text: 'Format regional grup (tanggal/waktu/zona waktu/angka) diperbarui', scope: `BAHASA & LOKAL · ${org}` }
+    // invitation.* -- dipakai BERSAMA undangan workspace biasa (workspace_id,
+    // tanpa metadata) dan undangan Eksekutif murni (metadata.is_executive_invite,
+    // ditambahkan bersama fitur Kelola/Cancel/Resend Eksekutif) -- dibedakan
+    // dari metadata, BUKAN field terpisah di audit_logs. Tidak ada nama/email
+    // undangan spesifik yang bisa ditampilkan (entity_id tidak resolve ke
+    // tabel manapun untuk user_invitations, beda dari workspace/webhook).
+    case 'invitation.created':
+      return {
+        text: entry.metadata?.is_executive_invite === true ? 'Undangan Eksekutif dibuat' : 'Undangan workspace dibuat',
+        scope: `MEMBERS & ROLES · ${org}`,
+      }
+    case 'invitation.cancelled':
+      return {
+        text: entry.metadata?.is_executive_invite === true ? 'Undangan Eksekutif dibatalkan' : 'Undangan workspace dibatalkan',
+        scope: `MEMBERS & ROLES · ${org}`,
+      }
+    case 'invitation.accepted':
+      return {
+        text: entry.metadata?.is_executive_invite === true ? 'Undangan Eksekutif diterima -- akun aktif' : 'Undangan workspace diterima -- akun aktif',
+        scope: `MEMBERS & ROLES · ${org}`,
+      }
+    case 'invitation.identity_updated':
+      return { text: 'Nama/Jabatan Eksekutif diperbarui sebelum aktivasi', scope: `MEMBERS & ROLES · ${org}` }
     default:
       return { text: `${entry.action} pada ${entry.entity_type}`, scope: `${entry.entity_type.toUpperCase()} · ${org}` }
   }
