@@ -21,6 +21,14 @@ function targetOf(entry: GroupAuditLogEntry, fallback = 'tidak diketahui'): stri
   return entry.target_name ?? entry.org_name ?? fallback
 }
 
+// emailOf -- undangan (user_invitations) tidak resolve ke nama apa pun
+// lewat JOIN (beda dari workspace/webhook), jadi email disimpan langsung
+// di metadata saat audit ditulis (insertInvitationAudit/
+// insertExecutiveInvitationAudit) supaya baris ini tetap bisa diidentifikasi.
+function emailOf(entry: GroupAuditLogEntry): string {
+  return typeof entry.metadata?.email === 'string' ? entry.metadata.email : 'tidak diketahui'
+}
+
 export function formatGroupAuditNarrative(entry: GroupAuditLogEntry): AuditNarrative {
   const org = entry.org_name ?? 'Seluruh grup'
   switch (entry.action) {
@@ -62,6 +70,37 @@ export function formatGroupAuditNarrative(entry: GroupAuditLogEntry): AuditNarra
       return { text: `Webhook "${targetOf(entry)}" dihapus`, scope: `WEBHOOK · ${org}` }
     case 'group.locale_updated':
       return { text: 'Format regional grup (tanggal/waktu/zona waktu/angka) diperbarui', scope: `BAHASA & LOKAL · ${org}` }
+    // invitation.* -- dipakai BERSAMA undangan workspace biasa (org_id
+    // diresolve dari workspace_id, bug lama diperbaiki 2026-09-11 --
+    // sebelumnya org_id TIDAK PERNAH diisi jadi baris ini tidak pernah
+    // terlihat GA Audit Trail sama sekali) dan undangan Eksekutif murni
+    // (metadata.is_executive_invite) -- dibedakan dari metadata, BUKAN
+    // field terpisah di audit_logs. email SELALU ada di metadata (entity_id
+    // undangan tidak resolve ke nama apa pun lewat JOIN, beda dari
+    // workspace/webhook yang punya tabel target bernama).
+    case 'invitation.created':
+      return {
+        text: entry.metadata?.is_executive_invite === true
+          ? `Undangan Eksekutif dibuat untuk "${emailOf(entry)}"`
+          : `Undangan workspace dibuat untuk "${emailOf(entry)}"`,
+        scope: `MEMBERS & ROLES · ${org}`,
+      }
+    case 'invitation.cancelled':
+      return {
+        text: entry.metadata?.is_executive_invite === true
+          ? `Undangan Eksekutif "${emailOf(entry)}" dibatalkan`
+          : `Undangan workspace "${emailOf(entry)}" dibatalkan`,
+        scope: `MEMBERS & ROLES · ${org}`,
+      }
+    case 'invitation.accepted':
+      return {
+        text: entry.metadata?.is_executive_invite === true
+          ? `Undangan Eksekutif "${emailOf(entry)}" diterima -- akun aktif`
+          : `Undangan workspace "${emailOf(entry)}" diterima -- akun aktif`,
+        scope: `MEMBERS & ROLES · ${org}`,
+      }
+    case 'invitation.identity_updated':
+      return { text: `Nama/Jabatan Eksekutif "${emailOf(entry)}" diperbarui sebelum aktivasi`, scope: `MEMBERS & ROLES · ${org}` }
     default:
       return { text: `${entry.action} pada ${entry.entity_type}`, scope: `${entry.entity_type.toUpperCase()} · ${org}` }
   }

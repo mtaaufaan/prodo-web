@@ -145,7 +145,9 @@ function GroupSummaryPageContent() {
                       <div className="min-w-0 flex-1">
                         <div className="text-[12.5px] text-text-bone">{n.text}</div>
                         <div className="mt-0.5 font-mono text-[9px] text-text-dim">
-                          {(entry.actor_display_name ?? 'Sistem').toUpperCase()} · {new Date(entry.logged_at).toLocaleString('id-ID')} UTC · {n.scope}
+                          {(entry.actor_display_name ?? 'Sistem').toUpperCase()} ·{' '}
+                          {new Date(entry.logged_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} ·{' '}
+                          {n.scope}
                         </div>
                       </div>
                     </div>
