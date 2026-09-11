@@ -47,3 +47,26 @@ export function updateOrganizationStorageQuota(id: string, quotaBytes: number, r
     { storage_quota_bytes: quotaBytes, retention_days: retentionDays },
   )
 }
+
+// Domain email resmi (2026-09-11): satu organisasi bisa punya lebih dari
+// satu domain -- dipisah dari updateOrganization, dikelola per-domain.
+// listOrganizationDomains mengembalikan `id` per domain (beda dari field
+// `domains` di Organization -- array string polos, cukup untuk tampilan
+// ringkas tapi tidak cukup untuk tombol hapus per-domain).
+export interface OrganizationDomainEntry {
+  id: string
+  domain: string
+  created_at: string
+}
+
+export function listOrganizationDomains(orgId: string) {
+  return apiClient.get<{ domains: OrganizationDomainEntry[] }>(`/api/v1/organizations/${orgId}/domains`)
+}
+
+export function addOrganizationDomain(orgId: string, domain: string) {
+  return apiClient.post<{ id: string; domain: string }>(`/api/v1/organizations/${orgId}/domains`, { domain })
+}
+
+export function removeOrganizationDomain(orgId: string, domainId: string) {
+  return apiClient.delete<void>(`/api/v1/organizations/${orgId}/domains/${domainId}`)
+}

@@ -29,6 +29,13 @@ function emailOf(entry: GroupAuditLogEntry): string {
   return typeof entry.metadata?.email === 'string' ? entry.metadata.email : 'tidak diketahui'
 }
 
+// domainOf -- sama alasan emailOf: entity_id organization_domains tidak
+// resolve ke nama apa pun lewat JOIN, domain-nya disimpan di metadata saat
+// audit ditulis (insertOrgDomainAudit).
+function domainOf(entry: GroupAuditLogEntry): string {
+  return typeof entry.metadata?.domain === 'string' ? entry.metadata.domain : 'tidak diketahui'
+}
+
 export function formatGroupAuditNarrative(entry: GroupAuditLogEntry): AuditNarrative {
   const org = entry.org_name ?? 'Seluruh grup'
   switch (entry.action) {
@@ -70,6 +77,13 @@ export function formatGroupAuditNarrative(entry: GroupAuditLogEntry): AuditNarra
       return { text: `Webhook "${targetOf(entry)}" dihapus`, scope: `WEBHOOK · ${org}` }
     case 'group.locale_updated':
       return { text: 'Format regional grup (tanggal/waktu/zona waktu/angka) diperbarui', scope: `BAHASA & LOKAL · ${org}` }
+    // organization.domain_* (2026-09-11): entity_type 'organization_domain'
+    // (BUKAN 'organization' -- entity_id menunjuk baris organization_domains),
+    // domain SELALU ada di metadata (sama alasan email di invitation.*).
+    case 'organization.domain_added':
+      return { text: `Domain email "${domainOf(entry)}" ditambahkan ke organisasi "${targetOf(entry)}"`, scope: `ORGANISASI · ${org}` }
+    case 'organization.domain_removed':
+      return { text: `Domain email "${domainOf(entry)}" dihapus dari organisasi "${targetOf(entry)}"`, scope: `ORGANISASI · ${org}` }
     // invitation.* -- dipakai BERSAMA undangan workspace biasa (org_id
     // diresolve dari workspace_id, bug lama diperbaiki 2026-09-11 --
     // sebelumnya org_id TIDAK PERNAH diisi jadi baris ini tidak pernah

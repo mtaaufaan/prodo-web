@@ -231,7 +231,7 @@ function OrganizationRow({ organization, onManage }: { organization: Organizatio
         </span>
         <div>
           <div className="text-[13px] text-text-body">{organization.name}</div>
-          <div className="font-mono text-[10px] text-text-muted">{organization.domain || organization.slug}</div>
+          <div className="font-mono text-[10px] text-text-muted">{organization.domains[0] ?? organization.slug}</div>
         </div>
       </div>
       <Link

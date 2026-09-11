@@ -9,14 +9,18 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
+  useAddOrganizationDomain,
   useDeactivateOrganization,
   useDeleteOrganization,
+  useOrganizationDomains,
   useReactivateOrganization,
+  useRemoveOrganizationDomain,
   useUpdateOrganization,
   useUpdateOrganizationSettings,
   useUpdateOrganizationStorageQuota,
 } from '@/features/organizations/hooks'
 import {
+  addOrganizationDomainSchema,
   updateOrganizationSchema,
   updateStorageQuotaSchema,
   type Organization,
@@ -69,12 +73,17 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
   const deleteOrganization = useDeleteOrganization()
   const updateSettings = useUpdateOrganizationSettings(organization?.id ?? '')
   const updateQuota = useUpdateOrganizationStorageQuota(organization?.id ?? '')
+  const domainsQuery = useOrganizationDomains(organization?.id ?? '')
+  const addDomain = useAddOrganizationDomain(organization?.id ?? '')
+  const removeDomain = useRemoveOrganizationDomain(organization?.id ?? '')
+  const [newDomain, setNewDomain] = useState('')
+  const [domainError, setDomainError] = useState<string | null>(null)
 
   const [language, setLanguage] = useState('id')
 
   const infoForm = useForm<UpdateOrganizationFormValues>({
     resolver: zodResolver(updateOrganizationSchema),
-    defaultValues: { name: '', slug: '', domain: '' },
+    defaultValues: { name: '', slug: '' },
   })
   const quotaForm = useForm<UpdateStorageQuotaFormValues>({
     resolver: zodResolver(updateStorageQuotaSchema),
@@ -83,15 +92,27 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
 
   useEffect(() => {
     if (organization) {
-      infoForm.reset({ name: organization.name, slug: organization.slug, domain: organization.domain })
+      infoForm.reset({ name: organization.name, slug: organization.slug })
       quotaForm.reset({
         quota_gb: Number((organization.storage_quota_bytes / GB).toFixed(2)),
         retention_days: organization.retention_days,
       })
       setLanguage(organization.default_language)
       setDeleteConfirmText('')
+      setNewDomain('')
+      setDomainError(null)
     }
   }, [organization, infoForm, quotaForm])
+
+  const handleAddDomain = () => {
+    const parsed = addOrganizationDomainSchema.safeParse({ domain: newDomain.trim() })
+    if (!parsed.success) {
+      setDomainError(parsed.error.issues[0]?.message ?? 'Format domain tidak valid')
+      return
+    }
+    setDomainError(null)
+    addDomain.mutate(parsed.data.domain, { onSuccess: () => setNewDomain('') })
+  }
 
   const handleClose = () => {
     setConfirmAction(null)
@@ -182,13 +203,6 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-domain">Domain Email Resmi (Opsional)</Label>
-                <Input id="edit-domain" placeholder="acme.co.id" {...infoForm.register('domain')} />
-                {infoForm.formState.errors.domain && (
-                  <p className="text-[11px] text-destructive">{infoForm.formState.errors.domain.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="edit-language">Bahasa Default</Label>
                 <select
                   id="edit-language"
@@ -258,6 +272,48 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
                 {quotaErrorMessage && <p className="mt-2 text-[11px] text-destructive">{quotaErrorMessage}</p>}
               </div>
             </form>
+
+            <div className="border-t border-line pt-4">
+              <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Domain Email Resmi</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(domainsQuery.data?.domains ?? []).map((d) => (
+                  <span key={d.id} className="flex items-center gap-1.5 border border-line-strong px-2 py-1 font-mono text-[10.5px] text-text-body">
+                    {d.domain}
+                    <button
+                      type="button"
+                      onClick={() => removeDomain.mutate(d.id)}
+                      disabled={removeDomain.isPending}
+                      aria-label={`Hapus domain ${d.domain}`}
+                      className="text-text-muted hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+                {domainsQuery.data?.domains.length === 0 && <p className="text-[11px] text-text-muted">Belum ada domain terdaftar.</p>}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Input
+                  value={newDomain}
+                  onChange={(e) => setNewDomain(e.target.value)}
+                  placeholder="acme.co.id"
+                  className="w-48"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAddDomain}
+                  disabled={addDomain.isPending || !newDomain.trim()}
+                  className="font-mono text-[10px] uppercase tracking-[0.06em]"
+                >
+                  + Tambah
+                </Button>
+              </div>
+              {domainError && <p className="mt-1 text-[11px] text-destructive">{domainError}</p>}
+              {addDomain.error instanceof ApiError && <p className="mt-1 text-[11px] text-destructive">{addDomain.error.message}</p>}
+              {removeDomain.error instanceof ApiError && <p className="mt-1 text-[11px] text-destructive">{removeDomain.error.message}</p>}
+              <p className="mt-2 text-[11px] text-text-muted">Hanya email pada salah satu domain ini yang dapat diundang lewat Import Data CSV.</p>
+            </div>
 
             <div className="border-t border-line pt-4">
               <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Status Organisasi</p>
