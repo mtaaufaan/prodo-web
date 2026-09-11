@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useMyContext, useSwitchContext } from '@/features/context/hooks'
@@ -24,15 +25,17 @@ import { useAuthStore } from '@/store/useAuthStore'
 // - Search bar (⌘K) -- tidak ada endpoint pencarian lintas-entity.
 // - Ikon notifikasi -- tidak ada GET /notifications (in-app notification
 //   CUMA ditulis saat AssignRole, S2-05, tidak pernah dibaca ulang).
-// - Ikon pengaturan di icon rail (⚙) SEKARANG mengarah ke /account-settings
-//   (2026-09-11, implementation_gaps.md IG-59, "GA Pengaturan Akun.dc.html")
-//   -- TAPI dropdown profil ringkas di footer sidebar (avatar+nama+"⚙
-//   Pengaturan akun"+toggle Bahasa cepat, terlihat di screenshot desain)
-//   MASIH belum dibangun, cuma jalur ⚙ topbar yang tersambung. Toggle
-//   bahasa GA area juga belum di-wire ke i18next (sama keterbatasan
-//   PlatformAdminLayout, IG-30 sengaja membatasi cakupan i18n ke PA saja) --
-//   locale tersimpan ke backend dari tab Profil, tapi belum mengubah teks
-//   UI mana pun.
+// - Ikon pengaturan di icon rail (⚙) DAN dropdown profil ringkas di footer
+//   sidebar (avatar+nama+"⚙ Pengaturan akun"+toggle Bahasa cepat) SEKARANG
+//   tersambung ke /account-settings (2026-09-11, implementation_gaps.md
+//   IG-59, "GA Pengaturan Akun.dc.html" + "Master UI Group Admin.dc.html"
+//   untuk perilaku dropdown "toggleProfile"). Toggle Bahasa di dropdown ini
+//   SESI-ONLY (i18n.changeLanguage, pola sama LanguageToggle
+//   PlatformAdminLayout) -- BEDA dari field Bahasa di tab Profil Pengaturan
+//   Akun yang tersimpan permanen ke users.locale. Konsol GA belum memakai
+//   string ber-t() sama sekali (IG-30 sengaja membatasi cakupan i18n ke PA
+//   saja), jadi toggle ini belum mengubah teks apa pun yang terlihat --
+//   tetap panggilan i18next asli, bukan stub.
 // Tombol CTA topbar (S4G-03 fix, ditemukan user 2026-08-31 lewat login
 // sungguhan ke demo interaktif "PRODO Alur Aplikasi - Standalone.html"):
 // desain menaruh SATU tombol create di topbar (beda label per menu aktif,
@@ -159,6 +162,8 @@ export default function GroupAdminLayout() {
   const [view, setView] = useState('Semua')
   const [ctaHandler, setCtaHandler] = useState<(() => void) | null>(null)
   const registerCta = useCallback((handler: (() => void) | null) => setCtaHandler(() => handler), [])
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const { i18n } = useTranslation()
 
   const activeNav = useMemo(() => NAV_ITEMS.find((n) => n.to && location.pathname.startsWith(n.to)) ?? null, [location.pathname])
 
@@ -256,7 +261,7 @@ export default function GroupAdminLayout() {
         </div>
 
         {/* CONTEXT SIDEBAR */}
-        <aside className="flex w-60 flex-shrink-0 flex-col border-r border-line">
+        <aside className="relative flex w-60 flex-shrink-0 flex-col border-r border-line">
           <div className="flex h-[58px] flex-shrink-0 items-center gap-2.5 border-b border-line px-3.5">
             <span className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center bg-signal text-[14px] font-extrabold text-bg-deep">
               {groupName.charAt(0).toUpperCase()}
@@ -290,7 +295,11 @@ export default function GroupAdminLayout() {
               <GroupAdminNavItem key={item.key} icon={item.icon} label={item.label} to={item.to} />
             ))}
           </div>
-          <div className="flex flex-shrink-0 items-center gap-2.5 border-t border-line px-4 py-3">
+          <button
+            type="button"
+            onClick={() => setProfileMenuOpen((open) => !open)}
+            className="flex flex-shrink-0 items-center gap-2.5 border-t border-line px-4 py-3 text-left hover:bg-bg-deep"
+          >
             <span className="flex h-7 w-7 items-center justify-center border border-signal bg-[oklch(0.24_0.03_45)] font-mono text-[13px] text-signal">
               ◈
             </span>
@@ -298,7 +307,65 @@ export default function GroupAdminLayout() {
               <div className="truncate text-[12.5px] font-semibold">{user?.display_name ?? '—'}</div>
               <div className="font-mono text-[9px] text-text-muted">Group Admin</div>
             </div>
-          </div>
+            <span className="font-mono text-[11px] text-text-muted">{profileMenuOpen ? '▴' : '▾'}</span>
+          </button>
+
+          {/* Dropdown AKUN (Master UI Group Admin.dc.html, "toggleProfile") --
+              tombol ⚙ icon rail navigate LANGSUNG ke /account-settings (lihat
+              di atas), panel ini adalah jalur KEDUA yang sebelumnya belum
+              tersambung (implementation_gaps.md IG-59, ditemukan user lewat
+              mockup "bottom profile diklik"). Toggle Bahasa di sini SESI-ONLY
+              (i18n.changeLanguage, pola sama LanguageToggle PlatformAdminLayout)
+              -- BUKAN bahasa default akun (itu field terpisah di tab Profil
+              Pengaturan Akun, tersimpan ke users.locale). Konsol GA belum
+              memakai string ber-t() sama sekali (IG-30), jadi toggle ini belum
+              mengubah teks apa pun yang terlihat -- tetap real i18next call,
+              bukan stub, konsisten dengan keputusan yang sama untuk field
+              locale di tab Profil. */}
+          {profileMenuOpen && (
+            <div className="absolute bottom-[60px] left-2.5 right-2.5 z-10 border border-line-strong bg-bg-deep p-1.5">
+              <div className="px-2 pb-1 pt-1.5 font-mono text-[8.5px] tracking-[0.14em] text-text-muted">AKUN</div>
+              <div className="flex items-center gap-2.5 p-2">
+                <span className="flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-full bg-violet font-mono text-[9.5px] font-bold text-bg-deep">
+                  {monogram || '—'}
+                </span>
+                <div className="min-w-0 flex-1 leading-tight">
+                  <div className="truncate text-[12px] text-text-bone">{user?.display_name ?? '—'}</div>
+                  <div className="truncate font-mono text-[8.5px] text-text-muted">{user?.email ?? '—'}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setProfileMenuOpen(false)
+                  navigate('/account-settings')
+                }}
+                className="w-full border-t border-line p-2 text-left font-mono text-[11px] text-text-muted hover:text-signal"
+              >
+                ⚙ Pengaturan akun
+              </button>
+              <div className="flex items-center gap-2 border-t border-line p-2">
+                <span className="font-mono text-[11px] text-text-muted">Bahasa</span>
+                <div className="ml-auto flex gap-1.5">
+                  {(['id', 'en'] as const).map((lng) => (
+                    <button
+                      key={lng}
+                      type="button"
+                      onClick={() => i18n.changeLanguage(lng)}
+                      className={cn(
+                        'border px-2.5 py-1 font-mono text-[9.5px] tracking-[0.08em]',
+                        (i18n.language?.startsWith('en') ? 'en' : 'id') === lng
+                          ? 'border-signal bg-signal text-bg-deep'
+                          : 'border-line text-text-muted',
+                      )}
+                    >
+                      {lng.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </aside>
 
         {/* MAIN */}
