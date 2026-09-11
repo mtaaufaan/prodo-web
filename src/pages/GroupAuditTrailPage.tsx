@@ -20,16 +20,6 @@ const TYPE_TONE: Record<AuditActionType, string> = {
   ACCESS: 'border-amber text-amber',
 }
 
-// shortRequestPath -- request_path disimpan lengkap "METHOD scheme://host/path"
-// (middleware/request_meta.go, disengaja supaya baris audit bisa dibedakan
-// asal dev/production kalau log dikumpulkan lintas environment). Untuk
-// tampilan grid yang sempit, scheme+host dilepas (redundan untuk satu
-// environment yang sama) -- nilai LENGKAP tetap ada di metadata mentah,
-// cuma tidak ditampilkan apa adanya di sini.
-function shortRequestPath(path: string): string {
-  return path.replace(/^(\S+)\s+https?:\/\/[^/]+/, '$1')
-}
-
 function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -61,7 +51,7 @@ function EntryRow({ entry }: { entry: GroupAuditLogEntry }) {
         <div className="min-w-0 font-mono text-[9px] text-text-muted">
           <div>{entry.actor_ip ?? '—'}</div>
           {typeof entry.metadata?.request_path === 'string' && (
-            <div className="mt-0.5 break-all text-text-dim">{shortRequestPath(entry.metadata.request_path)}</div>
+            <div className="mt-0.5 break-all text-text-dim">{entry.metadata.request_path}</div>
           )}
         </div>
       </div>
