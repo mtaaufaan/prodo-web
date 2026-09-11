@@ -83,8 +83,11 @@ function EntryRow({ entry }: { entry: GroupAuditLogEntry }) {
 
 // GroupAuditTrailPage (Track S4G, desain "GA Audit Trail.dc.html") --
 // READ-ONLY di atas audit_logs yang sudah ada, lihat implementation_gaps.md
-// IG-45. Tab "Akses & Keamanan" (tipe ACCESS) sengaja akan selalu kosong --
-// tidak ada kode yang menulis audit entry login/sesi di level mana pun.
+// IG-45. Tab "Akses & Keamanan" (tipe ACCESS) SEKARANG terisi
+// user.login/user.backup_code_used (IG-57, 2026-09-11) -- sebelumnya
+// selalu kosong karena baris login tidak pernah membawa org_id/
+// metadata.group_id (tidak terlihat) DAN action-nya tidak cocok pola
+// klasifikasi ACCESS (`auth.%`/`session.%`) sekalipun terlihat.
 // Ekspor CSV sinkron (unduh langsung), bukan tautan email 72 jam seperti
 // mockup -- baris audit murni teks, tidak butuh job async (IG-45).
 function GroupAuditTrailPageContent() {
