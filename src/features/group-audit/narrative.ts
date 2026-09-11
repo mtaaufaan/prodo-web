@@ -143,6 +143,19 @@ export function formatGroupAuditNarrative(entry: GroupAuditLogEntry): AuditNarra
       return { text: `Login ${roleLabel(entry)} berhasil`, scope: `AKSES & KEAMANAN · ${org}` }
     case 'user.backup_code_used':
       return { text: `Login ${roleLabel(entry)} menggunakan kode cadangan MFA`, scope: `AKSES & KEAMANAN · ${org}` }
+    // account.* (GA Pengaturan Akun, Track S4G): self-service, scoping SAMA
+    // persis user.login/user.backup_code_used (satu baris per grup hasil
+    // resolveAuditGroupIDs, lihat AccountSettingsHandler).
+    case 'account.profile_updated':
+      return { text: `${roleLabel(entry)} memperbarui profil akun sendiri`, scope: `AKUN · ${org}` }
+    case 'account.password_changed':
+      return { text: `${roleLabel(entry)} mengganti password akun sendiri`, scope: `AKSES & KEAMANAN · ${org}` }
+    case 'account.mfa_device_reset':
+      return { text: `${roleLabel(entry)} memindahkan MFA ke perangkat baru`, scope: `AKSES & KEAMANAN · ${org}` }
+    case 'account.mfa_backup_codes_regenerated':
+      return { text: `${roleLabel(entry)} membuat ulang kode pemulihan MFA`, scope: `AKSES & KEAMANAN · ${org}` }
+    case 'account.notification_preferences_updated':
+      return { text: `${roleLabel(entry)} memperbarui preferensi notifikasi akun sendiri`, scope: `AKUN · ${org}` }
     default:
       return { text: `${entry.action} pada ${entry.entity_type}`, scope: `${entry.entity_type.toUpperCase()} · ${org}` }
   }

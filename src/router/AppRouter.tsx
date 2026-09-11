@@ -4,6 +4,7 @@ import AuthGuard from '@/components/AuthGuard'
 import PlatformAdminLayout from '@/components/PlatformAdminLayout'
 import RoleGuard from '@/components/RoleGuard'
 import AcceptInvitationPage from '@/pages/AcceptInvitationPage'
+import AccountSettingsPage from '@/pages/AccountSettingsPage'
 import RetentionExportDownloadPage from '@/pages/RetentionExportDownloadPage'
 import Activate from '@/pages/Activate'
 import ActivateMfaSetup from '@/pages/ActivateMfaSetup'
@@ -184,6 +185,12 @@ export default function AppRouter() {
                 grup ini saja, READ-ONLY di atas audit_logs yang sudah ada
                 (implementation_gaps.md IG-45). */}
             <Route path="/audit-trail" element={<GroupAuditTrailPage />} />
+            {/* Pengaturan Akun (desain "GA Pengaturan Akun.dc.html",
+                implementation_gaps.md IG-59): self-service, tidak ber-gate
+                organisasi/grup -- backend /users/me* selalu beroperasi atas
+                akun pemanggil sendiri dari JWT. Dibuka lewat tombol ⚙ topbar
+                (GroupAdminLayout), bukan item sidebar. */}
+            <Route path="/account-settings" element={<AccountSettingsPage />} />
             {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
                 (S3-25/27) PA/GA saja. */}
             <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />
