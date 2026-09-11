@@ -209,18 +209,9 @@ export default function InviteMemberModal({ open, onClose, groupId }: InviteMemb
               </span>
             </div>
             {execOnly && (
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="flex-1 text-[11px] text-text-muted">
-                  Cakupan seluruh organisasi dalam grup -- tidak perlu memilih organisasi atau workspace.
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPairs((p) => [...p, newPair()])}
-                  className="font-mono text-[10px] text-signal hover:underline"
-                >
-                  + TAMBAHKAN ROLE WORKSPACE
-                </button>
-              </div>
+              <p className="mt-2 text-[11px] text-text-muted">
+                Cakupan seluruh organisasi dalam grup -- tidak perlu memilih organisasi atau workspace.
+              </p>
             )}
           </div>
 
