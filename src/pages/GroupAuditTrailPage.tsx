@@ -48,7 +48,7 @@ function EntryRow({ entry }: { entry: GroupAuditLogEntry }) {
           </div>
         </div>
         <span className="truncate font-mono text-[9.5px] text-text-muted">{entry.actor_display_name ?? 'Sistem'}</span>
-        <span className="font-mono text-[9px] text-text-muted">{entry.actor_id ? 'UI' : 'SISTEM'}</span>
+        <span className="truncate font-mono text-[9px] text-text-muted">{entry.actor_ip ?? '—'}</span>
       </div>
       {expanded && (
         <div className="flex flex-col gap-2.5 px-4 pb-4">
@@ -66,8 +66,9 @@ function EntryRow({ entry }: { entry: GroupAuditLogEntry }) {
               </div>
             </div>
           </div>
-          <div className="font-mono text-[9px] leading-relaxed text-text-dim">
+          <div className="break-all font-mono text-[9px] leading-relaxed text-text-dim">
             ID ENTRI {entry.id.slice(0, 8)} · AKTOR ID {entry.actor_id?.slice(0, 8) ?? '—'} · IP {entry.actor_ip ?? '—'}
+            {typeof entry.metadata?.request_path === 'string' && <> · {entry.metadata.request_path}</>}
           </div>
         </div>
       )}
@@ -234,7 +235,7 @@ function GroupAuditTrailPageContent() {
           <span>Timestamp</span>
           <span>Aksi</span>
           <span>Aktor</span>
-          <span>Sumber</span>
+          <span>Asal</span>
         </div>
         {logs.isLoading && <p className="p-4 text-sm text-text-muted">Memuat...</p>}
         {logs.isError && <p className="p-4 text-sm text-destructive">Gagal memuat audit trail.</p>}
