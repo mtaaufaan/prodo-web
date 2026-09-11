@@ -242,11 +242,11 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
                 <div className="flex flex-wrap items-end gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="edit-quota">Kuota (GB)</Label>
-                    <Input id="edit-quota" type="number" step="0.1" min="0" className="w-28" {...quotaForm.register('quota_gb')} />
+                    <Input id="edit-quota" type="number" step="0.1" min="0" className="w-28" {...quotaForm.register('quota_gb', { valueAsNumber: true })} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="edit-retention">Retensi (Hari)</Label>
-                    <Input id="edit-retention" type="number" step="1" min="30" max="365" className="w-24" {...quotaForm.register('retention_days')} />
+                    <Input id="edit-retention" type="number" step="1" min="30" max="365" className="w-24" {...quotaForm.register('retention_days', { valueAsNumber: true })} />
                   </div>
                 </div>
                 <p className="mt-2 font-mono text-[9px] text-text-muted">

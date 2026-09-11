@@ -194,7 +194,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
               </div>
               <div className="space-y-2">
                 <Label htmlFor="retention_days">Retensi Data (Hari)</Label>
-                <Input id="retention_days" type="number" step="1" min="30" max="365" className="w-24" {...form.register('retention_days')} />
+                <Input id="retention_days" type="number" step="1" min="30" max="365" className="w-24" {...form.register('retention_days', { valueAsNumber: true })} />
                 <p className="font-mono text-[9px] text-text-muted">
                   RANGE {retentionMin}–{retentionMax} (BATAS TIER {(activeGroup?.tier ?? '-').toUpperCase()})
                 </p>
@@ -211,7 +211,7 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
 
             <div className="space-y-2">
               <Label htmlFor="quota_gb">Alokasi Kuota Storage (GB)</Label>
-              <Input id="quota_gb" type="number" step="0.1" min="0.1" className="w-28" {...form.register('quota_gb')} />
+              <Input id="quota_gb" type="number" step="0.1" min="0.1" className="w-28" {...form.register('quota_gb', { valueAsNumber: true })} />
               {showQuotaBar && (
                 <div>
                   <div className="h-2 w-full bg-line-subtle">
