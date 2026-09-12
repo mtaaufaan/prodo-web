@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate, useParams } from 'react-router-dom'
 
 import WorkspaceSwitcher from '@/components/WorkspaceSwitcher'
+import { useMyContext } from '@/features/context/hooks'
 import { useWorkspace } from '@/features/workspaces/hooks'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -18,24 +19,28 @@ import { useAuthStore } from '@/store/useAuthStore'
 // desainer untuk preview, bukan fitur produk (dikonfirmasi user); role
 // sesungguhnya berasal dari sesi login, bukan dropdown. Item nav untuk
 // role/menu yang halamannya belum ada (Sprint, Board, Editor/Approver/
-// Viewer, dst.) ditampilkan "SEGERA", bukan dibangun penuh -- tidak ada
-// konsep "role aktif di workspace ini" di FE (lihat RoleGuard.tsx), jadi
-// nav yang ditampilkan sama untuk semua role dulu, bukan difilter per role.
+// Viewer, dst.) ditampilkan "SEGERA", bukan dibangun penuh.
 // to: null berarti belum ada halaman ("SEGERA"). Path ABSOLUT (bukan
 // relatif) -- route anak WorkspaceLayout dideklarasikan sebagai path penuh
 // /workspaces/:wsId/... di AppRouter, bukan sub-path relatif terhadap
 // prefix bersama, jadi `to` relatif akan salah resolve begitu ada segmen
 // path lain (mis. /workspaces/:wsId/projects/:id nanti).
-function navItems(workspaceId: string): { icon: string; label: string; to: string | null }[] {
+//
+// adminOnly (S4W-00, 2026-09-12): item nav yang jadi ciri khas role Admin
+// Workspace -- SEBELUMNYA nav sama untuk semua role (tidak ada konsep
+// "role aktif di workspace ini" di FE, cuma RoleGuard.tsx yang menjangkau
+// platform_role) -- disaring lewat WorkspaceLayout di bawah berdasarkan
+// workspace_role viewer.
+function navItems(workspaceId: string): { icon: string; label: string; to: string | null; adminOnly?: boolean }[] {
   return [
     { icon: '▤', label: 'Project', to: `/workspaces/${workspaceId}/projects` },
     { icon: '◉', label: 'Members & Roles', to: `/workspaces/${workspaceId}/members` },
     { icon: '◎', label: 'Performance Dashboard', to: null },
-    { icon: '◫', label: 'Custom Status', to: null },
-    { icon: '⌗', label: 'Rule Automation', to: null },
-    { icon: '⇄', label: 'Webhook', to: null },
-    { icon: '▧', label: 'Dokumen & Lampiran', to: null },
-    { icon: '☰', label: 'Audit Trail Workspace', to: null },
+    { icon: '◫', label: 'Custom Status', to: null, adminOnly: true },
+    { icon: '⌗', label: 'Rule Automation', to: null, adminOnly: true },
+    { icon: '⇄', label: 'Webhook', to: null, adminOnly: true },
+    { icon: '▧', label: 'Dokumen & Lampiran', to: null, adminOnly: true },
+    { icon: '☰', label: 'Audit Trail Workspace', to: null, adminOnly: true },
   ]
 }
 
@@ -71,11 +76,26 @@ export default function WorkspaceLayout() {
   const navigate = useNavigate()
   const clearSession = useAuthStore((state) => state.clearSession)
   const { data: workspace } = useWorkspace(workspaceId)
+  const myContext = useMyContext()
 
   const handleSignOut = () => {
     clearSession()
     navigate('/login')
   }
+
+  // canSeeAdminItems (S4W-00): platform_admin/group_admin yang sedang
+  // context-switch ke workspace ini SELALU bypass (mereka bisa tidak
+  // punya baris workspace_members sama sekali di sini -- akses org-level,
+  // bukan keanggotaan langsung), sama seperti middleware.RequireRole
+  // backend yang tidak pernah menolak mereka. Selain itu dicari dari
+  // workspace_memberships (GET /me/context, SUDAH ada -- bukan endpoint
+  // baru) by wsId, bukan asumsi array terurut. Default false selama
+  // context belum termuat -- item admin-only tersembunyi sesaat alih-alih
+  // sempat terlihat lalu hilang untuk viewer yang bukan admin.
+  const platformRole = myContext.data?.platform_role
+  const myWorkspaceRole = myContext.data?.workspace_memberships.find((w) => w.workspace_id === workspaceId)?.role
+  const canSeeAdminItems =
+    platformRole === 'platform_admin' || platformRole === 'group_admin' || myWorkspaceRole === 'admin_workspace'
 
   return (
     <div className="min-h-screen bg-bg-deep p-10 text-text-body">
@@ -92,9 +112,11 @@ export default function WorkspaceLayout() {
       <div className="mx-auto flex max-w-[1540px] overflow-hidden border border-line bg-bg-deep">
         <aside className="flex w-56 flex-shrink-0 flex-col border-r border-line">
           <nav className="flex flex-col gap-0.5 p-2">
-            {navItems(workspaceId).map((item) => (
-              <WorkspaceNavItem key={item.label} {...item} />
-            ))}
+            {navItems(workspaceId)
+              .filter((item) => !item.adminOnly || canSeeAdminItems)
+              .map((item) => (
+                <WorkspaceNavItem key={item.label} {...item} />
+              ))}
           </nav>
           <div className="mt-auto flex justify-end border-t border-line p-4">
             <button
