@@ -29,7 +29,7 @@ import {
 } from '@/features/organizations/types'
 import { useGroups } from '@/features/platform-admin/hooks'
 import { ApiError } from '@/lib/api'
-import { cn } from '@/lib/utils'
+import { cn, slugify } from '@/lib/utils'
 
 const GB = 1024 * 1024 * 1024
 
@@ -81,6 +81,12 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
 
   const [language, setLanguage] = useState('id')
   const [saveNotice, setSaveNotice] = useState('')
+  // slugUnlocked (IG-61 lanjutan, atas permintaan user 2026-09-12): slug
+  // field TAMPAK tapi disabled/mengikuti nama secara live selama belum
+  // pernah tabrakan -- begitu backend menolak SLUG_ALREADY_EXISTS, field
+  // ini terbuka untuk diedit manual (lihat efek di bawah yang mem-watch
+  // updateOrganization.error). Direset ke false lagi kalau ganti organisasi.
+  const [slugUnlocked, setSlugUnlocked] = useState(false)
   const prevOrgIdRef = useRef<string | null>(null)
 
   const infoForm = useForm<UpdateOrganizationFormValues>({
@@ -107,12 +113,49 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
       // lagi) -- bukan setiap refetch, supaya notifikasi sukses tidak
       // langsung tertimpa kosong oleh invalidateQueries yang dipicu save
       // itu sendiri (organization prop berubah referensi begitu list refetch).
-      if (prevOrgIdRef.current !== organization.id) setSaveNotice('')
+      if (prevOrgIdRef.current !== organization.id) {
+        setSaveNotice('')
+        setSlugUnlocked(false)
+      }
       prevOrgIdRef.current = organization.id
     } else {
       prevOrgIdRef.current = null
     }
   }, [organization, infoForm, quotaForm])
+
+  // Watch + baseline per-field (dipakai onSubmitAll DI BAWAH untuk kirim
+  // cuma field yang benar-benar berubah -- IG-62 -- dan notice
+  // dirty/tersimpan). Harus dideklarasikan sebelum onSubmitAll & efek slug.
+  const nameWatch = infoForm.watch('name')
+  const slugWatch = infoForm.watch('slug')
+  const quotaGbWatch = quotaForm.watch('quota_gb')
+  const retentionDaysWatch = quotaForm.watch('retention_days')
+  const quotaGbOriginal = organization ? Number((organization.storage_quota_bytes / GB).toFixed(2)) : 0
+
+  // Slug mengikuti nama secara live selama belum di-unlock (lihat komentar
+  // slugUnlocked) -- begitu nama KEMBALI ke nilai asli, slug ikut
+  // dikembalikan ke slug asli juga (bukan cuma berhenti berubah), supaya
+  // "dirty" benar-benar false lagi kalau user membatalkan ketikannya.
+  useEffect(() => {
+    if (!organization || slugUnlocked) return
+    infoForm.setValue('slug', nameWatch === organization.name ? organization.slug : slugify(nameWatch), { shouldValidate: false })
+  }, [nameWatch, slugUnlocked, organization, infoForm])
+
+  // Begitu backend menolak submit karena slug bentrok (organisasi lain
+  // sudah memakainya -- kasus paling umum: organisasi lain masih menyimpan
+  // slug lama dari sebelum di-rename, lihat IG-61), field slug dibuka
+  // untuk diedit manual -- auto-derive di atas berhenti menimpanya.
+  useEffect(() => {
+    if (updateOrganization.error instanceof ApiError && updateOrganization.error.code === 'SLUG_ALREADY_EXISTS') {
+      setSlugUnlocked(true)
+    }
+  }, [updateOrganization.error])
+
+  const identityDirty =
+    organization !== null && (nameWatch !== organization.name || slugWatch !== organization.slug)
+  const languageDirty = organization !== null && language !== organization.default_language
+  const quotaDirty =
+    organization !== null && (quotaGbWatch !== quotaGbOriginal || retentionDaysWatch !== organization.retention_days)
 
   const handleAddDomain = () => {
     const parsed = addOrganizationDomainSchema.safeParse({ domain: newDomain.trim() })
@@ -139,36 +182,21 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
     }
   }
 
-  // Watch + baseline per-field (dipakai onSubmitAll DI BAWAH untuk kirim
-  // cuma field yang benar-benar berubah, dan notice dirty/tersimpan). Harus
-  // dideklarasikan sebelum onSubmitAll karena dipakai di situ.
-  const nameWatch = infoForm.watch('name')
-  const quotaGbWatch = quotaForm.watch('quota_gb')
-  const retentionDaysWatch = quotaForm.watch('retention_days')
-  const quotaGbOriginal = organization ? Number((organization.storage_quota_bytes / GB).toFixed(2)) : 0
-  const nameDirty = organization !== null && nameWatch !== organization.name
-  const languageDirty = organization !== null && language !== organization.default_language
-  const quotaDirty =
-    organization !== null && (quotaGbWatch !== quotaGbOriginal || retentionDaysWatch !== organization.retention_days)
-
   // onSubmitAll -- satu tombol SIMPAN PERUBAHAN (desain "GA Organizations.dc.html")
   // menyimpan identitas+domain, bahasa, dan kuota+retensi sekaligus, walau di
   // backend tetap 3 endpoint terpisah (S3-29/30/31 US-010, S3-32/34/36 US-011,
   // dari sebelum konsolidasi tampilan S4G-03) -- reuse penuh, tidak ada
   // endpoint baru. Validasi infoForm dulu, baru quotaForm, submit HANYA kalau
   // keduanya valid. Tiap mutation HANYA dipanggil kalau section-nya sendiri
-  // benar-benar berubah (nameDirty/languageDirty/quotaDirty) -- SEBELUMNYA
+  // benar-benar berubah (identityDirty/languageDirty/quotaDirty) -- SEBELUMNYA
   // ketiganya selalu dipanggil apa pun yang diubah, jadi ganti nama saja
   // ikut menulis "organization.storage_quota_updated" ke audit trail
-  // (ditemukan user 2026-09-12: ubah nama, tapi Audit Trail mencatat "Kuota
-  // atau retensi organisasi diperbarui" juga) -- backend memang selalu audit
-  // tiap kali endpoint itu dipanggil, TIDAK mengecek apakah nilainya benar-
-  // benar beda, jadi FE yang wajib tidak memanggilnya kalau tidak perlu.
+  // (IG-62, ditemukan user 2026-09-12).
   const onSubmitAll = infoForm.handleSubmit((infoValues) =>
     quotaForm.handleSubmit(async (quotaValues) => {
       try {
         await Promise.all([
-          nameDirty ? updateOrganization.mutateAsync(infoValues) : Promise.resolve(),
+          identityDirty ? updateOrganization.mutateAsync(infoValues) : Promise.resolve(),
           languageDirty ? updateSettings.mutateAsync(language) : Promise.resolve(),
           quotaDirty
             ? updateQuota.mutateAsync({ quotaBytes: Math.round(quotaValues.quota_gb * GB), retentionDays: quotaValues.retention_days })
@@ -177,6 +205,7 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
         setSaveNotice('Perubahan organisasi tersimpan.')
       } catch {
         // error masing-masing mutation sudah tampil lewat *ErrorMessage di bawah
+        // (SLUG_ALREADY_EXISTS membuka field slug untuk diedit, lihat efek di atas)
       }
     })(),
   )
@@ -217,9 +246,9 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
     !Number.isNaN(retentionDaysWatch) && (retentionDaysWatch < retentionMin || retentionDaysWatch > retentionMax)
 
   // Notifikasi perubahan belum tersimpan / tersimpan (pola sama GroupLocalePage
-  // "Bahasa & Lokal", diuji coba di sini dulu -- IG-60 lanjutan atas permintaan
-  // user 2026-09-12).
-  const dirty = nameDirty || languageDirty || quotaDirty
+  // "Bahasa & Lokal", diuji coba di ManageOrganizationModal dulu -- IG-60
+  // lanjutan atas permintaan user 2026-09-12).
+  const dirty = identityDirty || languageDirty || quotaDirty
 
   const hasWorkspaces = (organization?.workspace_count ?? 0) > 0
   const deleteMatches = organization !== null && deleteConfirmText === organization.slug
@@ -234,13 +263,31 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
 
           <div className="max-h-[calc(100vh-220px)] overflow-y-auto px-5 py-4">
             <form id="org-manage-form" onSubmit={onSubmitAll} noValidate className="flex flex-col gap-4">
-              <input type="hidden" {...infoForm.register('slug')} />
               <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Informasi Organisasi</p>
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Nama Organisasi</Label>
                 <Input id="edit-name" {...infoForm.register('name')} />
                 {infoForm.formState.errors.name && (
                   <p className="text-[11px] text-destructive">{infoForm.formState.errors.name.message}</p>
+                )}
+              </div>
+              {/* Slug (IG-61 lanjutan): mengikuti nama secara live selama
+                  belum pernah bentrok -- disabled, cuma tampilan. Begitu
+                  submit ditolak backend karena slug sudah dipakai organisasi
+                  lain, field ini terbuka untuk diedit manual (lihat efek
+                  slugUnlocked di atas komponen ini). */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-slug">Slug</Label>
+                <Input id="edit-slug" disabled={!slugUnlocked} {...infoForm.register('slug')} />
+                {infoForm.formState.errors.slug && (
+                  <p className="text-[11px] text-destructive">{infoForm.formState.errors.slug.message}</p>
+                )}
+                {slugUnlocked ? (
+                  <p className="font-mono text-[9px] text-amber">
+                    ⚠ Slug ini sudah dipakai organisasi lain -- ubah manual ke slug yang belum dipakai.
+                  </p>
+                ) : (
+                  <p className="font-mono text-[9px] text-text-dim">Mengikuti nama organisasi secara otomatis.</p>
                 )}
               </div>
               <div className="space-y-2">

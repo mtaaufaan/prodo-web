@@ -12,21 +12,13 @@ import { useCreateOrganization, useOrganizationList } from '@/features/organizat
 import { createOrganizationSchema, type CreateOrganizationFormValues } from '@/features/organizations/types'
 import { useGroups } from '@/features/platform-admin/hooks'
 import { ApiError } from '@/lib/api'
-import { cn } from '@/lib/utils'
+import { cn, slugify } from '@/lib/utils'
 
 const GB = 1024 * 1024 * 1024
 
 interface CreateOrganizationModalProps {
   open: boolean
   onClose: () => void
-}
-
-function slugify(name: string) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
 }
 
 // S4G-31, Track S4G (desain "GA Add Organization.dc.html") -- diperkaya dari
