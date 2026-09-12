@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 
@@ -80,6 +80,8 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
   const [domainError, setDomainError] = useState<string | null>(null)
 
   const [language, setLanguage] = useState('id')
+  const [saveNotice, setSaveNotice] = useState('')
+  const prevOrgIdRef = useRef<string | null>(null)
 
   const infoForm = useForm<UpdateOrganizationFormValues>({
     resolver: zodResolver(updateOrganizationSchema),
@@ -101,6 +103,14 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
       setDeleteConfirmText('')
       setNewDomain('')
       setDomainError(null)
+      // saveNotice HANYA direset saat ganti organisasi (atau tutup lalu buka
+      // lagi) -- bukan setiap refetch, supaya notifikasi sukses tidak
+      // langsung tertimpa kosong oleh invalidateQueries yang dipicu save
+      // itu sendiri (organization prop berubah referensi begitu list refetch).
+      if (prevOrgIdRef.current !== organization.id) setSaveNotice('')
+      prevOrgIdRef.current = organization.id
+    } else {
+      prevOrgIdRef.current = null
     }
   }, [organization, infoForm, quotaForm])
 
@@ -136,10 +146,17 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
   // endpoint baru. Validasi infoForm dulu, baru quotaForm, submit HANYA kalau
   // keduanya valid.
   const onSubmitAll = infoForm.handleSubmit((infoValues) =>
-    quotaForm.handleSubmit((quotaValues) => {
-      updateOrganization.mutate(infoValues)
-      updateSettings.mutate(language)
-      updateQuota.mutate({ quotaBytes: Math.round(quotaValues.quota_gb * GB), retentionDays: quotaValues.retention_days })
+    quotaForm.handleSubmit(async (quotaValues) => {
+      try {
+        await Promise.all([
+          updateOrganization.mutateAsync(infoValues),
+          updateSettings.mutateAsync(language),
+          updateQuota.mutateAsync({ quotaBytes: Math.round(quotaValues.quota_gb * GB), retentionDays: quotaValues.retention_days }),
+        ])
+        setSaveNotice('Perubahan organisasi tersimpan.')
+      } catch {
+        // error masing-masing mutation sudah tampil lewat *ErrorMessage di bawah
+      }
     })(),
   )
   const savingAll = updateOrganization.isPending || updateSettings.isPending || updateQuota.isPending
@@ -179,6 +196,20 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
   const retentionMax = orgGroup?.max_retention_days ?? 365
   const retentionOutOfRange =
     !Number.isNaN(retentionDaysWatch) && (retentionDaysWatch < retentionMin || retentionDaysWatch > retentionMax)
+
+  // Notifikasi perubahan belum tersimpan / tersimpan (pola sama GroupLocalePage
+  // "Bahasa & Lokal", diuji coba di sini dulu -- IG-60 lanjutan atas permintaan
+  // user 2026-09-12). dirty dibandingkan terhadap nilai `organization` asli
+  // (bukan formState.isDirty bawaan RHF, supaya field bahasa yang bukan
+  // react-hook-form ikut terhitung).
+  const nameWatch = infoForm.watch('name')
+  const quotaGbOriginal = organization ? Number((organization.storage_quota_bytes / GB).toFixed(2)) : 0
+  const dirty =
+    organization !== null &&
+    (nameWatch !== organization.name ||
+      language !== organization.default_language ||
+      quotaGbWatch !== quotaGbOriginal ||
+      retentionDaysWatch !== organization.retention_days)
 
   const hasWorkspaces = (organization?.workspace_count ?? 0) > 0
   const deleteMatches = organization !== null && deleteConfirmText === organization.slug
@@ -409,6 +440,15 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
               </div>
             )}
           </div>
+
+          {dirty && (
+            <p className="mx-5 mb-3 border border-amber p-2.5 font-mono text-[10px] leading-relaxed text-amber">
+              Ada perubahan yang belum disimpan. Tekan "Simpan Perubahan" untuk menerapkan.
+            </p>
+          )}
+          {!dirty && saveNotice && (
+            <p className="mx-5 mb-3 border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {saveNotice}</p>
+          )}
 
           <DialogFooter>
             <Button
