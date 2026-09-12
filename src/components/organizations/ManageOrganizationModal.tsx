@@ -139,19 +139,40 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
     }
   }
 
+  // Watch + baseline per-field (dipakai onSubmitAll DI BAWAH untuk kirim
+  // cuma field yang benar-benar berubah, dan notice dirty/tersimpan). Harus
+  // dideklarasikan sebelum onSubmitAll karena dipakai di situ.
+  const nameWatch = infoForm.watch('name')
+  const quotaGbWatch = quotaForm.watch('quota_gb')
+  const retentionDaysWatch = quotaForm.watch('retention_days')
+  const quotaGbOriginal = organization ? Number((organization.storage_quota_bytes / GB).toFixed(2)) : 0
+  const nameDirty = organization !== null && nameWatch !== organization.name
+  const languageDirty = organization !== null && language !== organization.default_language
+  const quotaDirty =
+    organization !== null && (quotaGbWatch !== quotaGbOriginal || retentionDaysWatch !== organization.retention_days)
+
   // onSubmitAll -- satu tombol SIMPAN PERUBAHAN (desain "GA Organizations.dc.html")
   // menyimpan identitas+domain, bahasa, dan kuota+retensi sekaligus, walau di
   // backend tetap 3 endpoint terpisah (S3-29/30/31 US-010, S3-32/34/36 US-011,
   // dari sebelum konsolidasi tampilan S4G-03) -- reuse penuh, tidak ada
   // endpoint baru. Validasi infoForm dulu, baru quotaForm, submit HANYA kalau
-  // keduanya valid.
+  // keduanya valid. Tiap mutation HANYA dipanggil kalau section-nya sendiri
+  // benar-benar berubah (nameDirty/languageDirty/quotaDirty) -- SEBELUMNYA
+  // ketiganya selalu dipanggil apa pun yang diubah, jadi ganti nama saja
+  // ikut menulis "organization.storage_quota_updated" ke audit trail
+  // (ditemukan user 2026-09-12: ubah nama, tapi Audit Trail mencatat "Kuota
+  // atau retensi organisasi diperbarui" juga) -- backend memang selalu audit
+  // tiap kali endpoint itu dipanggil, TIDAK mengecek apakah nilainya benar-
+  // benar beda, jadi FE yang wajib tidak memanggilnya kalau tidak perlu.
   const onSubmitAll = infoForm.handleSubmit((infoValues) =>
     quotaForm.handleSubmit(async (quotaValues) => {
       try {
         await Promise.all([
-          updateOrganization.mutateAsync(infoValues),
-          updateSettings.mutateAsync(language),
-          updateQuota.mutateAsync({ quotaBytes: Math.round(quotaValues.quota_gb * GB), retentionDays: quotaValues.retention_days }),
+          nameDirty ? updateOrganization.mutateAsync(infoValues) : Promise.resolve(),
+          languageDirty ? updateSettings.mutateAsync(language) : Promise.resolve(),
+          quotaDirty
+            ? updateQuota.mutateAsync({ quotaBytes: Math.round(quotaValues.quota_gb * GB), retentionDays: quotaValues.retention_days })
+            : Promise.resolve(),
         ])
         setSaveNotice('Perubahan organisasi tersimpan.')
       } catch {
@@ -178,7 +199,6 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
   // melebihi plafon GRUP sengaja TIDAK divalidasi live di sini (butuh
   // angka plafon per-organisasi-lain yang tidak murah dihitung di FE) --
   // backend menegakkannya, errornya tampil lewat quotaErrorMessage setelah submit.
-  const quotaGbWatch = quotaForm.watch('quota_gb')
   const usedGb = organization ? organization.storage_used_bytes / GB : 0
   const quotaBelowUsed = organization !== null && !Number.isNaN(quotaGbWatch) && quotaGbWatch < usedGb
   const confirmPending = deactivateOrganization.isPending || reactivateOrganization.isPending
@@ -191,7 +211,6 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
   // data grup termuat.
   const groups = useGroups('')
   const orgGroup = groups.data?.find((g) => g.id === organization?.group_id) ?? null
-  const retentionDaysWatch = quotaForm.watch('retention_days')
   const retentionMin = orgGroup?.min_retention_days ?? 30
   const retentionMax = orgGroup?.max_retention_days ?? 365
   const retentionOutOfRange =
@@ -199,17 +218,8 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
 
   // Notifikasi perubahan belum tersimpan / tersimpan (pola sama GroupLocalePage
   // "Bahasa & Lokal", diuji coba di sini dulu -- IG-60 lanjutan atas permintaan
-  // user 2026-09-12). dirty dibandingkan terhadap nilai `organization` asli
-  // (bukan formState.isDirty bawaan RHF, supaya field bahasa yang bukan
-  // react-hook-form ikut terhitung).
-  const nameWatch = infoForm.watch('name')
-  const quotaGbOriginal = organization ? Number((organization.storage_quota_bytes / GB).toFixed(2)) : 0
-  const dirty =
-    organization !== null &&
-    (nameWatch !== organization.name ||
-      language !== organization.default_language ||
-      quotaGbWatch !== quotaGbOriginal ||
-      retentionDaysWatch !== organization.retention_days)
+  // user 2026-09-12).
+  const dirty = nameDirty || languageDirty || quotaDirty
 
   const hasWorkspaces = (organization?.workspace_count ?? 0) > 0
   const deleteMatches = organization !== null && deleteConfirmText === organization.slug
