@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useOutletContext, useParams } from 'react-router-dom'
 
+import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { Button } from '@/components/ui/button'
 import InviteMemberModal from '@/components/workspace/InviteMemberModal'
 import ManageMemberPanel from '@/components/workspace/ManageMemberPanel'
 import { useProjectMembers } from '@/features/project-members/hooks'
@@ -43,7 +43,16 @@ function WorkspaceMembersPageContent() {
   const viewerRole = members.data?.find((m) => m.user_id === currentUser?.id)?.role
   const canManage = platformRole === 'platform_admin' || platformRole === 'group_admin' || viewerRole === 'admin_workspace'
 
+  const { registerCta } = useOutletContext<WorkspaceOutletContext>()
   const [inviteOpen, setInviteOpen] = useState(false)
+  // Tombol "+ Undang Member" sekarang CTA topbar WorkspaceLayout (S4W
+  // frame parity) -- cuma didaftarkan kalau viewer berwenang, sama seperti
+  // tombol lama yang cuma dirender saat `canManage`.
+  useEffect(() => {
+    registerCta(canManage ? () => setInviteOpen(true) : null)
+    return () => registerCta(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage])
   const [selected, setSelected] = useState<MemberOrInvitation | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [fProject, setFProject] = useState('Semua')
@@ -109,15 +118,6 @@ function WorkspaceMembersPageContent() {
   return (
     <>
       <div className="mx-auto max-w-5xl space-y-5 p-6">
-        <div className="flex items-center justify-between">
-          <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Member & Roles</h1>
-          {canManage && (
-            <Button onClick={() => setInviteOpen(true)} className="font-mono text-[10px] uppercase tracking-[0.06em]">
-              + Undang Member
-            </Button>
-          )}
-        </div>
-
         {isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
         {isError && <p className="text-sm text-destructive">Gagal memuat daftar member.</p>}
 

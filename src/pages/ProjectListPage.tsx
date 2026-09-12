@@ -1,16 +1,15 @@
-import { useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useOutletContext, useParams } from 'react-router-dom'
 
+import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import AddProjectModal from '@/components/projects/AddProjectModal'
 import ManageProjectModal from '@/components/projects/ManageProjectModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { Button } from '@/components/ui/button'
 import { useProjects } from '@/features/projects/hooks'
 import { cn } from '@/lib/utils'
 
 const PROJECT_PAGE_SIZE = 10
-const FILTERS = ['Semua', 'Aktif', 'Arsip'] as const
-type Filter = (typeof FILTERS)[number]
+type Filter = 'Semua' | 'Aktif' | 'Arsip'
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
@@ -29,10 +28,21 @@ function ProjectListPageContent() {
   const { wsId } = useParams<{ wsId: string }>()
   const workspaceId = wsId ?? ''
   const { data, isLoading, isError } = useProjects(workspaceId)
-  const [filter, setFilter] = useState<Filter>('Semua')
+  const { view, registerCta } = useOutletContext<WorkspaceOutletContext>()
+  const filter = view as Filter
   const [addOpen, setAddOpen] = useState(false)
   const [managingId, setManagingId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+
+  // Tombol "+ Project" sekarang CTA topbar WorkspaceLayout (S4W frame
+  // parity, desain "Master UI User.dc.html") -- sebelumnya tombol sendiri
+  // di dalam halaman, sama migrasi yang sudah dilakukan GroupAdminLayout
+  // untuk halaman-halaman GA (lihat komentar OrganizationManagementPage).
+  useEffect(() => {
+    registerCta(() => setAddOpen(true))
+    return () => registerCta(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const all = data ?? []
   // Cari objek terbaru dari `all` (bukan snapshot saat "Kelola" diklik) --
@@ -56,6 +66,13 @@ function ProjectListPageContent() {
     setPage(Math.min(totalPages, Math.max(1, n)))
   }
 
+  // Reset ke halaman 1 saat tab filter (Semua/Aktif/Arsip) di topbar
+  // WorkspaceLayout berganti -- dulu di-reset inline di onClick tombol
+  // filter sendiri, sekarang filter datang dari shell (`view`).
+  useEffect(() => {
+    setPage(1)
+  }, [filter])
+
   return (
     <div className="space-y-3.5 p-6">
       {all.length > 0 && (
@@ -65,31 +82,6 @@ function ProjectListPageContent() {
           <MetricCard label="Arsip" value={String(all.filter((p) => p.is_archived).length)} />
         </div>
       )}
-
-      <div className="flex items-center gap-3.5">
-        <div className="flex gap-1.5">
-          {FILTERS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => {
-                setFilter(f)
-                setPage(1)
-              }}
-              className={cn(
-                'border px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.06em]',
-                filter === f ? 'border-signal text-signal' : 'border-line text-text-muted',
-              )}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-        <div className="flex-1" />
-        <Button onClick={() => setAddOpen(true)} className="font-mono text-[10px] uppercase tracking-[0.06em]">
-          + Project
-        </Button>
-      </div>
 
       {isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
       {isError && <p className="font-mono text-sm text-destructive">Gagal memuat daftar project.</p>}
