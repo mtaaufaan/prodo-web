@@ -57,8 +57,8 @@ function WorkspaceMembersPageContent() {
     [projectMembers.data],
   )
 
-  const memberList = members.data ?? []
-  const invitationList = invitations.data ?? []
+  const memberList = useMemo(() => members.data ?? [], [members.data])
+  const invitationList = useMemo(() => invitations.data ?? [], [invitations.data])
 
   const stats = {
     total: memberList.length,
