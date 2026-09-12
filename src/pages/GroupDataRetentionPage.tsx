@@ -5,7 +5,7 @@ import { useOutletContext } from 'react-router-dom'
 import type { GroupAdminOutletContext } from '@/components/GroupAdminLayout'
 import RetentionPolicyModal from '@/components/retention/RetentionPolicyModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { useOrganizationList, useReactivateOrganization } from '@/features/organizations/hooks'
+import { useOrganizationList, useReactivateOrganization, useRestoreOrganization } from '@/features/organizations/hooks'
 import { useGroups } from '@/features/platform-admin/hooks'
 import { useRestoreProject } from '@/features/projects/hooks'
 import { retentionKeys, useRequestRetentionExport, useRetentionSchedule } from '@/features/retention/hooks'
@@ -24,9 +24,13 @@ function StatCard({ label, value, tone }: { label: string; value: string; tone?:
   )
 }
 
-const KIND_LABEL: Record<RetentionScheduleItem['kind'], string> = { org: 'ORG', workspace: 'WS', project: 'PROJ' }
+// org (dinonaktifkan) vs org_deleted (soft-deleted, 2026-09-12) -- orthogonal,
+// label+tone beda supaya baris tidak ambigu di grid (lihat komentar
+// RetentionScheduleItem).
+const KIND_LABEL: Record<RetentionScheduleItem['kind'], string> = { org: 'ORG', org_deleted: 'ORG·HAPUS', workspace: 'WS', project: 'PROJ' }
 const KIND_TONE: Record<RetentionScheduleItem['kind'], string> = {
-  org: 'text-destructive border-destructive',
+  org: 'text-amber border-amber',
+  org_deleted: 'text-destructive border-destructive',
   workspace: 'text-signal border-signal',
   project: 'text-blue border-blue',
 }
@@ -58,6 +62,7 @@ function GroupDataRetentionPageContent() {
   const schedule = useRetentionSchedule(isBareRender ? '' : (groupId ?? ''))
   const groups = useGroups('')
   const reactivateOrg = useReactivateOrganization()
+  const restoreOrganization = useRestoreOrganization()
   const restoreWorkspace = useRestoreWorkspace()
   const restoreProject = useRestoreProject()
   const requestExport = useRequestRetentionExport(groupId ?? '')
@@ -93,6 +98,7 @@ function GroupDataRetentionPageContent() {
 
   const handleRestore = (item: RetentionScheduleItem) => {
     if (item.kind === 'org') reactivateOrg.mutate(item.item_id, { onSuccess: invalidateSchedule })
+    else if (item.kind === 'org_deleted') restoreOrganization.mutate(item.item_id, { onSuccess: invalidateSchedule })
     else if (item.kind === 'workspace') restoreWorkspace.mutate(item.item_id, { onSuccess: invalidateSchedule })
     else restoreProject.mutate(item.item_id, { onSuccess: invalidateSchedule })
   }

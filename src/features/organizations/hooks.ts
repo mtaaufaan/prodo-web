@@ -9,6 +9,7 @@ import {
   listOrganizations,
   reactivateOrganization,
   removeOrganizationDomain,
+  restoreOrganization,
   updateOrganization,
   updateOrganizationSettings,
   updateOrganizationStorageQuota,
@@ -119,6 +120,14 @@ export function useDeleteOrganization() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => deleteOrganization(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: organizationKeys.all }),
+  })
+}
+
+export function useRestoreOrganization() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => restoreOrganization(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: organizationKeys.all }),
   })
 }

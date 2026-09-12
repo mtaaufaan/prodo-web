@@ -69,6 +69,8 @@ export function formatGroupAuditNarrative(entry: GroupAuditLogEntry): AuditNarra
       return { text: `Organisasi "${targetOf(entry)}" diaktifkan kembali`, scope: `ORGANISASI · ${org}` }
     case 'organization.deleted':
       return { text: `Organisasi "${targetOf(entry)}" dihapus`, scope: `ORGANISASI · ${org}` }
+    case 'organization.restored':
+      return { text: `Organisasi "${targetOf(entry)}" dipulihkan dari jadwal penghapusan`, scope: `ORGANISASI · ${org}` }
     case 'workspace.created':
       return { text: `Workspace "${targetOf(entry)}" dibuat`, scope: `WORKSPACE · ${org}` }
     case 'workspace.updated':

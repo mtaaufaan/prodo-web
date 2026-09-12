@@ -331,6 +331,10 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
               </Button>
             </div>
 
+            {/* 2026-09-12: Hapus Organisasi diubah dari hard-delete jadi
+                soft-delete (ditemukan user via pengujian live role Group
+                Admin) -- konsisten dengan Hapus Workspace, dipulihkan dari
+                menu Data Retention, BUKAN lagi "permanen" seketika. */}
             <div className="border-t border-line pt-4">
               <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-destructive">Zona Berbahaya</p>
               {hasWorkspaces ? (
@@ -341,8 +345,9 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
               ) : (
                 <>
                   <p className="mb-2 text-[11px] text-text-muted">
-                    Penghapusan bersifat permanen. Ketik <span className="font-mono text-text-body">{organization?.slug}</span> untuk
-                    konfirmasi.
+                    Organisasi masuk jadwal penghapusan sesuai retensi organisasi ({organization?.retention_days} hari) -- lihat menu
+                    Data Retention untuk memulihkan selama tenggat itu berjalan. Ketik{' '}
+                    <span className="font-mono text-text-body">{organization?.slug}</span> untuk konfirmasi.
                   </p>
                   <div className="flex flex-wrap items-center gap-3">
                     <Input
@@ -358,7 +363,7 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
                       onClick={handleDelete}
                       className="border-destructive font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-destructive disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {deleteOrganization.isPending ? 'Menghapus...' : 'Hapus Organisasi Permanen'}
+                      {deleteOrganization.isPending ? 'Menghapus...' : 'Hapus Organisasi'}
                     </Button>
                   </div>
                   {deleteErrorMessage && <p className="mt-2 text-[11px] text-destructive">{deleteErrorMessage}</p>}
@@ -367,7 +372,7 @@ export default function ManageOrganizationModal({ organization, onClose }: Manag
             </div>
 
             <p className="mt-4 border-t border-line pt-4 font-mono text-[9px] text-text-dim">
-              Seluruh perubahan pada organisasi — termasuk penonaktifan, pengaktifan kembali, dan penghapusan permanen — tercatat
+              Seluruh perubahan pada organisasi — termasuk penonaktifan, pengaktifan kembali, dan penghapusan — tercatat
               di Audit Trail grup (aktor, timestamp UTC, nilai sebelum → sesudah).
             </p>
 
