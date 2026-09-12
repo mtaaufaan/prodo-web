@@ -120,35 +120,20 @@ function GroupLocalePageContent() {
 
   return (
     <div className="space-y-3.5 p-6">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex gap-1.5">
-          {(['Bahasa Default', 'Cakupan Terjemahan'] as ViewTab[]).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={cn(
-                'border px-3 py-1.5 font-mono text-[9.5px] uppercase tracking-[0.08em]',
-                tab === t ? 'border-signal bg-signal text-bg-deep' : 'border-line-strong text-text-muted hover:text-text-bone',
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-        {tab === 'Bahasa Default' && (
+      <div className="flex gap-1.5">
+        {(['Bahasa Default', 'Cakupan Terjemahan'] as ViewTab[]).map((t) => (
           <button
+            key={t}
             type="button"
-            disabled={!dirty || saveAll.isPending}
-            onClick={() => saveAll.mutate()}
+            onClick={() => setTab(t)}
             className={cn(
-              'border border-signal px-4 py-2 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em]',
-              dirty ? 'bg-signal text-bg-deep' : 'text-signal opacity-50',
+              'border px-3 py-1.5 font-mono text-[9.5px] uppercase tracking-[0.08em]',
+              tab === t ? 'border-signal bg-signal text-bg-deep' : 'border-line-strong text-text-muted hover:text-text-bone',
             )}
           >
-            {saveAll.isPending ? 'Menyimpan...' : 'Simpan'}
+            {t}
           </button>
-        )}
+        ))}
       </div>
 
       {tab === 'Bahasa Default' ? (
@@ -326,6 +311,20 @@ function GroupLocalePageContent() {
               Ada perubahan yang belum disimpan. Tekan SIMPAN untuk menerapkan ke seluruh organisasi terkait.
             </p>
           )}
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              disabled={!dirty || saveAll.isPending}
+              onClick={() => saveAll.mutate()}
+              className={cn(
+                'border border-signal px-4 py-2 font-mono text-[10.5px] font-bold uppercase tracking-[0.08em]',
+                dirty ? 'bg-signal text-bg-deep' : 'text-signal opacity-50',
+              )}
+            >
+              {saveAll.isPending ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-3.5">
