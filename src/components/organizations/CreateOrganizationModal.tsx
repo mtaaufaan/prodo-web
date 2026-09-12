@@ -244,8 +244,16 @@ export default function CreateOrganizationModal({ open, onClose }: CreateOrganiz
               </p>
             </div>
 
-            {errorMessage && <p className="text-[11px] text-destructive">{errorMessage}</p>}
           </div>
+
+          {/* 2026-09-12: errorMessage dipindah keluar area scroll -- sebelumnya
+              di bawah "Langkah Berikutnya" dalam <div className="overflow-y-auto">,
+              jadi TIDAK TERLIHAT tanpa scroll manual (ditemukan user: submit nama
+              yang slug-nya bentrok organisasi lain tampak "tidak terjadi apa-apa").
+              Sekarang selalu terlihat, sama posisi seperti notice ManageOrganizationModal. */}
+          {errorMessage && (
+            <p className="mx-5 mb-3 border border-destructive p-2.5 font-mono text-[10px] text-destructive">⚠ {errorMessage}</p>
+          )}
 
           <DialogFooter>
             <Button
