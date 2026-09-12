@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '@/components/ui/button'
@@ -41,6 +41,8 @@ export default function ManageMemberModal({ member, groupId, onClose }: ManageMe
   const [addWorkspaceId, setAddWorkspaceId] = useState('')
   const [addRole, setAddRole] = useState('viewer')
   const [addError, setAddError] = useState<string | null>(null)
+  const [identityNotice, setIdentityNotice] = useState('')
+  const prevMemberIdRef = useRef<string | null>(null)
 
   const toggleExecutive = useToggleExecutive(groupId)
   const updateIdentity = useUpdateMemberIdentity(groupId)
@@ -59,10 +61,28 @@ export default function ManageMemberModal({ member, groupId, onClose }: ManageMe
       setAddWorkspaceId('')
       setAddRole('viewer')
       setAddError(null)
+      // identityNotice HANYA direset saat ganti member (bukan setiap
+      // refetch) -- sama fix race condition seperti ManageOrganizationModal.
+      if (prevMemberIdRef.current !== member.user_id) setIdentityNotice('')
+      prevMemberIdRef.current = member.user_id
+    } else {
+      prevMemberIdRef.current = null
     }
   }, [member])
 
   if (!member) return null
+
+  const identityDirty = displayName.trim() !== member.display_name || title.trim() !== member.title
+  const identityErrorMessage = updateIdentity.error instanceof ApiError ? updateIdentity.error.message : null
+
+  const handleSaveIdentity = async () => {
+    try {
+      await updateIdentity.mutateAsync({ userId: member.user_id, displayName: displayName.trim(), title: title.trim() })
+      setIdentityNotice('Identitas eksekutif tersimpan.')
+    } catch {
+      // error sudah tampil lewat identityErrorMessage
+    }
+  }
 
   const availableWorkspaces = (wsList.data ?? []).filter(
     (w) => !member.workspace_roles.some((r) => r.workspace_id === w.id),
@@ -129,11 +149,20 @@ export default function ManageMemberModal({ member, groupId, onClose }: ManageMe
                   <Input id="mm-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="mis. Chief Operating Officer" />
                 </div>
               </div>
+              {identityErrorMessage && <p className="text-[11px] text-destructive">{identityErrorMessage}</p>}
+              {identityDirty && (
+                <p className="border border-amber p-2 font-mono text-[10px] leading-relaxed text-amber">
+                  Ada perubahan yang belum disimpan.
+                </p>
+              )}
+              {!identityDirty && identityNotice && (
+                <p className="border border-mint p-2 font-mono text-[10px] text-mint">✓ {identityNotice}</p>
+              )}
               <Button
                 size="sm"
                 variant="outline"
                 disabled={updateIdentity.isPending || displayName.trim().length < 2}
-                onClick={() => updateIdentity.mutate({ userId: member.user_id, displayName: displayName.trim(), title: title.trim() })}
+                onClick={handleSaveIdentity}
                 className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em]"
               >
                 Simpan Identitas
