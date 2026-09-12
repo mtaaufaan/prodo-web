@@ -35,6 +35,13 @@ export function deleteOrganization(id: string) {
   return apiClient.delete<void>(`/api/v1/organizations/${id}`)
 }
 
+// restoreOrganization -- Data Retention: batalkan soft-delete deleteOrganization
+// di atas (2026-09-12, organisasi soft-delete, bukan hard-delete lagi --
+// pola sama restoreWorkspace).
+export function restoreOrganization(id: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/organizations/${id}/restore`)
+}
+
 export function updateOrganizationSettings(id: string, defaultLanguage: string) {
   return apiClient.put<{ id: string; default_language: string }>(`/api/v1/organizations/${id}/settings`, {
     default_language: defaultLanguage,
