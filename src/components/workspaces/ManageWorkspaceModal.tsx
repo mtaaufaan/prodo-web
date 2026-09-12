@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 
 import type { GroupAdminOutletContext } from '@/components/GroupAdminLayout'
@@ -90,6 +90,8 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [newAdminEmail, setNewAdminEmail] = useState('')
   const [adminError, setAdminError] = useState<string | null>(null)
+  const [saveNotice, setSaveNotice] = useState('')
+  const prevWorkspaceIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (workspace) {
@@ -99,6 +101,13 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
       setConfirmAction(null)
       setNewAdminEmail('')
       setAdminError(null)
+      // saveNotice HANYA direset saat ganti workspace (bukan setiap refetch
+      // -- sama fix race condition seperti ManageOrganizationModal, lihat
+      // komentarnya di sana).
+      if (prevWorkspaceIdRef.current !== workspace.id) setSaveNotice('')
+      prevWorkspaceIdRef.current = workspace.id
+    } else {
+      prevWorkspaceIdRef.current = null
     }
   }, [workspace])
 
@@ -156,10 +165,17 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
   const saving = updateWorkspace.isPending || moveWorkspace.isPending
   const saveError = [updateWorkspace.error, moveWorkspace.error].find((e) => e instanceof ApiError) as ApiError | undefined
 
+  const dirty = !!workspace && (name.trim() !== workspace.name || moving)
+
   const handleSave = async () => {
     if (!workspace || nameEmpty || overflow) return
-    if (name.trim() !== workspace.name) await updateWorkspace.mutateAsync(name.trim())
-    if (moving) await moveWorkspace.mutateAsync(targetOrgId)
+    try {
+      if (name.trim() !== workspace.name) await updateWorkspace.mutateAsync(name.trim())
+      if (moving) await moveWorkspace.mutateAsync(targetOrgId)
+      setSaveNotice('Perubahan workspace tersimpan.')
+    } catch {
+      // error sudah tampil lewat saveError di bawah
+    }
   }
 
   const handleConfirm = () => {
@@ -340,6 +356,15 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
             </div>
 
             {saveError && <p className="text-[11px] text-destructive">{saveError.message}</p>}
+
+            {dirty && (
+              <p className="border border-amber p-2.5 font-mono text-[10px] leading-relaxed text-amber">
+                Ada perubahan yang belum disimpan. Tekan "Simpan Perubahan" untuk menerapkan.
+              </p>
+            )}
+            {!dirty && saveNotice && (
+              <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {saveNotice}</p>
+            )}
 
             <Button
               type="button"
