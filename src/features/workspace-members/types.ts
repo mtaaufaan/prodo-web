@@ -32,3 +32,19 @@ export interface CreateInvitationsResult {
   added_directly: string[] | null
   errors: Record<string, string>
 }
+
+// S4W-02 (desain "AW Invite Member.dc.html", pool "MEMBER TERDAFTAR DI
+// LUAR WORKSPACE INI") -- member organisasi pemilik workspace ini yang
+// belum jadi member workspace ini.
+export interface WorkspaceMemberCandidate {
+  user_id: string
+  email: string
+  display_name: string
+}
+
+// S4W-02 (desain "AW Members Roles.dc.html") -- baris gabungan member
+// aktif + undangan pending untuk satu grid, sesuai desain (bukan dua
+// tabel terpisah seperti versi minimal S2/S3).
+export type MemberOrInvitation =
+  | { kind: 'member'; data: WorkspaceMember }
+  | { kind: 'invitation'; data: PendingInvitation }

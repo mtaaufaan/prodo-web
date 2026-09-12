@@ -4,6 +4,7 @@ import {
   cancelInvitation,
   createInvitations,
   listPendingInvitations,
+  listWorkspaceMemberCandidates,
   listWorkspaceMembers,
   removeMember,
   resendInvitation,
@@ -13,6 +14,7 @@ import {
 export const workspaceMemberKeys = {
   all: ['workspace-members'] as const,
   list: (workspaceId: string) => [...workspaceMemberKeys.all, 'list', workspaceId] as const,
+  candidates: (workspaceId: string) => [...workspaceMemberKeys.all, 'candidates', workspaceId] as const,
 }
 
 export const invitationKeys = {
@@ -71,6 +73,10 @@ export function useCreateInvitations(workspaceId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: invitationKeys.list(workspaceId) })
       queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.list(workspaceId) })
+      // Kandidat yang baru ditambahkan (langsung aktif MAUPUN diundang)
+      // harus hilang dari pool -- tanpa ini, pool masih menampilkan email
+      // yang sudah barusan ditambahkan (ditemukan lewat verifikasi live).
+      queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.candidates(workspaceId) })
     },
   })
 }
@@ -87,4 +93,16 @@ export function useResendInvitation(workspaceId: string) {
   return useMutation({
     mutationFn: (invitationId: string) => resendInvitation(workspaceId, invitationId),
   })
+}
+
+const memberCandidatesQuery = (workspaceId: string) =>
+  queryOptions({
+    queryKey: [...workspaceMemberKeys.all, 'candidates', workspaceId] as const,
+    queryFn: () => listWorkspaceMemberCandidates(workspaceId),
+    enabled: Boolean(workspaceId),
+  })
+
+// S4W-02: "pool kandidat" modal Undang Member.
+export function useWorkspaceMemberCandidates(workspaceId: string) {
+  return useQuery(memberCandidatesQuery(workspaceId))
 }
