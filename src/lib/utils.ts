@@ -25,3 +25,15 @@ export function logoBgClass(id: string): string {
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
   return LOGO_PALETTE[hash % LOGO_PALETTE.length]
 }
+
+// slugify -- dipakai CreateOrganizationModal (nama -> slug live) dan
+// ManageOrganizationModal (slug ikut nama selama field-nya belum di-unlock
+// manual, lihat komentar slugUnlocked di sana) -- satu sumber supaya
+// keduanya selalu menghasilkan slug yang sama persis dari nama yang sama.
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
