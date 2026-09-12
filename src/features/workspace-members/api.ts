@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api'
 
-import type { CreateInvitationsResult, PendingInvitation, WorkspaceMember } from './types'
+import type { CreateInvitationsResult, PendingInvitation, WorkspaceMember, WorkspaceMemberCandidate } from './types'
 
 export function listWorkspaceMembers(workspaceId: string) {
   return apiClient
@@ -35,4 +35,9 @@ export function cancelInvitation(workspaceId: string, invitationId: string) {
 
 export function resendInvitation(workspaceId: string, invitationId: string) {
   return apiClient.post<{ message: string }>(`/api/v1/workspaces/${workspaceId}/invitations/${invitationId}/resend`)
+}
+
+// S4W-02: "pool kandidat" modal Undang Member.
+export function listWorkspaceMemberCandidates(workspaceId: string) {
+  return apiClient.get<WorkspaceMemberCandidate[]>(`/api/v1/workspaces/${workspaceId}/member-candidates`)
 }
