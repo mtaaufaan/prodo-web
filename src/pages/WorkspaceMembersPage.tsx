@@ -117,7 +117,7 @@ function WorkspaceMembersPageContent() {
 
   return (
     <>
-      <div className="mx-auto max-w-5xl space-y-5 p-6">
+      <div className="space-y-5 p-6">
         {isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
         {isError && <p className="text-sm text-destructive">Gagal memuat daftar member.</p>}
 
