@@ -19,8 +19,11 @@ import { useAuthStore } from '@/store/useAuthStore'
 // sebelum ini). Sekarang mengikuti struktur PERSIS GroupAdminLayout.tsx:
 // icon rail + sidebar konteks (switcher workspace inline, bukan komponen
 // WorkspaceSwitcher terpisah lagi -- dihapus, cuma dipakai di sini) +
-// topbar (breadcrumb, search disabled, notif disabled, CTA per-menu) +
-// baris tab opsional.
+// topbar (breadcrumb, notif disabled, CTA per-menu) + baris tab opsional.
+// Input pencarian topbar (versi disabled, sama pola GroupAdminLayout)
+// SENGAJA dihapus lagi (dikonfirmasi user 2026-09-13, sama instruksi
+// dengan penghapusan search bebas WorkspaceListPage) -- tab status/filter
+// yang sudah ada di tiap halaman workspace dianggap cukup.
 //
 // Cakupan menu SENGAJA belum penuh sesuai desain (dikonfirmasi user): 9
 // item Admin Workspace di desain, di sini masih 8 (Cooldown Mention belum
@@ -356,12 +359,6 @@ export default function WorkspaceLayout() {
               <span className="text-text-bone">{activeNav?.label ?? '—'}</span>
             </div>
             <div className="flex-1" />
-            <input
-              disabled
-              title="Pencarian belum tersedia"
-              placeholder="Cari task, project…"
-              className="hidden max-w-[220px] flex-1 cursor-not-allowed border border-line bg-transparent px-3 py-1.5 font-mono text-[11px] text-text-dim outline-none placeholder:text-text-dim md:block"
-            />
             <button
               type="button"
               disabled

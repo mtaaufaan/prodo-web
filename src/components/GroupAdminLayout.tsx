@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
@@ -111,10 +111,18 @@ const NAV_ITEMS = [
 // group switcher) -- grup yang SEDANG AKTIF dipilih, satu-satunya sumber
 // kebenaran dipakai halaman anak (mis. OrganizationManagementPage,
 // CreateOrganizationModal) supaya tidak perlu resolve grup sendiri-sendiri.
+// query (2026-09-13): kolom pencarian topbar -- sumber desain "Master UI
+// Group Admin.dc.html" mengalirkan `query` ke modul Workspace/Members yang
+// SEDANG aktif (BUKAN Organisasi, desain sengaja tidak menyambungkannya di
+// sana), reset ke '' tiap pindah menu. Sebelumnya kolom ini dibiarkan
+// `disabled` di kode -- dikonfirmasi user untuk dibuat benar-benar
+// berfungsi menggantikan kotak pencarian in-content WorkspaceListPage yang
+// baru dihapus (satu kotak pencarian topbar, bukan duplikat per-halaman).
 export interface GroupAdminOutletContext {
   view: string
   registerCta: (handler: (() => void) | null) => void
   groupId: string
+  query: string
 }
 
 function GroupAdminNavItem({ icon, label, to }: { icon: string; label: string; to: string | null }) {
@@ -163,9 +171,23 @@ export default function GroupAdminLayout() {
   const [ctaHandler, setCtaHandler] = useState<(() => void) | null>(null)
   const registerCta = useCallback((handler: (() => void) | null) => setCtaHandler(() => handler), [])
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [query, setQuery] = useState('')
   const { i18n } = useTranslation()
 
   const activeNav = useMemo(() => NAV_ITEMS.find((n) => n.to && location.pathname.startsWith(n.to)) ?? null, [location.pathname])
+  // Cuma Workspace + Members yang disambungkan ke pencarian topbar (sumber
+  // desain "Master UI Group Admin.dc.html": query CUMA dialirkan ke dc-import
+  // "GA Workspaces"/"GA Members Roles", SENGAJA tidak ke "GA Organizations").
+  const searchableNav = activeNav?.key === 'workspace' || activeNav?.key === 'members'
+  const searchPlaceholder = activeNav?.key === 'workspace' ? 'Cari nama workspace atau organisasi…' : 'Cari nama atau email member…'
+
+  // Reset pencarian setiap pindah halaman -- sama perilaku desain
+  // (nav.onClick set query:'' bareng nav/view), di sini route beda TIDAK
+  // otomatis unmount GroupAdminLayout (shell persisten), jadi harus di-reset
+  // eksplisit lewat efek pada path, bukan cuma lifecycle unmount halaman anak.
+  useEffect(() => {
+    setQuery('')
+  }, [location.pathname])
 
   // Group switcher (S4G-32, Track S4G): sebagian besar GA cuma punya 1
   // grup (switcher tidak dirender sama sekali di kasus itu) -- tapi
@@ -377,12 +399,14 @@ export default function GroupAdminLayout() {
               <span className="text-text-bone">{activeNav ? `${activeNav.label} · ${view}` : 'Dashboard'}</span>
             </div>
             <div className="flex-1" />
-            <input
-              disabled
-              title="Pencarian lintas organisasi belum tersedia"
-              placeholder="Cari nama, email, organisasi…"
-              className="hidden max-w-[220px] flex-1 cursor-not-allowed border border-line bg-transparent px-3 py-1.5 font-mono text-[11px] text-text-dim outline-none placeholder:text-text-dim md:block"
-            />
+            {searchableNav && (
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="hidden max-w-[220px] flex-1 border border-line bg-transparent px-3 py-1.5 font-mono text-[11px] text-text-bone outline-none placeholder:text-text-dim focus-visible:border-signal md:block"
+              />
+            )}
             <button
               type="button"
               disabled
@@ -421,7 +445,7 @@ export default function GroupAdminLayout() {
           )}
 
           <div className="min-h-0 flex-1 overflow-auto bg-content">
-            <Outlet context={{ view, registerCta, groupId: activeGroup?.id ?? '' } satisfies GroupAdminOutletContext} />
+            <Outlet context={{ view, registerCta, groupId: activeGroup?.id ?? '', query } satisfies GroupAdminOutletContext} />
           </div>
         </main>
       </div>
