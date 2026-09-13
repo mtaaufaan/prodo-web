@@ -99,7 +99,8 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
             {project.code} · {project.name}
           </DialogTitle>
           <div className="mt-1.5 font-mono text-[10.5px] text-text-muted">
-            {project.member_count} member · dibuat {new Date(project.created_at).toLocaleDateString('id-ID')} · status{' '}
+            {project.member_count} member · dibuat {new Date(project.created_at).toLocaleDateString('id-ID')}
+            {project.created_by_name && ` oleh ${project.created_by_name}`} · status{' '}
             {project.is_archived ? 'ARSIP' : 'AKTIF'}
           </div>
         </DialogHeader>

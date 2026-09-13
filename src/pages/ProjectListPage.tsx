@@ -121,7 +121,9 @@ function ProjectListPageContent() {
                         <Link to={`/workspaces/${workspaceId}/projects/${p.id}/board`} className="text-[13px] text-text-bone hover:text-signal hover:underline">
                           {p.name}
                         </Link>
-                        <div className="font-mono text-[8.5px] text-text-muted">{p.member_count} member</div>
+                        <div className="font-mono text-[8.5px] text-text-muted">
+                          {p.member_count} member{p.created_by_name && ` · dibuat ${p.created_by_name}`}
+                        </div>
                       </div>
                     </div>
                   </td>

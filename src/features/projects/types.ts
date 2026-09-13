@@ -11,6 +11,8 @@ export interface Project {
   member_count: number
   sprint_count: number
   task_count: number
+  created_by_name: string
+  created_by_email: string
   created_at: string
   archived_at: string | null
 }
