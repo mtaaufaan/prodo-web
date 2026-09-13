@@ -21,9 +21,9 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 }
 
 // S4-04, US-012 (AW Projects.dc.html) -- halaman "Semua Project" di dalam
-// satu workspace. "SPRINT · TASK" kolom dari desain SENGAJA tidak dibuat --
-// tabel sprints/tasks belum ada (menyusul S4-06+), menampilkan angka palsu
-// lebih menyesatkan daripada menghilangkan kolomnya.
+// satu workspace. Kolom "SPRINT · TASK" + stat "TASK BERJALAN" (S4W-04)
+// menyusul setelah tabel sprints/tasks dibangun (Task Management Core) --
+// sebelumnya sengaja dihilangkan karena datanya belum ada sama sekali.
 function ProjectListPageContent() {
   const { wsId } = useParams<{ wsId: string }>()
   const workspaceId = wsId ?? ''
@@ -76,10 +76,14 @@ function ProjectListPageContent() {
   return (
     <div className="space-y-3.5 p-6">
       {all.length > 0 && (
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard label="Total Project" value={String(all.length)} />
           <MetricCard label="Aktif" value={String(all.filter((p) => !p.is_archived).length)} />
           <MetricCard label="Arsip" value={String(all.filter((p) => p.is_archived).length)} />
+          <MetricCard
+            label="Task Berjalan"
+            value={String(all.filter((p) => !p.is_archived).reduce((sum, p) => sum + p.task_count, 0))}
+          />
         </div>
       )}
 
@@ -98,7 +102,7 @@ function ProjectListPageContent() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-panel text-left">
-                {['Project', 'Project Manager', 'Members', 'Status', 'Aksi'].map((h) => (
+                {['Project', 'Project Manager', 'Sprint · Task', 'Status', 'Aksi'].map((h) => (
                   <th key={h} className="py-2.5 pl-3.5 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
                     {h}
                   </th>
@@ -113,16 +117,23 @@ function ProjectListPageContent() {
                       <span className="border border-signal/40 px-1.5 py-1 font-mono text-[9px] font-bold text-signal">
                         {p.code}
                       </span>
-                      <Link to={`/workspaces/${workspaceId}/projects/${p.id}/board`} className="text-[13px] text-text-bone hover:text-signal hover:underline">
-                        {p.name}
-                      </Link>
+                      <div>
+                        <Link to={`/workspaces/${workspaceId}/projects/${p.id}/board`} className="text-[13px] text-text-bone hover:text-signal hover:underline">
+                          {p.name}
+                        </Link>
+                        <div className="font-mono text-[8.5px] text-text-muted">
+                          {p.member_count} member{p.created_by_name && ` · dibuat ${p.created_by_name}`}
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td className="py-3 pr-4">
                     <div className="text-[12px] text-text-body">{p.pm_name || '—'}</div>
                     <div className="font-mono text-[8.5px] text-text-muted">{p.pm_email}</div>
                   </td>
-                  <td className="py-3 pr-4 font-mono text-[10px] text-text-muted">{p.member_count}</td>
+                  <td className="py-3 pr-4 font-mono text-[10px] text-text-muted">
+                    {p.sprint_count} sprint · {p.task_count} task
+                  </td>
                   <td className="py-3 pr-4">
                     <span
                       className={cn(
