@@ -75,17 +75,19 @@ function ProjectListPageContent() {
 
   return (
     <div className="space-y-3.5 p-6">
-      {all.length > 0 && (
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard label="Total Project" value={String(all.length)} />
-          <MetricCard label="Aktif" value={String(all.filter((p) => !p.is_archived).length)} />
-          <MetricCard label="Arsip" value={String(all.filter((p) => p.is_archived).length)} />
-          <MetricCard
-            label="Task Berjalan"
-            value={String(all.filter((p) => !p.is_archived).reduce((sum, p) => sum + p.task_count, 0))}
-          />
-        </div>
-      )}
+      {/* Selalu tampil, TERMASUK saat 0 project (dengan angka 0) -- sama
+          pola OrganizationManagementPage (`orgs.length > 0` dulu
+          menyembunyikan stats bar untuk grup baru, gap yang sama berulang
+          di sini karena kartu ke-4 ditambah tanpa audit ulang gate ini). */}
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard label="Total Project" value={String(all.length)} />
+        <MetricCard label="Aktif" value={String(all.filter((p) => !p.is_archived).length)} />
+        <MetricCard label="Arsip" value={String(all.filter((p) => p.is_archived).length)} />
+        <MetricCard
+          label="Task Berjalan"
+          value={String(all.filter((p) => !p.is_archived).reduce((sum, p) => sum + p.task_count, 0))}
+        />
+      </div>
 
       {isLoading && <p className="font-mono text-sm text-text-muted">Memuat...</p>}
       {isError && <p className="font-mono text-sm text-destructive">Gagal memuat daftar project.</p>}
