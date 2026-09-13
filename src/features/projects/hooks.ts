@@ -1,10 +1,24 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { createProject, deleteProject, listProjects, restoreProject, setProjectArchived, updateProject } from './api'
+import { workspaceMemberKeys } from '@/features/workspace-members/hooks'
+
+import { assignProjectPM, createProject, deleteProject, listProjects, removeProjectPM, restoreProject, setProjectArchived, updateProject } from './api'
+import type { PMTarget } from './types'
 
 export const projectKeys = {
   all: ['projects'] as const,
   list: (workspaceId: string) => [...projectKeys.all, 'list', workspaceId] as const,
+}
+
+// invalidatePMRoleChange (S4W susulan) -- Create/AssignPM bisa menaikkan
+// role seorang workspace member jadi project_manager lewat RBACService.
+// AssignRole (server), tapi itu TIDAK otomatis membuat daftar member yang
+// sudah di-fetch FE (dipakai picker PM di AddProjectModal/
+// ManageProjectModal) ikut ter-refresh -- pola bug basi lintas-folder yang
+// sama persis dengan IG-69 (docs/implementation_gaps.md), cuma di
+// pasangan folder features/projects <-> features/workspace-members.
+function invalidatePMRoleChange(queryClient: ReturnType<typeof useQueryClient>, workspaceId: string) {
+  queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.list(workspaceId) })
 }
 
 const projectsListQuery = (workspaceId: string) =>
@@ -21,16 +35,39 @@ export function useProjects(workspaceId: string) {
 export function useCreateProject(workspaceId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (input: { name: string; code: string; pm_user_id: string }) => createProject(workspaceId, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.list(workspaceId) }),
+    mutationFn: (input: { name: string; code: string; pm: PMTarget }) => createProject(workspaceId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.list(workspaceId) })
+      invalidatePMRoleChange(queryClient, workspaceId)
+    },
   })
 }
 
 export function useUpdateProject(workspaceId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ projectId, input }: { projectId: string; input: { name: string; pm_user_id?: string } }) =>
-      updateProject(projectId, input),
+    mutationFn: ({ projectId, input }: { projectId: string; input: { name: string } }) => updateProject(projectId, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.list(workspaceId) }),
+  })
+}
+
+// useAssignProjectPM/useRemoveProjectPM (S4W susulan) -- seksi PM panel
+// Kelola, terpisah dari useUpdateProject (nama).
+export function useAssignProjectPM(workspaceId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ projectId, pm }: { projectId: string; pm: PMTarget }) => assignProjectPM(projectId, pm),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectKeys.list(workspaceId) })
+      invalidatePMRoleChange(queryClient, workspaceId)
+    },
+  })
+}
+
+export function useRemoveProjectPM(workspaceId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (projectId: string) => removeProjectPM(projectId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.list(workspaceId) }),
   })
 }

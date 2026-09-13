@@ -190,12 +190,27 @@ function ProjectListPageContent() {
                   </div>
                 </td>
                 <td className="py-3 pr-4">
-                  <div className="text-[12px] text-text-body">
-                    {p.pm_name || "—"}
-                  </div>
-                  <div className="font-mono text-[8.5px] text-text-muted">
-                    {p.pm_email}
-                  </div>
+                  {p.pm_user_id ? (
+                    <>
+                      <div className="text-[12px] text-text-body">
+                        {p.pm_name}
+                      </div>
+                      <div className="font-mono text-[8.5px] text-text-muted">
+                        {p.pm_email}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.04em] text-amber">
+                        Menunggu PM
+                      </span>
+                      {p.pm_pending_email && (
+                        <div className="truncate font-mono text-[8.5px] text-text-muted">
+                          {p.pm_pending_email}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </td>
                 <td className="py-3 pr-4 font-mono text-[10px] text-text-muted">
                   {p.sprint_count} sprint · {p.task_count} task
