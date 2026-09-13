@@ -48,17 +48,19 @@ function StatCard({ label, value, tone }: { label: string; value: string; tone?:
 // S4G-05, Track S4G (desain "GA Workspaces.dc.html") -- diperkaya penuh dari
 // versi minimal S3-13: grid GROUP-WIDE lintas organisasi (org jadi kolom,
 // bukan parameter route), stats bar, storage bar per-workspace (SELALU 0%
-// untuk sekarang -- lihat komentar WorkspaceListRow di types.ts), search,
-// filter tab (dari GroupAdminLayout, sama pola OrganizationManagementPage),
+// untuk sekarang -- lihat komentar WorkspaceListRow di types.ts), filter
+// tab (dari GroupAdminLayout, sama pola OrganizationManagementPage),
 // pagination 10/hal. `?org_id=` (opsional) -- deep-link dari link "WS ·
 // Member" di OrganizationManagementPage, filter awal ke SATU organisasi,
-// bisa dihapus lewat tombol "Tampilkan Semua".
+// bisa dihapus lewat tombol "Tampilkan Semua". Kolom cari-nama bebas
+// SENGAJA tidak dibangun di sini (dikonfirmasi user 2026-09-13) -- sudah
+// diakomodir tab status (Semua/Aktif/Arsip/Nonaktif, di luar area content
+// ini) sama seperti OrganizationManagementPage yang juga tanpa search bebas.
 function WorkspaceListPageContent() {
   const [searchParams, setSearchParams] = useSearchParams()
   const orgIdFilter = searchParams.get('org_id')
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
 
   const outletContext = useOutletContext<GroupAdminOutletContext>()
@@ -99,13 +101,9 @@ function WorkspaceListPageContent() {
       const want = view === 'Aktif' ? 'AKTIF' : view === 'Arsip' ? 'ARSIP' : 'NONAKTIF'
       r = r.filter((w) => statusOf(w) === want)
     }
-    const q = query.trim().toLowerCase()
-    if (q) {
-      r = r.filter((w) => [w.name, w.org_name].some((f) => f.toLowerCase().includes(q)))
-    }
     return r
-  }, [rows, orgIdFilter, view, query])
-  useEffect(() => setPage(1), [view, query, orgIdFilter])
+  }, [rows, orgIdFilter, view])
+  useEffect(() => setPage(1), [view, orgIdFilter])
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / WS_PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -142,14 +140,8 @@ function WorkspaceListPageContent() {
           <StatCard label="Storage Workspace" value={`${(stats.usedTotal / GB).toFixed(1)} GB`} tone="signal" />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Cari nama workspace atau organisasi..."
-            className="max-w-[320px] flex-1 border border-line-strong bg-input-bg px-3 py-1.5 font-mono text-[11px] text-text-body outline-none placeholder:text-text-dim focus-visible:border-signal"
-          />
-          {orgIdFilter && (
+        {orgIdFilter && (
+          <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center gap-2 font-mono text-[10px] text-text-muted">
               Difilter ke organisasi <strong className="text-text-body">{orgIdFilterName ?? orgIdFilter}</strong>
               <button
@@ -164,8 +156,8 @@ function WorkspaceListPageContent() {
                 Tampilkan Semua
               </button>
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className="border border-line">
           <div className="border-b border-line bg-raised-2 px-4 py-2.5">
