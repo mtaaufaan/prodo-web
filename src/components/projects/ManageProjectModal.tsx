@@ -43,7 +43,16 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
 
   if (!project) return null
 
-  const pmCandidates = (members.data ?? []).filter((m) => m.role === 'project_manager')
+  const roleCandidates = (members.data ?? []).filter((m) => m.role === 'project_manager')
+  // PM saat ini bisa saja sudah bukan role project_manager lagi di
+  // workspace ini (role per-workspace berubah) -- tetap ditampilkan sebagai
+  // opsi terpilih (AW Projects.dc.html: "bukan PM di workspace ini"),
+  // supaya panel tidak diam-diam menunjuk orang lain begitu disimpan.
+  const currentPmListed = roleCandidates.some((m) => m.user_id === project.pm_user_id)
+  const pmCandidates =
+    project.pm_user_id && !currentPmListed
+      ? [{ user_id: project.pm_user_id, display_name: project.pm_name || project.pm_email, email: project.pm_email, role: 'project_manager', notInWorkspace: true }, ...roleCandidates]
+      : roleCandidates
   const canDelete = confirmText.trim() === project.name
 
   const handleSave = () => {
@@ -135,6 +144,9 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
                     <span className="min-w-0 flex-1">
                       <div className={cn('truncate text-[12.5px]', active ? 'text-signal' : 'text-text-body')}>{m.display_name}</div>
                       <div className="truncate font-mono text-[9px] text-text-muted">{m.email}</div>
+                      {'notInWorkspace' in m && m.notInWorkspace && (
+                        <div className="font-mono text-[8.5px] text-amber">bukan PM di workspace ini</div>
+                      )}
                     </span>
                   </button>
                 )
