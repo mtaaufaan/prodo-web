@@ -52,10 +52,12 @@ function StatCard({ label, value, tone }: { label: string; value: string; tone?:
 // tab (dari GroupAdminLayout, sama pola OrganizationManagementPage),
 // pagination 10/hal. `?org_id=` (opsional) -- deep-link dari link "WS ·
 // Member" di OrganizationManagementPage, filter awal ke SATU organisasi,
-// bisa dihapus lewat tombol "Tampilkan Semua". Kolom cari-nama bebas
-// SENGAJA tidak dibangun di sini (dikonfirmasi user 2026-09-13) -- sudah
-// diakomodir tab status (Semua/Aktif/Arsip/Nonaktif, di luar area content
-// ini) sama seperti OrganizationManagementPage yang juga tanpa search bebas.
+// bisa dihapus lewat tombol "Tampilkan Semua". Kolom cari-nama bebas di
+// DALAM content SENGAJA tidak dibangun di sini (dikonfirmasi user
+// 2026-09-13) -- pencarian nama workspace/organisasi diakomodir lewat
+// `query` topbar GroupAdminLayout (sesuai desain "Master UI Group
+// Admin.dc.html": dc-import filter+query, khusus modul Workspace &
+// Members), bukan input terpisah di content ini.
 function WorkspaceListPageContent() {
   const [searchParams, setSearchParams] = useSearchParams()
   const orgIdFilter = searchParams.get('org_id')
@@ -65,7 +67,7 @@ function WorkspaceListPageContent() {
 
   const outletContext = useOutletContext<GroupAdminOutletContext>()
   const isBareRender = !outletContext
-  const { view, registerCta, groupId } = outletContext ?? { view: 'Semua', registerCta: () => {}, groupId: undefined }
+  const { view, registerCta, groupId, query } = outletContext ?? { view: 'Semua', registerCta: () => {}, groupId: undefined, query: '' }
   const list = useWorkspaceListByGroup(isBareRender ? undefined : groupId)
 
   useEffect(() => {
@@ -101,9 +103,13 @@ function WorkspaceListPageContent() {
       const want = view === 'Aktif' ? 'AKTIF' : view === 'Arsip' ? 'ARSIP' : 'NONAKTIF'
       r = r.filter((w) => statusOf(w) === want)
     }
+    if (query.trim()) {
+      const q = query.trim().toLowerCase()
+      r = r.filter((w) => w.name.toLowerCase().includes(q) || w.org_name.toLowerCase().includes(q))
+    }
     return r
-  }, [rows, orgIdFilter, view])
-  useEffect(() => setPage(1), [view, orgIdFilter])
+  }, [rows, orgIdFilter, view, query])
+  useEffect(() => setPage(1), [view, orgIdFilter, query])
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / WS_PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)

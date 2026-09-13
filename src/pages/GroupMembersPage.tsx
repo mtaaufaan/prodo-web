@@ -66,13 +66,18 @@ function matchesTab(row: Row, tab: Tab): boolean {
   return true
 }
 
+function matchesQuery(row: Row, q: string): boolean {
+  if (row.kind === 'member') return row.member.display_name.toLowerCase().includes(q) || row.member.email.toLowerCase().includes(q)
+  return row.pending.display_name.toLowerCase().includes(q) || row.pending.email.toLowerCase().includes(q)
+}
+
 // GroupMembersPage -- Members & Roles (forward-pull US-086, Track S4G,
 // desain "GA Members Roles.dc.html"). Disederhanakan dari desain: SATU
 // layout tabel (bukan varian sempit/lebar via ResizeObserver -- polesan
 // responsif dekoratif, bukan fungsi inti), CSV bulk invite ditunda ke
 // S4G-15-18 (track Import Data resmi).
 function GroupMembersPageContent() {
-  const { registerCta, groupId } = useOutletContext<GroupAdminOutletContext>()
+  const { registerCta, groupId, query } = useOutletContext<GroupAdminOutletContext>()
   const [tab, setTab] = useState<Tab>('Semua')
   const [page, setPage] = useState(1)
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -107,8 +112,11 @@ function GroupMembersPageContent() {
     return [...memberRows, ...pendingRows]
   }, [members, pending])
 
-  const filteredRows = useMemo(() => rows.filter((r) => matchesTab(r, tab)), [rows, tab])
-  useEffect(() => setPage(1), [tab])
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return rows.filter((r) => matchesTab(r, tab) && (!q || matchesQuery(r, q)))
+  }, [rows, tab, query])
+  useEffect(() => setPage(1), [tab, query])
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
