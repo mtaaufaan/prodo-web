@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useOutletContext } from 'react-router-dom'
 
 import type { GroupAdminOutletContext } from '@/components/GroupAdminLayout'
@@ -23,9 +24,11 @@ import {
   useReactivateWorkspace,
   useUnarchiveWorkspace,
   useUpdateWorkspace,
+  workspaceKeys,
 } from '@/features/workspaces/hooks'
 import type { WorkspaceListRow } from '@/features/workspaces/types'
 import { ApiError } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 const GB = 1024 * 1024 * 1024
 
@@ -122,13 +125,29 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
   const createInvitations = useCreateInvitations(workspace?.id ?? '')
   const removeMember = useRemoveMember(workspace?.id ?? '')
   const cancelInvitation = useCancelInvitation(workspace?.id ?? '')
+  // admin_count/pending_admin_count di grid WorkspaceListPage datang dari
+  // query workspaceKeys (features/workspaces), TERPISAH dari query
+  // workspace-members yang tiga mutation di atas invalidate sendiri --
+  // tanpa ini grid tetap menampilkan angka lama sampai halaman di-refresh
+  // manual (ditemukan user lewat pengujian live: tambah admin, tutup
+  // popup, grid belum berubah).
+  const queryClient = useQueryClient()
+  const refreshWorkspaceGrid = () => queryClient.invalidateQueries({ queryKey: workspaceKeys.all })
   const admins = (workspaceMembers.data ?? []).filter((m) => m.role === 'admin_workspace')
   const pendingAdmins = (pendingInvitations.data ?? []).filter((p) => p.role === 'admin_workspace')
+  // Undangan admin yang sudah lewat expires_at TIDAK dihitung backend
+  // sebagai admin (grid WorkspaceListPage: `pending_admin_count`, lihat
+  // WorkspaceRepository.ListByGroup) -- panel ini sebelumnya menampilkan
+  // SEMUA baris pending sebagai "Pending" polos, tidak membedakan yang
+  // sudah kedaluwarsa (beda dari PendingInvitationsSection/ManageMemberPanel
+  // yang sudah menandai ini), ditemukan saat memverifikasi fix refresh grid.
+  const activePendingAdmins = pendingAdmins.filter((p) => new Date(p.expires_at) >= new Date())
   // Workspace tidak boleh sampai tanpa Admin Workspace sama sekali (aturan
   // lama dari dropdown ganti-admin, "Wajib terisi") -- cuma dicek client-side
   // (konsisten pola lama, tidak ada penegakan backend), disable Cabut kalau
-  // ini satu-satunya baris tersisa (diterima ATAU pending, dihitung bersama).
-  const isLastAdmin = admins.length + pendingAdmins.length === 1
+  // ini satu-satunya baris tersisa (diterima ATAU pending yang masih
+  // berlaku -- undangan kedaluwarsa tidak dihitung, sama seperti backend).
+  const isLastAdmin = admins.length + activePendingAdmins.length === 1
 
   const handleAddAdmin = async () => {
     const email = newAdminEmail.trim()
@@ -136,6 +155,7 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
     setAdminError(null)
     try {
       await createInvitations.mutateAsync({ emails: [email], role: 'admin_workspace' })
+      refreshWorkspaceGrid()
       setNewAdminEmail('')
     } catch (e) {
       setAdminError(e instanceof ApiError ? e.message : 'Gagal menambah admin')
@@ -299,14 +319,17 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                       type="button"
                       disabled={removeMember.isPending || isLastAdmin}
                       title={isLastAdmin ? 'Workspace tidak boleh tanpa Admin Workspace — tambah admin lain dulu' : undefined}
-                      onClick={() => removeMember.mutate(m.user_id)}
+                      onClick={() => removeMember.mutate(m.user_id, { onSuccess: refreshWorkspaceGrid })}
                       className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
                     >
                       Cabut
                     </button>
                   </div>
                 ))}
-                {pendingAdmins.map((p) => (
+                {pendingAdmins.map((p) => {
+                  const expired = new Date(p.expires_at) < new Date()
+                  const blockCancel = !expired && isLastAdmin
+                  return (
                   <div
                     key={p.id}
                     className="grid grid-cols-[1.2fr_1.3fr_1fr_1.1fr_0.6fr] items-center gap-2 border-t border-line px-3 py-2 text-[12px]"
@@ -314,18 +337,21 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                     <span className="text-text-dim">—</span>
                     <span className="truncate font-mono text-[10.5px] text-text-muted">{p.email}</span>
                     <span className="text-text-dim">—</span>
-                    <span className="font-mono text-[10px] text-amber">Pending {new Date(p.created_at).toLocaleDateString('id-ID')}</span>
+                    <span className={cn('font-mono text-[10px]', expired ? 'text-text-muted' : 'text-amber')}>
+                      {expired ? 'Kedaluwarsa' : 'Pending'} {new Date(p.created_at).toLocaleDateString('id-ID')}
+                    </span>
                     <button
                       type="button"
-                      disabled={cancelInvitation.isPending || isLastAdmin}
-                      title={isLastAdmin ? 'Workspace tidak boleh tanpa Admin Workspace — tambah admin lain dulu' : undefined}
-                      onClick={() => cancelInvitation.mutate(p.id)}
+                      disabled={cancelInvitation.isPending || blockCancel}
+                      title={blockCancel ? 'Workspace tidak boleh tanpa Admin Workspace — tambah admin lain dulu' : undefined}
+                      onClick={() => cancelInvitation.mutate(p.id, { onSuccess: refreshWorkspaceGrid })}
                       className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
                     >
                       Cabut
                     </button>
                   </div>
-                ))}
+                  )
+                })}
                 {admins.length === 0 && pendingAdmins.length === 0 && (
                   <p className="border-t border-line px-3 py-3 text-[11px] text-text-muted">Belum ada Admin Workspace.</p>
                 )}

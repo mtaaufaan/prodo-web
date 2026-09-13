@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { organizationKeys } from '@/features/organizations/hooks'
+import { groupAdminKeys } from '@/features/platform-admin/hooks'
 import { cancelInvitation, createInvitations, removeMember, resendInvitation, updateMemberRole } from '@/features/workspace-members/api'
 
 import {
@@ -29,6 +31,16 @@ export function useGroupMembers(groupId: string) {
 
 function invalidate(queryClient: ReturnType<typeof useQueryClient>, groupId: string) {
   queryClient.invalidateQueries({ queryKey: memberKeys.directory(groupId) })
+}
+
+// Organization.member_count/GroupAdmin.used_member_count juga berubah lewat
+// jalur GroupMembersPage ini (assign/revoke akses workspace, undang massal
+// lintas workspace) -- sama alasan invalidateMemberCountAggregates di
+// features/workspace-members/hooks.ts (audit 2026-09-13, implementation_
+// gaps.md IG-69), duplikat kecil di sini karena reuse API bukan reuse hook.
+function invalidateMemberCountAggregates(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: organizationKeys.all })
+  queryClient.invalidateQueries({ queryKey: groupAdminKeys.all })
 }
 
 export function useToggleExecutive(groupId: string) {
@@ -81,7 +93,13 @@ export function useAssignWorkspaceRole(groupId: string) {
   return useMutation({
     mutationFn: ({ workspaceId, userId, role }: { workspaceId: string; userId: string; role: string }) =>
       updateMemberRole(workspaceId, userId, role),
-    onSuccess: () => invalidate(queryClient, groupId),
+    onSuccess: () => {
+      invalidate(queryClient, groupId)
+      // "+ TAMBAH AKSES WORKSPACE LAIN" lewat panel ini bisa jadi baris
+      // workspace_members BARU (bukan cuma ganti role existing) -- ikut
+      // ubah member_count/used_member_count.
+      invalidateMemberCountAggregates(queryClient)
+    },
   })
 }
 
@@ -89,7 +107,10 @@ export function useRevokeWorkspaceRole(groupId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ workspaceId, userId }: { workspaceId: string; userId: string }) => removeMember(workspaceId, userId),
-    onSuccess: () => invalidate(queryClient, groupId),
+    onSuccess: () => {
+      invalidate(queryClient, groupId)
+      invalidateMemberCountAggregates(queryClient)
+    },
   })
 }
 
@@ -104,7 +125,10 @@ export function useInviteWorkspaceMembers(groupId: string) {
       const results = await Promise.all(targets.map((t) => createInvitations(t.workspaceId, t.emails, t.role)))
       return results
     },
-    onSuccess: () => invalidate(queryClient, groupId),
+    onSuccess: () => {
+      invalidate(queryClient, groupId)
+      invalidateMemberCountAggregates(queryClient)
+    },
   })
 }
 
