@@ -1,5 +1,8 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { organizationKeys } from '@/features/organizations/hooks'
+import { groupAdminKeys } from '@/features/platform-admin/hooks'
+
 import {
   cancelInvitation,
   createInvitations,
@@ -33,6 +36,20 @@ export function useWorkspaceMembers(workspaceId: string) {
   return useQuery(membersListQuery(workspaceId))
 }
 
+// Organization.member_count (OrganizationManagementPage) dan GroupAdmin.
+// used_member_count (PlatformGroupAdminPage) dihitung backend dari
+// COUNT(DISTINCT workspace_members.user_id) -- berubah setiap kali baris
+// workspace_members bertambah/berkurang (bukan saat rolenya saja yang
+// ganti). Dipanggil dari useCreateInvitations (added_directly) dan
+// useRemoveMember di bawah -- sebelumnya cuma workspaceMemberKeys yang
+// di-invalidate, kedua angka ini basi sampai reload manual (audit
+// 2026-09-13, sama pola bug admin_count yang ditemukan user -- lihat
+// implementation_gaps.md IG-69).
+function invalidateMemberCountAggregates(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: organizationKeys.all })
+  queryClient.invalidateQueries({ queryKey: groupAdminKeys.all })
+}
+
 // S2-08: real-time update tanpa reload -- invalidateQueries (bukan
 // WebSocket sungguhan, sama pola dengan revoke sesi S1-36/H10) supaya
 // badge role di tabel langsung update begitu modal berhasil menyimpan.
@@ -49,7 +66,10 @@ export function useRemoveMember(workspaceId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (userId: string) => removeMember(workspaceId, userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.list(workspaceId) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.list(workspaceId) })
+      invalidateMemberCountAggregates(queryClient)
+    },
   })
 }
 
@@ -77,6 +97,7 @@ export function useCreateInvitations(workspaceId: string) {
       // harus hilang dari pool -- tanpa ini, pool masih menampilkan email
       // yang sudah barusan ditambahkan (ditemukan lewat verifikasi live).
       queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.candidates(workspaceId) })
+      invalidateMemberCountAggregates(queryClient)
     },
   })
 }

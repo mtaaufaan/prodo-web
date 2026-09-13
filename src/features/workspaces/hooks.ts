@@ -1,5 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { organizationKeys } from '@/features/organizations/hooks'
+
 import {
   archiveWorkspace,
   createWorkspace,
@@ -51,8 +53,16 @@ export function useWorkspace(id: string) {
   return useQuery(workspaceQuery(id))
 }
 
+// organizationKeys juga diinvalidasi di sini -- Organization.workspace_count
+// (OrganizationManagementPage) dihitung backend dari COUNT(workspaces WHERE
+// org_id=...), jadi berubah setiap kali workspace dibuat/diarsipkan/dihapus/
+// dipindah organisasi. Sebelumnya cuma workspaceKeys yang di-invalidate,
+// angka workspace_count basi sampai reload manual (pola sama bug
+// admin_count yang ditemukan user, audit 2026-09-13 menemukan ini juga
+// kena -- lihat implementation_gaps.md IG-69).
 function invalidateWorkspaceLists(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: workspaceKeys.all })
+  queryClient.invalidateQueries({ queryKey: organizationKeys.all })
 }
 
 export function useCreateWorkspace(orgId: string) {

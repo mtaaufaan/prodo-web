@@ -1,5 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { groupAdminKeys } from '@/features/platform-admin/hooks'
+
 import {
   addOrganizationDomain,
   createOrganization,
@@ -34,11 +36,28 @@ export function useOrganizationList(groupId?: string) {
   return useQuery(organizationListQuery(groupId))
 }
 
+// GroupAdmin.used_org_count (PlatformGroupAdminPage) dan GroupDirectoryEntry.
+// org_count (GroupDirectoryPage, query key inline `['platform-groups', ...]`)
+// dihitung backend dari COUNT(organizations WHERE group_id=...) -- berubah
+// setiap kali organisasi dibuat/diarsipkan/dihapus/dipulihkan. Sebelumnya
+// cuma organizationKeys yang di-invalidate, kedua angka ini basi sampai
+// reload manual (audit 2026-09-13, sama pola bug admin_count yang
+// ditemukan user -- lihat implementation_gaps.md IG-69). Prefix
+// `['platform-groups']` cukup (bukan key lengkap dengan `query` search) --
+// invalidateQueries mencocokkan berdasarkan prefix.
+function invalidateOrgCountAggregates(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: groupAdminKeys.all })
+  queryClient.invalidateQueries({ queryKey: ['platform-groups'] })
+}
+
 export function useCreateOrganization() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (values: CreateOrganizationFormValues) => createOrganization(values),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: organizationKeys.all }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: organizationKeys.all })
+      invalidateOrgCountAggregates(queryClient)
+    },
   })
 }
 
