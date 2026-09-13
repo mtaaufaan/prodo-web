@@ -1,23 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useOutletContext, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useOutletContext, useParams } from "react-router-dom";
 
-import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
-import AddProjectModal from '@/components/projects/AddProjectModal'
-import ManageProjectModal from '@/components/projects/ManageProjectModal'
-import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { useProjects } from '@/features/projects/hooks'
-import { cn } from '@/lib/utils'
+import type { WorkspaceOutletContext } from "@/components/WorkspaceLayout";
+import AddProjectModal from "@/components/projects/AddProjectModal";
+import ManageProjectModal from "@/components/projects/ManageProjectModal";
+import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
+import { useProjects } from "@/features/projects/hooks";
+import { cn } from "@/lib/utils";
 
-const PROJECT_PAGE_SIZE = 10
-type Filter = 'Semua' | 'Aktif' | 'Arsip'
+const PROJECT_PAGE_SIZE = 10;
+type Filter = "Semua" | "Aktif" | "Arsip";
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex-1 border border-line bg-panel px-4 py-3.5">
-      <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">{label}</div>
+      <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+        {label}
+      </div>
       <div className="mt-1.5 text-2xl font-bold text-text-bone">{value}</div>
     </div>
-  )
+  );
 }
 
 // S4-04, US-012 (AW Projects.dc.html) -- halaman "Semua Project" di dalam
@@ -25,53 +27,61 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 // menyusul setelah tabel sprints/tasks dibangun (Task Management Core) --
 // sebelumnya sengaja dihilangkan karena datanya belum ada sama sekali.
 function ProjectListPageContent() {
-  const { wsId } = useParams<{ wsId: string }>()
-  const workspaceId = wsId ?? ''
-  const { data, isLoading, isError } = useProjects(workspaceId)
-  const { view, registerCta } = useOutletContext<WorkspaceOutletContext>()
-  const filter = view as Filter
-  const [addOpen, setAddOpen] = useState(false)
-  const [managingId, setManagingId] = useState<string | null>(null)
-  const [page, setPage] = useState(1)
+  const { wsId } = useParams<{ wsId: string }>();
+  const workspaceId = wsId ?? "";
+  const { data, isLoading, isError } = useProjects(workspaceId);
+  const { view, registerCta } = useOutletContext<WorkspaceOutletContext>();
+  const filter = view as Filter;
+  const [addOpen, setAddOpen] = useState(false);
+  const [managingId, setManagingId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   // Tombol "+ Project" sekarang CTA topbar WorkspaceLayout (S4W frame
   // parity, desain "Master UI User.dc.html") -- sebelumnya tombol sendiri
   // di dalam halaman, sama migrasi yang sudah dilakukan GroupAdminLayout
   // untuk halaman-halaman GA (lihat komentar OrganizationManagementPage).
   useEffect(() => {
-    registerCta(() => setAddOpen(true))
-    return () => registerCta(null)
+    registerCta(() => setAddOpen(true));
+    return () => registerCta(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []);
 
-  const all = data ?? []
+  const all = data ?? [];
   // Cari objek terbaru dari `all` (bukan snapshot saat "Kelola" diklik) --
   // supaya panel langsung mencerminkan state setelah arsip/simpan berhasil
   // (React Query invalidate+refetch, bukan WebSocket, jadi wajib re-lookup).
-  const managingProject = all.find((p) => p.id === managingId) ?? null
+  const managingProject = all.find((p) => p.id === managingId) ?? null;
   const filtered = useMemo(() => {
-    if (filter === 'Semua') return all
-    return all.filter((p) => (filter === 'Aktif' ? !p.is_archived : p.is_archived))
+    if (filter === "Semua") return all;
+    return all.filter((p) =>
+      filter === "Aktif" ? !p.is_archived : p.is_archived,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `data` (bukan `all`) sumber identitas yang stabil
-  }, [data, filter])
+  }, [data, filter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PROJECT_PAGE_SIZE))
-  const currentPage = Math.min(page, totalPages)
-  const paged = filtered.slice((currentPage - 1) * PROJECT_PAGE_SIZE, currentPage * PROJECT_PAGE_SIZE)
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filtered.length / PROJECT_PAGE_SIZE),
+  );
+  const currentPage = Math.min(page, totalPages);
+  const paged = filtered.slice(
+    (currentPage - 1) * PROJECT_PAGE_SIZE,
+    currentPage * PROJECT_PAGE_SIZE,
+  );
 
-  const pageInputRef = useRef<HTMLInputElement>(null)
+  const pageInputRef = useRef<HTMLInputElement>(null);
   const goToPage = (raw: string) => {
-    const n = parseInt(raw, 10)
-    if (!Number.isFinite(n)) return
-    setPage(Math.min(totalPages, Math.max(1, n)))
-  }
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n)) return;
+    setPage(Math.min(totalPages, Math.max(1, n)));
+  };
 
   // Reset ke halaman 1 saat tab filter (Semua/Aktif/Arsip) di topbar
   // WorkspaceLayout berganti -- dulu di-reset inline di onClick tombol
   // filter sendiri, sekarang filter datang dari shell (`view`).
   useEffect(() => {
-    setPage(1)
-  }, [filter])
+    setPage(1);
+  }, [filter]);
 
   return (
     <div className="space-y-3.5 p-6">
@@ -81,11 +91,21 @@ function ProjectListPageContent() {
           di sini karena kartu ke-4 ditambah tanpa audit ulang gate ini). */}
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="Total Project" value={String(all.length)} />
-        <MetricCard label="Aktif" value={String(all.filter((p) => !p.is_archived).length)} />
-        <MetricCard label="Arsip" value={String(all.filter((p) => p.is_archived).length)} />
+        <MetricCard
+          label="Aktif"
+          value={String(all.filter((p) => !p.is_archived).length)}
+        />
+        <MetricCard
+          label="Arsip"
+          value={String(all.filter((p) => p.is_archived).length)}
+        />
         <MetricCard
           label="Task Berjalan"
-          value={String(all.filter((p) => !p.is_archived).reduce((sum, p) => sum + p.task_count, 0))}
+          value={String(
+            all
+              .filter((p) => !p.is_archived)
+              .reduce((sum, p) => sum + p.task_count, 0),
+          )}
         />
       </div>
 
@@ -98,8 +118,17 @@ function ProjectListPageContent() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-panel text-left">
-              {['Project', 'Project Manager', 'Sprint · Task', 'Status', 'Aksi'].map((h) => (
-                <th key={h} className="py-2.5 pl-3.5 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
+              {[
+                "Project",
+                "Project Manager",
+                "Sprint · Task",
+                "Status",
+                "Aksi",
+              ].map((h) => (
+                <th
+                  key={h}
+                  className="py-2.5 pl-3.5 pr-4 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim"
+                >
                   {h}
                 </th>
               ))}
@@ -108,24 +137,34 @@ function ProjectListPageContent() {
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={5} className="py-4 pl-3.5 font-mono text-sm text-text-muted">
+                <td
+                  colSpan={5}
+                  className="py-4 pl-3.5 font-mono text-sm text-text-muted"
+                >
                   Memuat...
                 </td>
               </tr>
             )}
             {isError && (
               <tr>
-                <td colSpan={5} className="py-4 pl-3.5 font-mono text-sm text-destructive">
+                <td
+                  colSpan={5}
+                  className="py-4 pl-3.5 font-mono text-sm text-destructive"
+                >
                   Gagal memuat daftar project.
                 </td>
               </tr>
             )}
             {!isLoading && !isError && filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-6 pl-3.5 pr-4 text-center font-mono text-[10.5px] leading-relaxed text-text-muted">
+                <td
+                  colSpan={5}
+                  className="py-6 pl-3.5 pr-4 text-center font-mono text-[10.5px] leading-relaxed text-text-muted"
+                >
                   Belum ada project pada tampilan ini.
                   <br />
-                  Gunakan tombol + Project untuk membuat wadah sprint dan task pertama.
+                  Gunakan tombol + Project untuk membuat wadah sprint dan task
+                  pertama.
                 </td>
               </tr>
             )}
@@ -137,11 +176,15 @@ function ProjectListPageContent() {
                       {p.code}
                     </span>
                     <div>
-                      <Link to={`/workspaces/${workspaceId}/projects/${p.id}/board`} className="text-[13px] text-text-bone hover:text-signal hover:underline">
+                      <Link
+                        to={`/workspaces/${workspaceId}/projects/${p.id}/board`}
+                        className="text-[13px] text-text-bone hover:text-signal hover:underline"
+                      >
                         {p.name}
                       </Link>
                       <div className="font-mono text-[8.5px] text-text-muted">
-                        {p.member_count} member{p.created_by_name && ` · dibuat ${p.created_by_name}`}
+                        {p.member_count} member
+                        {p.created_by_name && ` · dibuat ${p.created_by_name}`}
                       </div>
                     </div>
                   </div>
@@ -149,14 +192,22 @@ function ProjectListPageContent() {
                 <td className="py-3 pr-4">
                   {p.pm_user_id ? (
                     <>
-                      <div className="text-[12px] text-text-body">{p.pm_name}</div>
-                      <div className="font-mono text-[8.5px] text-text-muted">{p.pm_email}</div>
+                      <div className="text-[12px] text-text-body">
+                        {p.pm_name}
+                      </div>
+                      <div className="font-mono text-[8.5px] text-text-muted">
+                        {p.pm_email}
+                      </div>
                     </>
                   ) : (
                     <>
-                      <span className="font-mono text-[10px] uppercase tracking-[0.04em] text-amber">Menunggu PM</span>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.04em] text-amber">
+                        Menunggu PM
+                      </span>
                       {p.pm_pending_email && (
-                        <div className="truncate font-mono text-[8.5px] text-text-muted">{p.pm_pending_email}</div>
+                        <div className="truncate font-mono text-[8.5px] text-text-muted">
+                          {p.pm_pending_email}
+                        </div>
                       )}
                     </>
                   )}
@@ -167,11 +218,13 @@ function ProjectListPageContent() {
                 <td className="py-3 pr-4">
                   <span
                     className={cn(
-                      'border px-1.5 py-0.5 font-mono text-[9px] font-semibold',
-                      p.is_archived ? 'border-amber text-amber' : 'border-mint text-mint',
+                      "border px-1.5 py-0.5 font-mono text-[9px] font-semibold",
+                      p.is_archived
+                        ? "border-amber text-amber"
+                        : "border-mint text-mint",
                     )}
                   >
-                    {p.is_archived ? 'ARSIP' : 'AKTIF'}
+                    {p.is_archived ? "ARSIP" : "AKTIF"}
                   </span>
                 </td>
                 <td className="py-3 pr-4">
@@ -207,7 +260,7 @@ function ProjectListPageContent() {
                 max={totalPages}
                 defaultValue={currentPage}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') goToPage(e.currentTarget.value)
+                  if (e.key === "Enter") goToPage(e.currentTarget.value);
                 }}
                 className="w-11 border border-line-strong bg-bg-deep px-1 py-0.5 text-center font-mono text-[10px] text-text-body focus-visible:border-signal focus-visible:outline-none"
                 aria-label="Nomor halaman"
@@ -215,7 +268,7 @@ function ProjectListPageContent() {
               / {totalPages} · {filtered.length} data
               <button
                 type="button"
-                onClick={() => goToPage(pageInputRef.current?.value ?? '')}
+                onClick={() => goToPage(pageInputRef.current?.value ?? "")}
                 className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.04em] text-text-muted"
               >
                 Ke
@@ -233,10 +286,18 @@ function ProjectListPageContent() {
         )}
       </div>
 
-      <AddProjectModal workspaceId={workspaceId} open={addOpen} onClose={() => setAddOpen(false)} />
-      <ManageProjectModal workspaceId={workspaceId} project={managingProject} onClose={() => setManagingId(null)} />
+      <AddProjectModal
+        workspaceId={workspaceId}
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+      />
+      <ManageProjectModal
+        workspaceId={workspaceId}
+        project={managingProject}
+        onClose={() => setManagingId(null)}
+      />
     </div>
-  )
+  );
 }
 
 export default function ProjectListPage() {
@@ -244,5 +305,5 @@ export default function ProjectListPage() {
     <ErrorBoundary>
       <ProjectListPageContent />
     </ErrorBoundary>
-  )
+  );
 }
