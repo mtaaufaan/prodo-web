@@ -53,11 +53,23 @@ function invalidateMemberCountAggregates(queryClient: ReturnType<typeof useQuery
 // S2-08: real-time update tanpa reload -- invalidateQueries (bukan
 // WebSocket sungguhan, sama pola dengan revoke sesi S1-36/H10) supaya
 // badge role di tabel langsung update begitu modal berhasil menyimpan.
+//
+// projectId (role restructuring 2026-09-14, Kelola Member & Roles): WAJIB
+// untuk role project_manager/editor/approver/viewer -- backend menautkan
+// ke project_members/pm_user_id project itu, jadi daftar project
+// workspace ini ikut di-invalidate (pola sama useCreateInvitations, lihat
+// catatan sirkular impor di sana -- key disalin literal).
 export function useUpdateMemberRole(workspaceId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: string }) => updateMemberRole(workspaceId, userId, role),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.list(workspaceId) }),
+    mutationFn: ({ userId, role, projectId }: { userId: string; role: string; projectId?: string }) =>
+      updateMemberRole(workspaceId, userId, role, projectId),
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.list(workspaceId) })
+      if (variables.projectId) {
+        queryClient.invalidateQueries({ queryKey: ['projects', 'list', workspaceId] })
+      }
+    },
   })
 }
 
