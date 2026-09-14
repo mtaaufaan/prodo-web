@@ -6,10 +6,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
-import { useCancelInvitation, useWorkspaceMembers } from '@/features/workspace-members/hooks'
+import { useCancelInvitation } from '@/features/workspace-members/hooks'
 import { projectKeys, useAssignProjectPM, useDeleteProject, useRemoveProjectPM, useSetProjectArchived, useUpdateProject } from '@/features/projects/hooks'
 import type { Project } from '@/features/projects/types'
-import { cn } from '@/lib/utils'
 
 // S4-04/S4-05, US-012 (AW Projects.dc.html panel "KELOLA PROJECT") -- edit
 // nama, arsip/batal-arsip, dan hapus (soft-delete, konfirmasi ketik nama
@@ -18,27 +17,31 @@ import { cn } from '@/lib/utils'
 // jadi bagiannya sendiri -- sama pola ManageWorkspaceModal (admin
 // existing+pending ditampilkan bersama, tetap/ganti/hapus terpisah dari
 // "Simpan Perubahan" nama) -- bukan lagi digabung ke satu tombol Simpan.
+// Diselaraskan 2026-09-14 (dikonfirmasi user "dibuat seperti Kelola
+// Workspace bagian Admin Workspace") ke pola grid+input-selalu-terbuka
+// ManageWorkspaceModal -- toggle "Member Yang Ada"/"Undang Baru" DIHAPUS,
+// satu field email (+ nama opsional untuk email belum terdaftar) yang
+// selalu terlihat, sama seperti "+ Tambah Admin". Email yang SUDAH
+// terdaftar (member workspace ini ATAU user lain mana pun) langsung
+// resolve lewat jalur pmEmail existing-user backend (ProjectService.
+// resolvePM) -- pmUserId/member-picker tidak lagi dipakai FE, backend
+// tetap mendukungnya (dipakai AddProjectModal, di luar cakupan perubahan
+// ini).
 interface ManageProjectModalProps {
   workspaceId: string
   project: Project | null
   onClose: () => void
 }
 
-type PMMode = 'existing' | 'invite'
-
 export default function ManageProjectModal({ workspaceId, project, onClose }: ManageProjectModalProps) {
   const [name, setName] = useState('')
   const [confirmText, setConfirmText] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  const [pmPanelOpen, setPmPanelOpen] = useState(false)
-  const [pmMode, setPmMode] = useState<PMMode>('existing')
-  const [pmUserId, setPmUserId] = useState('')
   const [pmEmail, setPmEmail] = useState('')
   const [pmName, setPmName] = useState('')
 
   const queryClient = useQueryClient()
-  const members = useWorkspaceMembers(workspaceId)
   const updateProject = useUpdateProject(workspaceId)
   const assignPM = useAssignProjectPM(workspaceId)
   const removePM = useRemoveProjectPM(workspaceId)
@@ -52,11 +55,6 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
       setConfirmText('')
       setError('')
       setNotice('')
-      // Panel PM langsung terbuka kalau project "menunggu PM" -- AW
-      // biasanya membuka Kelola justru untuk mengisinya.
-      setPmPanelOpen(!project.pm_user_id)
-      setPmMode('existing')
-      setPmUserId('')
       setPmEmail('')
       setPmName('')
     }
@@ -64,9 +62,7 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
 
   if (!project) return null
 
-  const memberCandidates = members.data ?? []
   const canDelete = confirmText.trim() === project.name
-  const awaitingPM = !project.pm_user_id
 
   const handleSave = () => {
     setError('')
@@ -85,35 +81,19 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
 
   const handleAssignPM = () => {
     setError('')
-    if (pmMode === 'existing') {
-      if (!pmUserId) {
-        setError('Pilih satu member sebagai PM.')
-        return
-      }
-      assignPM.mutate(
-        { projectId: project.id, pm: { userId: pmUserId } },
-        {
-          onSuccess: () => {
-            setNotice('PM ditetapkan. Tercatat di audit trail.')
-            setPmPanelOpen(false)
-          },
-          onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal menetapkan PM.'),
-        },
-      )
-      return
-    }
-    if (!pmEmail.trim() || !pmName.trim()) {
-      setError('Email dan nama PM wajib diisi untuk undangan baru.')
+    if (!pmEmail.trim()) {
+      setError('Email PM wajib diisi.')
       return
     }
     assignPM.mutate(
       { projectId: project.id, pm: { email: pmEmail.trim(), name: pmName.trim() } },
       {
         onSuccess: () => {
-          setNotice('Undangan PM terkirim. Project berstatus "menunggu PM" sampai diterima.')
-          setPmPanelOpen(false)
+          setNotice('PM diperbarui. Tercatat di audit trail.')
+          setPmEmail('')
+          setPmName('')
         },
-        onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal mengundang PM.'),
+        onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal menetapkan PM.'),
       },
     )
   }
@@ -203,136 +183,80 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
           <div className="flex flex-col gap-2.5 border-t border-line pt-4">
             <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Project Manager</div>
 
-            {awaitingPM ? (
-              project.pm_pending_email ? (
-                <div className="flex items-center justify-between gap-3 border border-amber/50 bg-amber/5 px-3 py-2.5">
-                  <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.06em] text-amber">Menunggu PM</div>
-                    <div className="text-[12.5px] text-text-body">{project.pm_pending_email}</div>
-                    <div className="font-mono text-[9px] text-text-muted">Undangan pending, belum diterima</div>
-                  </div>
-                  <Button
-                    variant="outline"
+            <div className="border border-line">
+              <div className="grid grid-cols-[1.2fr_1.5fr_1fr_0.6fr] gap-2 border-b border-line bg-raised-2 px-3 py-2 font-mono text-[9px] uppercase tracking-[0.08em] text-text-dim">
+                <span>Nama</span>
+                <span>Email</span>
+                <span>Status</span>
+                <span>Aksi</span>
+              </div>
+              {project.pm_user_id ? (
+                <div className="grid grid-cols-[1.2fr_1.5fr_1fr_0.6fr] items-center gap-2 border-t border-line px-3 py-2 text-[12px]">
+                  <span className="truncate">{project.pm_name}</span>
+                  <span className="truncate font-mono text-[10.5px] text-text-muted">{project.pm_email}</span>
+                  <span className="font-mono text-[10px] text-mint">Aktif</span>
+                  <button
+                    type="button"
+                    disabled={removePM.isPending}
+                    onClick={handleRemovePM}
+                    className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
+                  >
+                    Cabut
+                  </button>
+                </div>
+              ) : project.pm_pending_email ? (
+                <div className="grid grid-cols-[1.2fr_1.5fr_1fr_0.6fr] items-center gap-2 border-t border-line px-3 py-2 text-[12px]">
+                  <span className="text-text-dim">—</span>
+                  <span className="truncate font-mono text-[10.5px] text-text-muted">{project.pm_pending_email}</span>
+                  <span className="font-mono text-[10px] text-amber">Menunggu Diterima</span>
+                  <button
+                    type="button"
                     disabled={cancelPMInvitation.isPending}
                     onClick={() => handleCancelPendingPM(project.pm_pending_invitation_id ?? '')}
-                    className="w-fit shrink-0 font-mono text-[9.5px] uppercase tracking-[0.06em] text-destructive"
+                    className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
                   >
-                    Batalkan Undangan
-                  </Button>
+                    Cabut
+                  </button>
                 </div>
               ) : (
-                <p className="font-mono text-[10px] text-amber">Belum ada PM -- project ini "menunggu PM".</p>
-              )
-            ) : (
-              <div className="flex items-center justify-between gap-3 border border-line px-3 py-2.5">
-                <div className="min-w-0">
-                  <div className="truncate text-[12.5px] text-text-body">{project.pm_name}</div>
-                  <div className="truncate font-mono text-[9px] text-text-muted">{project.pm_email}</div>
-                </div>
-                <Button
-                  variant="outline"
-                  disabled={removePM.isPending}
-                  onClick={handleRemovePM}
-                  className="w-fit shrink-0 font-mono text-[9.5px] uppercase tracking-[0.06em] text-destructive"
-                >
-                  Hapus PM
-                </Button>
-              </div>
-            )}
+                <p className="border-t border-line px-3 py-3 text-[11px] text-text-muted">Belum ada Project Manager.</p>
+              )}
+            </div>
 
-            {!pmPanelOpen && (
+            <div className="flex gap-2">
+              <Input
+                value={pmEmail}
+                onChange={(e) => {
+                  setPmEmail(e.target.value)
+                  setError('')
+                }}
+                placeholder="email@perusahaan.co.id"
+                className="flex-1"
+              />
+              <Input
+                value={pmName}
+                onChange={(e) => {
+                  setPmName(e.target.value)
+                  setError('')
+                }}
+                placeholder="Nama (kalau belum terdaftar)"
+                className="flex-1"
+              />
               <Button
+                type="button"
                 variant="outline"
-                onClick={() => setPmPanelOpen(true)}
-                className="w-fit font-mono text-[9.5px] uppercase tracking-[0.06em]"
+                disabled={!pmEmail.trim() || assignPM.isPending}
+                onClick={handleAssignPM}
+                className="flex-shrink-0 font-mono text-[10px] uppercase tracking-[0.06em]"
               >
-                {awaitingPM ? 'Tetapkan PM' : 'Ganti PM'}
+                {assignPM.isPending ? 'Menyimpan...' : '+ Tetapkan PM'}
               </Button>
-            )}
-
-            {pmPanelOpen && (
-              <div className="flex flex-col gap-2.5 border border-line-strong p-3">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPmMode('existing')}
-                    className={cn(
-                      'px-3 py-1.5 font-mono text-[9.5px] uppercase tracking-[0.06em]',
-                      pmMode === 'existing' ? 'bg-signal text-bg-deep' : 'border border-line-strong text-text-muted',
-                    )}
-                  >
-                    Member Yang Ada
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPmMode('invite')}
-                    className={cn(
-                      'px-3 py-1.5 font-mono text-[9.5px] uppercase tracking-[0.06em]',
-                      pmMode === 'invite' ? 'bg-signal text-bg-deep' : 'border border-line-strong text-text-muted',
-                    )}
-                  >
-                    Undang Baru
-                  </button>
-                </div>
-
-                {pmMode === 'existing' ? (
-                  memberCandidates.length === 0 ? (
-                    <p className="font-mono text-[10px] text-text-muted">Belum ada member di workspace ini.</p>
-                  ) : (
-                    <div className="flex max-h-[160px] flex-col overflow-y-auto border border-line">
-                      {memberCandidates.map((m) => {
-                        const active = pmUserId === m.user_id
-                        return (
-                          <button
-                            key={m.user_id}
-                            type="button"
-                            onClick={() => setPmUserId(active ? '' : m.user_id)}
-                            className={cn(
-                              'flex items-center gap-2.5 border-t border-line-subtle px-3 py-2 text-left first:border-t-0',
-                              active && 'bg-accent-wash',
-                            )}
-                          >
-                            <span className={cn('font-mono text-[10px]', active ? 'text-signal' : 'text-text-muted')}>
-                              {active ? '●' : '○'}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <div className={cn('truncate text-[12px]', active ? 'text-signal' : 'text-text-body')}>
-                                {m.display_name}
-                              </div>
-                              <div className="truncate font-mono text-[8.5px] text-text-muted">
-                                {m.email} · {m.role.replace(/_/g, ' ')}
-                              </div>
-                            </span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )
-                ) : (
-                  <div className="flex gap-2">
-                    <Input value={pmEmail} onChange={(e) => setPmEmail(e.target.value)} placeholder="pm@perusahaan.co.id" className="flex-1" />
-                    <Input value={pmName} onChange={(e) => setPmName(e.target.value)} placeholder="Nama PM" className="flex-1" />
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleAssignPM}
-                    disabled={assignPM.isPending}
-                    className="w-fit font-mono text-[9.5px] uppercase tracking-[0.06em]"
-                  >
-                    {assignPM.isPending ? 'Menyimpan...' : 'Simpan PM'}
-                  </Button>
-                  <Button variant="outline" onClick={() => setPmPanelOpen(false)} className="w-fit font-mono text-[9.5px] uppercase tracking-[0.06em]">
-                    Batal
-                  </Button>
-                </div>
-              </div>
-            )}
+            </div>
 
             <p className="font-mono text-[9px] leading-relaxed text-text-faint">
-              Mengganti/menghapus PM memindahkan hak kelola sprint, task, dan rule level project. Tercatat di audit
-              trail.
+              Email yang sudah terdaftar (member workspace ini atau user lain) langsung ditetapkan sebagai PM; yang
+              belum terdaftar diundang (isi Nama supaya tersimpan di form aktivasinya). Mengganti/menghapus PM
+              memindahkan hak kelola sprint, task, dan rule level project. Tercatat di audit trail.
             </p>
           </div>
 
