@@ -144,7 +144,7 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
 
   return (
     <Dialog open={Boolean(project)} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-w-[600px]">
         <DialogHeader>
           <DialogTitle>
             {project.code} · {project.name}
