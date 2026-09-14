@@ -58,7 +58,7 @@ export default function AddMemberModal({ projectId, open, onClose }: AddMemberMo
           <DialogTitle>Tambah Member Project</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 px-5 py-5">
+        <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
           <div className="space-y-2">
             <Label htmlFor="pm-group-id">Group ID</Label>
             <Input id="pm-group-id" placeholder="UUID grup" value={groupId} onChange={(e) => setGroupId(e.target.value)} />

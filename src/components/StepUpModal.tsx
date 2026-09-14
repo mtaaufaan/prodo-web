@@ -59,7 +59,7 @@ export default function StepUpModal() {
           </p>
         </DialogHeader>
 
-        <div className="flex flex-col gap-3 px-5 py-5">
+        <div className="flex max-h-[calc(100vh-260px)] flex-col gap-3 overflow-y-auto px-5 py-5">
           <div className="grid gap-1.5">
             <Label htmlFor="step-up-code">{useBackupCode ? 'Kode cadangan' : 'Kode OTP 6-digit'}</Label>
             <Input

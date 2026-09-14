@@ -176,7 +176,7 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
           </div>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 px-5 py-5">
+        <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
           {notice && (
             <div className="border border-mint px-3.5 py-3 font-mono text-[10px] leading-relaxed text-mint">✓ {notice}</div>
           )}
