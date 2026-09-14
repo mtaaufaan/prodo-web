@@ -2,14 +2,16 @@ import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ASSIGNABLE_ROLES } from '@/features/workspace-members/types'
+import { AW_INVITE_ROLES } from '@/features/workspace-members/types'
 import { useCreateInvitations, useWorkspaceMemberCandidates } from '@/features/workspace-members/hooks'
+import { useProjects } from '@/features/projects/hooks'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
-// S2-26/S4W-02, US-006 (AW Invite Member.dc.html). admin_workspace
-// SENGAJA tidak jadi opsi role -- sama alasan ManageMemberPanel (S4W-01
-// guard: hanya Group Admin/Platform Admin yang boleh memberi role itu).
+// S2-26/S4W-02, US-006 (AW Invite Member.dc.html). Role restructuring
+// 2026-09-14 (dikonfirmasi user): admin_workspace/division_viewer SEKARANG
+// BISA diundang lewat sini (workspace-scoped, tanpa project); project_manager/
+// editor/approver/viewer WAJIB mencantumkan project (lihat AW_INVITE_ROLES).
 interface InviteMemberModalProps {
   workspaceId: string
   workspaceName: string
@@ -40,17 +42,29 @@ function initialsOf(name: string, email: string) {
 
 export default function InviteMemberModal({ workspaceId, workspaceName, open, onClose }: InviteMemberModalProps) {
   const [emailsInput, setEmailsInput] = useState('')
-  const [role, setRole] = useState(ASSIGNABLE_ROLES[0].key)
+  const [role, setRole] = useState(AW_INVITE_ROLES[0].key)
+  const [projectId, setProjectId] = useState('')
   const [formError, setFormError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const createInvitations = useCreateInvitations(workspaceId)
   const candidates = useWorkspaceMemberCandidates(workspaceId)
+  const projects = useProjects(workspaceId)
+
+  const selectedRole = AW_INVITE_ROLES.find((r) => r.key === role) ?? AW_INVITE_ROLES[0]
+  const activeProjects = (projects.data ?? []).filter((p) => !p.is_archived)
 
   const handleClose = () => {
     setEmailsInput('')
+    setProjectId('')
     setFormError('')
     setSuccessMsg('')
     onClose()
+  }
+
+  const handleRoleChange = (key: string) => {
+    setRole(key)
+    setFormError('')
+    if (!AW_INVITE_ROLES.find((r) => r.key === key)?.requiresProject) setProjectId('')
   }
 
   const emails = parseEmails(emailsInput)
@@ -80,9 +94,13 @@ export default function InviteMemberModal({ workspaceId, workspaceName, open, on
       setFormError(`Format email tidak valid: ${invalid.join(', ')}.`)
       return
     }
+    if (selectedRole.requiresProject && !projectId) {
+      setFormError('Pilih project untuk role ini -- PM/Editor/Approver/Viewer berjalan pada project tertentu.')
+      return
+    }
 
     createInvitations.mutate(
-      { emails, role },
+      { emails, role, projectId: selectedRole.requiresProject ? projectId : undefined },
       {
         onSuccess: (result) => {
           const parts: string[] = []
@@ -199,13 +217,13 @@ export default function InviteMemberModal({ workspaceId, workspaceName, open, on
               Role di Workspace Ini
             </label>
             <div className="flex flex-col border border-line">
-              {ASSIGNABLE_ROLES.map((r) => {
+              {AW_INVITE_ROLES.map((r) => {
                 const active = role === r.key
                 return (
                   <button
                     key={r.key}
                     type="button"
-                    onClick={() => setRole(r.key)}
+                    onClick={() => handleRoleChange(r.key)}
                     className={cn(
                       'flex gap-2.5 border-t border-line-subtle px-3 py-2.5 text-left first:border-t-0',
                       active && 'bg-accent-wash',
@@ -225,6 +243,32 @@ export default function InviteMemberModal({ workspaceId, workspaceName, open, on
               })}
             </div>
           </div>
+
+          {selectedRole.requiresProject && (
+            <div>
+              <label className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Project</label>
+              <select
+                value={projectId}
+                onChange={(e) => {
+                  setProjectId(e.target.value)
+                  setFormError('')
+                }}
+                className="w-full border border-line-strong bg-bg-deep px-2.5 py-2 font-mono text-[11px] text-text-body outline-none focus-visible:border-signal"
+              >
+                <option value="">— Pilih project —</option>
+                {activeProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} · {p.name}
+                  </option>
+                ))}
+              </select>
+              {activeProjects.length === 0 && (
+                <p className="mt-1.5 font-mono text-[9px] text-amber">
+                  Belum ada project aktif di workspace ini -- buat project dulu lewat menu Project.
+                </p>
+              )}
+            </div>
+          )}
 
           <p className="border border-line px-3.5 py-3 font-mono text-[9px] leading-relaxed text-text-dim">
             Sistem memeriksa tiap email: yang sudah terdaftar langsung mendapat akses workspace ini dengan role di

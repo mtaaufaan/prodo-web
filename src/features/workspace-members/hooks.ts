@@ -86,11 +86,20 @@ export function usePendingInvitations(workspaceId: string) {
 
 // S2-26: undangan baru bisa langsung menambahkan member (S2-23 shortcut,
 // email sudah terdaftar) -- invalidate KEDUA daftar, bukan cuma invitations.
+//
+// projectId (role restructuring 2026-09-14): diisi untuk role project-level
+// (PM/editor/approver/viewer) -- undangan/assign langsung bisa mengubah
+// pm_user_id atau project_members project itu (lihat backend
+// InvitationService.CreateBulkInvitations), jadi daftar project workspace
+// ini ikut di-invalidate. Query key '@/features/projects' TIDAK diimpor
+// langsung (projects/hooks.ts sendiri sudah mengimpor workspaceMemberKeys
+// dari sini -- import balik akan jadi circular), key-nya disalin literal.
 export function useCreateInvitations(workspaceId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ emails, role }: { emails: string[]; role: string }) => createInvitations(workspaceId, emails, role),
-    onSuccess: () => {
+    mutationFn: ({ emails, role, projectId }: { emails: string[]; role: string; projectId?: string }) =>
+      createInvitations(workspaceId, emails, role, projectId),
+    onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: invitationKeys.list(workspaceId) })
       queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.list(workspaceId) })
       // Kandidat yang baru ditambahkan (langsung aktif MAUPUN diundang)
@@ -98,6 +107,9 @@ export function useCreateInvitations(workspaceId: string) {
       // yang sudah barusan ditambahkan (ditemukan lewat verifikasi live).
       queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.candidates(workspaceId) })
       invalidateMemberCountAggregates(queryClient)
+      if (variables.projectId) {
+        queryClient.invalidateQueries({ queryKey: ['projects', 'list', workspaceId] })
+      }
     },
   })
 }

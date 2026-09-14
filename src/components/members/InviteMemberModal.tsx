@@ -9,9 +9,15 @@ import { createInvitations } from '@/features/workspace-members/api'
 import { useWorkspaceListByGroup } from '@/features/workspaces/hooks'
 import { ApiError } from '@/lib/api'
 
-const WS_ROLES = ['admin_workspace', 'project_manager', 'editor', 'approver', 'division_viewer', 'viewer']
+// Role restructuring 2026-09-14 (dikonfirmasi user): GA Members & Roles
+// (grup/lintas-workspace) HANYA boleh mengundang admin_workspace/
+// division_viewer -- role lain (project_manager/editor/approver/viewer)
+// berjalan PADA project tertentu, cuma bisa diundang lewat AW Members &
+// Roles per-workspace (lihat components/workspace/InviteMemberModal.tsx)
+// yang punya project picker.
+const WS_ROLES = ['admin_workspace', 'division_viewer']
 let pairSeq = 0
-const newPair = () => ({ key: ++pairSeq, workspaceId: '', role: 'viewer' })
+const newPair = () => ({ key: ++pairSeq, workspaceId: '', role: 'division_viewer' })
 
 function parseEmails(raw: string): string[] {
   return Array.from(new Set(raw.split(/[,\n]/).map((e) => e.trim()).filter(Boolean)))
