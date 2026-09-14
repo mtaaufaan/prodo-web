@@ -5,6 +5,11 @@ export interface WorkspaceMember {
   title: string | null
   role: string
   joined_at: string
+  // project_names -- nama project (dipisah ", ") tempat user ini punya
+  // keterkaitan project-level di workspace ini (role restructuring
+  // 2026-09-14) -- "" untuk role workspace-scoped (admin_workspace/
+  // division_viewer) atau kalau belum ditautkan ke project mana pun.
+  project_names: string
 }
 
 // admin_workspace SENGAJA tidak masuk daftar assignable -- per desain (AW
@@ -43,6 +48,10 @@ export interface PendingInvitation {
   role: string
   created_at: string
   expires_at: string
+  // project_name -- nama project yang ditautkan (project_id, role
+  // restructuring 2026-09-14) untuk role project-level; "" untuk role
+  // workspace-scoped.
+  project_name: string
 }
 
 export interface CreateInvitationsResult {
