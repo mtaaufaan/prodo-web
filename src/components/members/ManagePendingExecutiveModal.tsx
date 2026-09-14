@@ -50,7 +50,7 @@ export default function ManagePendingExecutiveModal({ pending, groupId, onClose 
           <p className="mt-1 text-sm text-text-muted">{pending.email} · belum aktivasi</p>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 px-5 py-5">
+        <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
           <p className="text-[11px] leading-relaxed text-text-muted">
             Isikan Nama dan Jabatan atas nama Eksekutif ini sebelum akunnya aktif -- nilai ini akan tampil sebagai
             bawaan (tetap bisa diubah) di formulir aktivasi.

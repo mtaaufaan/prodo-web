@@ -99,7 +99,7 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
           <div className="mt-1 font-mono text-[9.5px] text-text-muted">{email}</div>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 px-5 py-5">
+        <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
           {activeError && (
             <div className="border border-destructive px-3.5 py-3 font-mono text-[10px] leading-relaxed text-destructive">
               ⚠ {activeError.message}
