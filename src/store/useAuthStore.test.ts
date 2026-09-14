@@ -1,5 +1,6 @@
-import { describe, expect, it, beforeEach } from 'vitest'
+import { describe, expect, it, beforeEach, vi } from 'vitest'
 
+import { queryClient } from '@/lib/query-client'
 import { useAuthStore } from './useAuthStore'
 
 describe('useAuthStore', () => {
@@ -52,5 +53,29 @@ describe('useAuthStore', () => {
       user: { id: 'user-1', email: 'a@b.com', display_name: 'A', platform_role: 'member', avatar_url: null },
     })
     expect(useAuthStore.getState().wasPlatformAdmin).toBe(false)
+  })
+
+  // Ditemukan user 2026-09-14: query global tanpa scope user (mis.
+  // ['me-context'], staleTime 1 menit) menyimpan respons akun SEBELUMNYA --
+  // login sebagai akun lain di browser yang sama dalam waktu <1 menit
+  // menampilkan data akun lama (contoh nyata: tombol konsol Group Admin
+  // muncul untuk member biasa). Fix: setSession/clearSession WAJIB
+  // membersihkan seluruh cache React Query, bukan cuma token/user.
+  it('setSession clears the React Query cache so a new account never sees the previous account\'s cached data', () => {
+    const clearSpy = vi.spyOn(queryClient, 'clear')
+    useAuthStore.getState().setSession({
+      accessToken: 'at',
+      refreshToken: 'rt',
+      user: { id: 'user-1', email: 'a@b.com', display_name: 'A', platform_role: 'member', avatar_url: null },
+    })
+    expect(clearSpy).toHaveBeenCalled()
+    clearSpy.mockRestore()
+  })
+
+  it('clearSession clears the React Query cache', () => {
+    const clearSpy = vi.spyOn(queryClient, 'clear')
+    useAuthStore.getState().clearSession()
+    expect(clearSpy).toHaveBeenCalled()
+    clearSpy.mockRestore()
   })
 })
