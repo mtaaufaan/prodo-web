@@ -58,6 +58,32 @@ function AcceptInvitationPageContent() {
     )
   }
 
+  // preview gagal (token sudah dibatalkan/kedaluwarsa/dipakai) -- SEBELUMNYA
+  // diam-diam diabaikan (cuma dipakai prefill nama/jabatan) dan form "Buat
+  // akun Anda" tetap tampil seolah link masih berlaku, baru gagal saat
+  // submit. Ditemukan user 2026-09-14: klik link email lama yang sudah
+  // dibatalkan tetap mendarat di form set-password, padahal
+  // POST /auth/invitations/accept sudah pasti menolaknya juga (dites
+  // langsung, sama pesan error). Gerbang di sini supaya ketahuan LEBIH AWAL.
+  if (preview.isError) {
+    const message = preview.error instanceof ApiError ? preview.error.message : 'Link undangan tidak valid, sudah kedaluwarsa, atau sudah dipakai.'
+    return (
+      <ActivationSplitLayout heroTitle="Terima Undangan" heroBody="Link undangan ini tidak dapat digunakan.">
+        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-dim">Link Tidak Valid</p>
+        <h2 className="mt-1 text-xl font-bold text-text-bone">Tidak dapat memproses undangan</h2>
+        <p className="mt-3 text-sm leading-relaxed text-text-muted">{message}</p>
+      </ActivationSplitLayout>
+    )
+  }
+
+  if (preview.isLoading) {
+    return (
+      <ActivationSplitLayout heroTitle="Terima Undangan" heroBody="Memeriksa link undangan...">
+        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-dim">Memuat...</p>
+      </ActivationSplitLayout>
+    )
+  }
+
   if (accept.isSuccess) {
     return (
       <ActivationSplitLayout heroTitle="Terima Undangan" heroBody="Akun Anda sudah aktif.">
