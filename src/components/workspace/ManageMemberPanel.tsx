@@ -10,6 +10,7 @@ import {
 } from '@/features/workspace-members/hooks'
 import { ASSIGNABLE_ROLES } from '@/features/workspace-members/types'
 import type { MemberOrInvitation } from '@/features/workspace-members/types'
+import { useProjects } from '@/features/projects/hooks'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/store/useUIStore'
@@ -36,17 +37,28 @@ interface ManageMemberPanelProps {
 
 export default function ManageMemberPanel({ workspaceId, workspaceName, target, onClose }: ManageMemberPanelProps) {
   const [draftRole, setDraftRole] = useState('')
+  const [draftProjectId, setDraftProjectId] = useState('')
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const updateRole = useUpdateMemberRole(workspaceId)
   const removeMember = useRemoveMember(workspaceId)
   const resendInvitation = useResendInvitation(workspaceId)
   const cancelInvitation = useCancelInvitation(workspaceId)
+  const projects = useProjects(workspaceId)
   const showToast = useUIStore((state) => state.showToast)
 
   useEffect(() => {
     if (target?.kind === 'member') setDraftRole(target.data.role)
+    // draftProjectId SENGAJA selalu direset kosong (bukan pre-fill dari
+    // project_names) -- field itu cuma teks tampilan gabungan, bukan ID
+    // yang bisa dipilih ulang; role restructuring 2026-09-14 (Kelola
+    // Member & Roles, dikonfirmasi user) memang mengharuskan AW memilih
+    // ULANG project setiap kali menyimpan role project-level (move
+    // semantics), bukan mengasumsikan "tetap di project yang sama".
+    setDraftProjectId('')
     setConfirmingRemove(false)
   }, [target])
+
+  const activeProjects = (projects.data ?? []).filter((p) => !p.is_archived)
 
   if (!target) return null
   const isMember = target.kind === 'member'
@@ -57,11 +69,11 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
   const currentRole = target.data.role
 
   const handleSaveRole = () => {
-    if (!isMember || draftRole === currentRole) return
+    if (!isMember || !draftProjectId) return
     updateRole.mutate(
-      { userId: target.data.user_id, role: draftRole },
+      { userId: target.data.user_id, role: draftRole, projectId: draftProjectId },
       {
-        onSuccess: () => showToast(`Role diubah ${currentRole.replace('_', ' ')} → ${draftRole.replace('_', ' ')}. Tercatat di Audit Trail workspace.`),
+        onSuccess: () => showToast(`Role diubah menjadi ${draftRole.replace('_', ' ')} pada project terpilih. Tercatat di Audit Trail workspace.`),
       },
     )
   }
@@ -160,10 +172,35 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
           </div>
 
           {isMember && (
+            <div>
+              <label className="mb-2 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+                Project (role restructuring: PM/Editor/Approver/Viewer berjalan per project)
+              </label>
+              <select
+                value={draftProjectId}
+                onChange={(e) => setDraftProjectId(e.target.value)}
+                className="w-full border border-line-strong bg-bg-deep px-2.5 py-2 font-mono text-[11px] text-text-body outline-none focus-visible:border-signal"
+              >
+                <option value="">— Pilih project —</option>
+                {activeProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} · {p.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-text-dim">
+                Wajib dipilih setiap kali menyimpan -- keterkaitan project LAMA (kalau ada) dipindah ke project ini,
+                bukan ditambah. Kalau member ini satu-satunya PM project lain, project itu tidak boleh sampai tanpa
+                PM -- tetapkan PM baru dulu lewat Kelola Project.
+              </p>
+            </div>
+          )}
+
+          {isMember && (
             <div className="flex gap-2">
               <Button
                 onClick={handleSaveRole}
-                disabled={draftRole === currentRole || updateRole.isPending}
+                disabled={!draftProjectId || updateRole.isPending}
                 className="font-mono text-[10px] uppercase tracking-[0.06em]"
               >
                 {updateRole.isPending ? 'Menyimpan...' : 'Simpan Role'}
