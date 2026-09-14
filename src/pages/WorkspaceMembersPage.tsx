@@ -199,9 +199,10 @@ function WorkspaceMembersPageContent() {
             </div>
 
             <div className="border border-line">
-              <div className="grid grid-cols-[1.8fr_1.1fr_0.8fr_0.7fr_0.8fr] gap-3 border-b border-line bg-raised-1 px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
+              <div className="grid grid-cols-[1.6fr_1fr_1.1fr_0.7fr_0.7fr_0.8fr] gap-3 border-b border-line bg-raised-1 px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
                 <span>Member</span>
                 <span>Role</span>
+                <span>Project</span>
                 <span>Gabung</span>
                 <span>Status</span>
                 <span>Aksi</span>
@@ -348,9 +349,10 @@ function MemberRow({
   const locked = data.role === 'admin_workspace'
   const displayName = isMember ? data.display_name || data.email : data.email
   const joined = isMember ? new Date((data as WorkspaceMember).joined_at).toLocaleDateString('id-ID') : '—'
+  const projectDisplay = (isMember ? data.project_names : data.project_name) || '—'
 
   return (
-    <div className="grid grid-cols-[1.8fr_1.1fr_0.8fr_0.7fr_0.8fr] items-center gap-3 border-t border-line px-4 py-3">
+    <div className="grid grid-cols-[1.6fr_1fr_1.1fr_0.7fr_0.7fr_0.8fr] items-center gap-3 border-t border-line px-4 py-3">
       <div className="min-w-0">
         <div className="truncate text-[13px] text-text-body">{displayName}</div>
         <div className="mt-1 truncate font-mono text-[8.5px] text-text-muted">{data.email}</div>
@@ -363,6 +365,9 @@ function MemberRow({
           {locked ? 'DARI GROUP ADMIN' : isMember ? 'DAPAT DIUBAH' : ''}
         </div>
       </div>
+      <span className="truncate text-[11px] text-text-muted" title={projectDisplay}>
+        {projectDisplay}
+      </span>
       <span className="font-mono text-[10px] text-text-muted">{joined}</span>
       <span
         className={cn(
