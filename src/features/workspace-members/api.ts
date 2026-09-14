@@ -25,8 +25,12 @@ export function listPendingInvitations(workspaceId: string) {
     .then((res) => res.pending_invitations)
 }
 
-export function createInvitations(workspaceId: string, emails: string[], role: string) {
-  return apiClient.post<CreateInvitationsResult>(`/api/v1/workspaces/${workspaceId}/invitations`, { emails, role })
+export function createInvitations(workspaceId: string, emails: string[], role: string, projectId?: string) {
+  return apiClient.post<CreateInvitationsResult>(`/api/v1/workspaces/${workspaceId}/invitations`, {
+    emails,
+    role,
+    project_id: projectId || undefined,
+  })
 }
 
 export function cancelInvitation(workspaceId: string, invitationId: string) {
