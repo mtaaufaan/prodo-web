@@ -2,8 +2,18 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 
 import { workspaceMemberKeys } from '@/features/workspace-members/hooks'
 
-import { assignProjectPM, createProject, deleteProject, listProjects, removeProjectPM, restoreProject, setProjectArchived, updateProject } from './api'
-import type { PMTarget } from './types'
+import {
+  assignProjectPM,
+  createProject,
+  deleteProject,
+  listProjects,
+  lookupProjectPM,
+  removeProjectPM,
+  restoreProject,
+  setProjectArchived,
+  updateProject,
+} from './api'
+import type { PMTarget, ProjectStatus } from './types'
 
 export const projectKeys = {
   all: ['projects'] as const,
@@ -46,7 +56,8 @@ export function useCreateProject(workspaceId: string) {
 export function useUpdateProject(workspaceId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ projectId, input }: { projectId: string; input: { name: string } }) => updateProject(projectId, input),
+    mutationFn: ({ projectId, input }: { projectId: string; input: { name: string; status: ProjectStatus; end_date: string | null } }) =>
+      updateProject(projectId, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.list(workspaceId) }),
   })
 }
@@ -61,6 +72,17 @@ export function useAssignProjectPM(workspaceId: string) {
       queryClient.invalidateQueries({ queryKey: projectKeys.list(workspaceId) })
       invalidatePMRoleChange(queryClient, workspaceId)
     },
+  })
+}
+
+// useLookupProjectPM (susulan 2026-10-18, "saat input tambah PM, apabila
+// sudah pernah dimasukkan, setelah selesai input email, agar memunculkan
+// nama di input nama") -- dipicu manual (onBlur field email), bukan query
+// otomatis -- mutation dipakai murni sebagai pembungkus fetch imperatif,
+// tidak benar-benar mengubah apa pun di server (endpoint-nya GET/baca-saja).
+export function useLookupProjectPM(projectId: string) {
+  return useMutation({
+    mutationFn: (email: string) => lookupProjectPM(projectId, email),
   })
 }
 
