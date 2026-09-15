@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '@/components/ui/button'
@@ -40,6 +40,7 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
   const [notice, setNotice] = useState('')
   const [pmEmail, setPmEmail] = useState('')
   const [pmName, setPmName] = useState('')
+  const prevProjectIdRef = useRef<string | null>(null)
 
   const queryClient = useQueryClient()
   const updateProject = useUpdateProject(workspaceId)
@@ -54,15 +55,35 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
       setName(project.name)
       setConfirmText('')
       setError('')
-      setNotice('')
+      // notice HANYA direset saat ganti project (bukan setiap refetch) --
+      // ditemukan user 2026-09-15 ("kenapa di kelola project tidak
+      // dikerjakan juga"): tanpa guard ini, invalidateQueries setelah
+      // Simpan Perubahan berhasil memicu efek ini lagi (objek project baru
+      // dari .find(), walau ID sama) dan langsung menghapus notice yang
+      // baru saja di-set handleSave -- notice hijau tidak pernah sempat
+      // terlihat. Sama fix race condition seperti ManageOrganizationModal/
+      // ManageWorkspaceModal/ManageMemberModal/ManageMemberPanel.
+      if (prevProjectIdRef.current !== project.id) setNotice('')
+      prevProjectIdRef.current = project.id
       setPmEmail('')
       setPmName('')
+    } else {
+      prevProjectIdRef.current = null
     }
   }, [project])
 
   if (!project) return null
 
   const canDelete = confirmText.trim() === project.name
+  // dirty (susulan 2026-09-15, ditemukan user: "kenapa di kelola project
+  // tidak dikerjakan juga" -- pola yang sama dengan ManageMemberPanel)
+  // -- modal ini SUDAH punya notice hijau "tersimpan" tapi tidak pernah
+  // punya peringatan "belum disimpan" untuk field Nama Project, beda dari
+  // standar ManageWorkspaceModal/ManageOrganizationModal/ManageMemberModal
+  // GA. Cuma field Nama yang punya draft+tombol Simpan terpisah (section
+  // PM di bawah semuanya aksi langsung dengan tombolnya sendiri, sama
+  // pola "Tambah Admin" ManageWorkspaceModal -- tidak butuh dirty check).
+  const dirty = name.trim() !== project.name
 
   const handleSave = () => {
     setError('')
@@ -157,7 +178,7 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
         </DialogHeader>
 
         <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
-          {notice && (
+          {!dirty && notice && (
             <div className="border border-mint px-3.5 py-3 font-mono text-[10px] leading-relaxed text-mint">✓ {notice}</div>
           )}
           {error && (
@@ -172,6 +193,11 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
             </Label>
             <Input id="manage-project-name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
+          {dirty && (
+            <p className="border border-amber p-2 font-mono text-[10px] leading-relaxed text-amber">
+              Ada perubahan yang belum disimpan. Tekan &quot;Simpan Perubahan&quot; untuk menerapkan.
+            </p>
+          )}
           <Button
             onClick={handleSave}
             disabled={updateProject.isPending}
