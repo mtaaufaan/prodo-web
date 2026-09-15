@@ -7,12 +7,18 @@ import InviteMemberModal from '@/components/workspace/InviteMemberModal'
 import ManageMemberPanel from '@/components/workspace/ManageMemberPanel'
 import { useProjectMembers } from '@/features/project-members/hooks'
 import { useProjects } from '@/features/projects/hooks'
-import { usePendingInvitations, useWorkspaceMembers } from '@/features/workspace-members/hooks'
+import {
+  useCancelInvitation,
+  usePendingInvitations,
+  useResendInvitation,
+  useWorkspaceMembers,
+} from '@/features/workspace-members/hooks'
 import { ASSIGNABLE_ROLES } from '@/features/workspace-members/types'
 import type { MemberOrInvitation, PendingInvitation, WorkspaceMember } from '@/features/workspace-members/types'
 import { useWorkspace } from '@/features/workspaces/hooks'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
+import { useUIStore } from '@/store/useUIStore'
 
 // S4W-02, US-002 (desain "AW Members Roles.dc.html") -- versi S2/S3 cuma
 // tabel member + section undangan pending terpisah, TANPA stats/filter/
@@ -53,7 +59,7 @@ function WorkspaceMembersPageContent() {
     return () => registerCta(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage])
-  const [selected, setSelected] = useState<MemberOrInvitation | null>(null)
+  const [selected, setSelected] = useState<WorkspaceMember | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [fProject, setFProject] = useState('Semua')
   const [fRole, setFRole] = useState('Semua')
@@ -216,8 +222,9 @@ function WorkspaceMembersPageContent() {
                 <MemberRow
                   key={row.kind === 'member' ? row.data.user_id : row.data.id}
                   row={row}
+                  workspaceId={workspaceId}
                   canManage={canManage}
-                  onManage={() => setSelected(row)}
+                  onManage={setSelected}
                 />
               ))}
               {matched.length > 0 && totalPages > 1 && (
@@ -334,12 +341,14 @@ function FilterSelect({
 
 function MemberRow({
   row,
+  workspaceId,
   canManage,
   onManage,
 }: {
   row: MemberOrInvitation
+  workspaceId: string
   canManage: boolean
-  onManage: () => void
+  onManage: (member: WorkspaceMember) => void
 }) {
   const isMember = row.kind === 'member'
   const data = row.data as WorkspaceMember & Partial<PendingInvitation>
@@ -350,6 +359,17 @@ function MemberRow({
   const displayName = isMember ? data.display_name || data.email : data.email
   const joined = isMember ? new Date((data as WorkspaceMember).joined_at).toLocaleDateString('id-ID') : '—'
   const projectDisplay = (isMember ? data.project_names : data.project_name) || '—'
+
+  // resendInvitation/cancelInvitation (susulan 2026-09-15, dikonfirmasi
+  // user "aksi berisi kirim undangan, batalkan seperti pada member & roles
+  // GA") -- sebelumnya baris pending cuma punya "Kelola" yang membuka
+  // ManageMemberPanel (isi panel itu untuk undangan pending memang cuma
+  // kirim ulang/batalkan, role read-only) -- sekarang aksinya langsung di
+  // grid, sama pola GroupMembersPage.tsx PendingRow (non-eksekutif).
+  const resendInvitation = useResendInvitation(workspaceId)
+  const cancelInvitation = useCancelInvitation(workspaceId)
+  const showToast = useUIStore((state) => state.showToast)
+  const invitationBusy = resendInvitation.isPending || cancelInvitation.isPending
 
   return (
     <div className="grid grid-cols-[1.6fr_1fr_1.1fr_0.7fr_0.7fr_0.8fr] items-center gap-3 border-t border-line px-4 py-3">
@@ -379,10 +399,37 @@ function MemberRow({
       </span>
       {locked || !canManage ? (
         <span className="font-mono text-[10px] text-text-faint">{locked ? '— Kunci' : ''}</span>
-      ) : (
-        <button onClick={onManage} className="w-fit font-mono text-[10px] text-text-muted hover:text-signal">
+      ) : row.kind === 'member' ? (
+        <button onClick={() => onManage(row.data)} className="w-fit font-mono text-[10px] text-text-muted hover:text-signal">
           ✎ Kelola
         </button>
+      ) : (
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            disabled={invitationBusy}
+            onClick={() =>
+              resendInvitation.mutate(row.data.id, {
+                onSuccess: () => showToast(`Undangan untuk ${row.data.email} dikirim ulang — berlaku 72 jam.`),
+              })
+            }
+            className="w-fit font-mono text-[9.5px] text-text-muted hover:text-signal disabled:opacity-40"
+          >
+            Kirim Ulang
+          </button>
+          <button
+            type="button"
+            disabled={invitationBusy}
+            onClick={() =>
+              cancelInvitation.mutate(row.data.id, {
+                onSuccess: () => showToast(`Undangan untuk ${row.data.email} dibatalkan.`),
+              })
+            }
+            className="w-fit font-mono text-[9.5px] text-text-muted hover:text-destructive disabled:opacity-40"
+          >
+            Batalkan
+          </button>
+        </div>
       )}
     </div>
   )
