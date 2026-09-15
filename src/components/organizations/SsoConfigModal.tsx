@@ -79,6 +79,20 @@ export default function SsoConfigModal({ organization, onClose }: SsoConfigModal
   }
 
   const errorMessage = update.error instanceof ApiError ? update.error.message : null
+  // dirty (susulan 2026-09-15, "jadikan ini standar") -- clientSecret
+  // write-only (server tidak pernah mengembalikannya, selalu direset ke ''
+  // di effect di atas) -- dirty-nya cuma "apakah user baru mengetik
+  // sesuatu di situ", bukan dibandingkan ke baseline manapun.
+  const dirty =
+    !!config.data &&
+    (protocol !== (config.data.protocol ?? 'oidc') ||
+      idpEntityId !== (config.data.idp_entity_id ?? '') ||
+      idpMetadataUrl !== (config.data.idp_metadata_url ?? '') ||
+      idpMetadataXml !== (config.data.idp_metadata_xml ?? '') ||
+      clientId !== (config.data.client_id ?? '') ||
+      clientSecret !== '' ||
+      discoveryUrl !== (config.data.discovery_url ?? '') ||
+      ssoEnabled !== config.data.sso_enabled)
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
@@ -205,7 +219,12 @@ export default function SsoConfigModal({ organization, onClose }: SsoConfigModal
               </div>
 
               {errorMessage && <p className="text-[11px] text-destructive">⚠ {errorMessage}</p>}
-              {saved && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ Konfigurasi SSO disimpan.</p>}
+              {dirty && (
+                <p className="border border-amber p-2.5 font-mono text-[10px] leading-relaxed text-amber">
+                  Ada perubahan yang belum disimpan. Tekan &quot;Simpan Konfigurasi&quot; untuk menerapkan.
+                </p>
+              )}
+              {!dirty && saved && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ Konfigurasi SSO disimpan.</p>}
             </>
           )}
         </div>
