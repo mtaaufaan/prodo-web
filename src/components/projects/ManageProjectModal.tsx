@@ -198,11 +198,27 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
             </div>
           )}
 
-          <div>
-            <Label htmlFor="manage-project-name" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
-              Nama Project
-            </Label>
-            <Input id="manage-project-name" value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="flex gap-3.5">
+            <div className="flex-[2]">
+              <Label htmlFor="manage-project-name" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+                Nama Project
+              </Label>
+              <Input id="manage-project-name" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              {/* Kode Task (susulan 2026-10-18, diminta user "seperti pada
+                  desain claude, hanya kode task saja") -- sesuai desain
+                  "AW Projects.dc.html" panel Kelola: readonly, TIDAK bisa
+                  diubah karena sudah dipakai sebagai prefiks nomor task
+                  (RIL-001, dst) sejak project dibuat. */}
+              <Label htmlFor="manage-project-code" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+                Kode Task · Tetap
+              </Label>
+              <Input id="manage-project-code" value={project.code} readOnly disabled className="font-mono tracking-[0.1em]" />
+              <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-text-dim">
+                Kode tidak dapat diubah karena sudah dipakai nomor task.
+              </p>
+            </div>
           </div>
 
           <div className="flex gap-3.5">
