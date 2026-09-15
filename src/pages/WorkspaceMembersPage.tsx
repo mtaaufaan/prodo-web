@@ -59,7 +59,17 @@ function WorkspaceMembersPageContent() {
     return () => registerCta(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage])
-  const [selected, setSelected] = useState<WorkspaceMember | null>(null)
+  // selectedUserId (bukan snapshot WorkspaceMember -- ditemukan user
+  // 2026-09-15 lewat screenshot ManageWorkspaceModal, "kalau ada
+  // perubahan yang harus disimpan agar dimunculkan seperti itu"): kalau
+  // objek member disimpan langsung, notice hijau "tersimpan" tidak pernah
+  // muncul setelah Simpan Role berhasil -- objeknya jadi basi (project_id
+  // lama) walau grid di baliknya sudah refetch, karena tidak ada yang
+  // menyinkronkan ulang. Pola benar SAMA seperti WorkspaceListPage/
+  // ManageWorkspaceModal: simpan ID saja, derive objek live dari
+  // memberList tiap render supaya ManageMemberPanel selalu lihat data
+  // TERBARU begitu query di-invalidate.
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [fProject, setFProject] = useState('Semua')
   const [fRole, setFRole] = useState('Semua')
@@ -74,6 +84,7 @@ function WorkspaceMembersPageContent() {
 
   const memberList = useMemo(() => members.data ?? [], [members.data])
   const invitationList = useMemo(() => invitations.data ?? [], [invitations.data])
+  const selectedMember = memberList.find((m) => m.user_id === selectedUserId) ?? null
 
   const stats = {
     total: memberList.length,
@@ -224,7 +235,7 @@ function WorkspaceMembersPageContent() {
                   row={row}
                   workspaceId={workspaceId}
                   canManage={canManage}
-                  onManage={setSelected}
+                  onManage={(member) => setSelectedUserId(member.user_id)}
                 />
               ))}
               {matched.length > 0 && totalPages > 1 && (
@@ -273,8 +284,8 @@ function WorkspaceMembersPageContent() {
       <ManageMemberPanel
         workspaceId={workspaceId}
         workspaceName={workspaceName}
-        target={selected}
-        onClose={() => setSelected(null)}
+        target={selectedMember}
+        onClose={() => setSelectedUserId(null)}
       />
       <InviteMemberModal
         workspaceId={workspaceId}

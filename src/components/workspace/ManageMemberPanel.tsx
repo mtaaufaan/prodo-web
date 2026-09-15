@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -8,7 +8,6 @@ import type { WorkspaceMember } from '@/features/workspace-members/types'
 import { useProjects } from '@/features/projects/hooks'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { useUIStore } from '@/store/useUIStore'
 
 // S4W-02 (desain "AW Members Roles.dc.html", panel "KELOLA MEMBER
 // WORKSPACE") -- gabungan RolePickerModal (S2-07) + dialog konfirmasi
@@ -32,10 +31,19 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
   const [draftRole, setDraftRole] = useState('')
   const [draftProjectId, setDraftProjectId] = useState('')
   const [confirmingRemove, setConfirmingRemove] = useState(false)
+  // saveNotice (susulan 2026-09-15, dikonfirmasi user via screenshot
+  // ManageWorkspaceModal "Ada perubahan yang belum disimpan...") -- pola
+  // dirty+saved notice yang SUDAH dipakai di setiap modal Kelola lain
+  // (ManageWorkspaceModal/ManageOrganizationModal/ManageProjectModal/
+  // ManageMemberModal GA), TAPI belum ada di panel ini. Ganti toast
+  // sebelumnya (hilang begitu modal ditutup/dibuka lagi, tidak konsisten
+  // dengan konvensi Kelola lain yang TIDAK pakai showToast sama sekali
+  // untuk aksi Simpan utamanya).
+  const [saveNotice, setSaveNotice] = useState('')
+  const prevUserIdRef = useRef<string | null>(null)
   const updateRole = useUpdateMemberRole(workspaceId)
   const removeMember = useRemoveMember(workspaceId)
   const projects = useProjects(workspaceId)
-  const showToast = useUIStore((state) => state.showToast)
 
   useEffect(() => {
     if (target) {
@@ -45,6 +53,13 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
       // project tidak terbinding") -- tetap bisa diganti kalau AW memang
       // ingin memindahkan (move semantics tetap berlaku saat Simpan).
       setDraftProjectId(target.project_id || '')
+      // saveNotice HANYA direset saat ganti member (bukan setiap refetch)
+      // -- sama fix race condition seperti ManageOrganizationModal/
+      // ManageMemberModal GA.
+      if (prevUserIdRef.current !== target.user_id) setSaveNotice('')
+      prevUserIdRef.current = target.user_id
+    } else {
+      prevUserIdRef.current = null
     }
     setConfirmingRemove(false)
   }, [target])
@@ -61,14 +76,13 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
   // project-scoped (admin_workspace/division_viewer TIDAK termasuk, tetap
   // "Keluarkan dari Workspace" seperti sebelumnya).
   const isProjectScopedRole = ASSIGNABLE_ROLES.some((r) => r.key === currentRole)
+  const dirty = draftRole !== target.role || draftProjectId !== (target.project_id || '')
 
   const handleSaveRole = () => {
     if (!draftProjectId) return
     updateRole.mutate(
       { userId: target.user_id, role: draftRole, projectId: draftProjectId },
-      {
-        onSuccess: () => showToast(`Role diubah menjadi ${draftRole.replace('_', ' ')} pada project terpilih. Tercatat di Audit Trail workspace.`),
-      },
+      { onSuccess: () => setSaveNotice('Perubahan role tersimpan. Tercatat di Audit Trail workspace.') },
     )
   }
 
@@ -156,6 +170,14 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
             </div>
           </div>
 
+          {dirty && (
+            <p className="border border-amber p-2 font-mono text-[10px] leading-relaxed text-amber">
+              Ada perubahan yang belum disimpan. Tekan &quot;Simpan Role&quot; untuk menerapkan.
+            </p>
+          )}
+          {!dirty && saveNotice && (
+            <p className="border border-mint p-2 font-mono text-[10px] text-mint">✓ {saveNotice}</p>
+          )}
           <div className="flex gap-2">
             <Button
               onClick={handleSaveRole}
