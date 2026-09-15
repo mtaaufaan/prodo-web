@@ -33,6 +33,16 @@ export function removeProjectPM(projectId: string) {
   return apiClient.delete<{ id: string }>(`/api/v1/projects/${projectId}/pm`)
 }
 
+// lookupProjectPM (susulan 2026-10-18, "saat input tambah PM, apabila
+// sudah pernah dimasukkan, setelah selesai input email, agar memunculkan
+// nama di input nama") -- preview baca-saja, dipanggil onBlur field email
+// form "+ Tetapkan PM".
+export function lookupProjectPM(projectId: string, email: string) {
+  return apiClient.get<{ found: boolean; display_name?: string }>(`/api/v1/projects/${projectId}/pm-lookup`, {
+    params: { email },
+  })
+}
+
 export function setProjectArchived(projectId: string, archive: boolean) {
   const action = archive ? 'archive' : 'unarchive'
   return apiClient.put<{ id: string; is_archived: boolean }>(`/api/v1/projects/${projectId}/${action}`)

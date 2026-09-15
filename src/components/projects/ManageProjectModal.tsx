@@ -7,7 +7,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
 import { useCancelInvitation } from '@/features/workspace-members/hooks'
-import { projectKeys, useAssignProjectPM, useDeleteProject, useRemoveProjectPM, useSetProjectArchived, useUpdateProject } from '@/features/projects/hooks'
+import {
+  projectKeys,
+  useAssignProjectPM,
+  useDeleteProject,
+  useLookupProjectPM,
+  useRemoveProjectPM,
+  useSetProjectArchived,
+  useUpdateProject,
+} from '@/features/projects/hooks'
 import { PROJECT_STATUSES, type Project, type ProjectStatus } from '@/features/projects/types'
 
 // S4-04/S4-05, US-012 (AW Projects.dc.html panel "KELOLA PROJECT") -- edit
@@ -51,6 +59,7 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
   const updateProject = useUpdateProject(workspaceId)
   const assignPM = useAssignProjectPM(workspaceId)
   const removePM = useRemoveProjectPM(workspaceId)
+  const lookupPM = useLookupProjectPM(project?.id ?? '')
   const cancelPMInvitation = useCancelInvitation(workspaceId)
   const setArchived = useSetProjectArchived(workspaceId)
   const deleteProject = useDeleteProject(workspaceId)
@@ -109,6 +118,22 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
         onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal menyimpan perubahan.'),
       },
     )
+  }
+
+  // handlePmEmailBlur (susulan 2026-10-18, "saat input tambah PM, apabila
+  // sudah pernah dimasukkan, setelah selesai input email, agar
+  // memunculkan nama di input nama") -- preview baca-saja saat AW selesai
+  // mengetik email (blur), TIDAK menetapkan apa pun. pmName TIDAK ditimpa
+  // kalau AW sudah mengetik sesuatu di situ duluan (jarang, tapi jangan
+  // sampai menimpa input yang disengaja).
+  const handlePmEmailBlur = () => {
+    const email = pmEmail.trim()
+    if (!email) return
+    lookupPM.mutate(email, {
+      onSuccess: (res) => {
+        if (res.found && res.display_name && !pmName.trim()) setPmName(res.display_name)
+      },
+    })
   }
 
   const handleAssignPM = () => {
@@ -186,18 +211,28 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
             {project.created_by_name && ` oleh ${project.created_by_name}`} · status{' '}
             {project.is_archived ? 'ARSIP' : 'AKTIF'}
           </div>
-        </DialogHeader>
-
-        <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
+          {/* notice/error (susulan 2026-10-18, diminta user: "notice gagal
+              atau notice berhasil diletakkan di header karena tombol
+              simpan berada didalam pop up, bukan di bottom") -- panel ini
+              punya BANYAK tombol aksi tersebar di seluruh body yang bisa
+              di-scroll (Simpan Perubahan, + Tetapkan PM, Cabut, Arsipkan,
+              Hapus), bukan satu tombol Simpan tunggal di footer/bottom.
+              Notice yang sebelumnya ada di ATAS body scroll jadi tidak
+              kelihatan begitu AW scroll ke bawah untuk klik aksi seperti
+              Cabut PM -- dipindah ke header (DialogHeader, TIDAK ikut
+              scroll) supaya selalu terlihat apa pun posisi scroll saat
+              aksi dijalankan. */}
           {!dirty && notice && (
-            <div className="border border-mint px-3.5 py-3 font-mono text-[10px] leading-relaxed text-mint">✓ {notice}</div>
+            <div className="mt-2.5 border border-mint px-3.5 py-3 font-mono text-[10px] leading-relaxed text-mint">✓ {notice}</div>
           )}
           {error && (
-            <div className="border border-destructive px-3.5 py-3 font-mono text-[10px] leading-relaxed text-destructive">
+            <div className="mt-2.5 border border-destructive px-3.5 py-3 font-mono text-[10px] leading-relaxed text-destructive">
               ⚠ {error}
             </div>
           )}
+        </DialogHeader>
 
+        <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
           <div className="flex gap-3.5">
             <div className="flex-[2]">
               <Label htmlFor="manage-project-name" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
@@ -315,6 +350,7 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
                   setPmEmail(e.target.value)
                   setError('')
                 }}
+                onBlur={handlePmEmailBlur}
                 placeholder="email@perusahaan.co.id"
                 className="flex-1"
               />
@@ -324,7 +360,7 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
                   setPmName(e.target.value)
                   setError('')
                 }}
-                placeholder="Nama (kalau belum terdaftar)"
+                placeholder={lookupPM.isPending ? 'Mencari...' : 'Nama (kalau belum terdaftar)'}
                 className="flex-1"
               />
               <Button
