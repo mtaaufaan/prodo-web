@@ -15,8 +15,15 @@ export function updateMemberRole(workspaceId: string, userId: string, role: stri
   )
 }
 
-export function removeMember(workspaceId: string, userId: string) {
-  return apiClient.delete<void>(`/api/v1/workspaces/${workspaceId}/members/${userId}`)
+// projectId (susulan 2026-09-14, dikonfirmasi user setelah screenshot Fia/
+// IT-Eldwin: "jika pm dan editor approver viewer, hanya dikeluarkan dari
+// project") -- keterkaitan project member ini SAAT INI (WorkspaceMember.
+// project_id), dikirim untuk role project-scoped supaya backend tahu
+// project mana yang dilepas kalau dia kebetulan terkait >1 project.
+export function removeMember(workspaceId: string, userId: string, projectId?: string) {
+  return apiClient.delete<void>(`/api/v1/workspaces/${workspaceId}/members/${userId}`, {
+    params: projectId ? { project_id: projectId } : undefined,
+  })
 }
 
 export function listPendingInvitations(workspaceId: string) {

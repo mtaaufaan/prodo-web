@@ -319,7 +319,7 @@ export default function ManageWorkspaceModal({ workspace, onClose }: ManageWorks
                       type="button"
                       disabled={removeMember.isPending || isLastAdmin}
                       title={isLastAdmin ? 'Workspace tidak boleh tanpa Admin Workspace — tambah admin lain dulu' : undefined}
-                      onClick={() => removeMember.mutate(m.user_id, { onSuccess: refreshWorkspaceGrid })}
+                      onClick={() => removeMember.mutate({ userId: m.user_id }, { onSuccess: refreshWorkspaceGrid })}
                       className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
                     >
                       Cabut

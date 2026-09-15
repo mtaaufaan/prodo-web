@@ -47,14 +47,14 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
   const showToast = useUIStore((state) => state.showToast)
 
   useEffect(() => {
-    if (target?.kind === 'member') setDraftRole(target.data.role)
-    // draftProjectId SENGAJA selalu direset kosong (bukan pre-fill dari
-    // project_names) -- field itu cuma teks tampilan gabungan, bukan ID
-    // yang bisa dipilih ulang; role restructuring 2026-09-14 (Kelola
-    // Member & Roles, dikonfirmasi user) memang mengharuskan AW memilih
-    // ULANG project setiap kali menyimpan role project-level (move
-    // semantics), bukan mengasumsikan "tetap di project yang sama".
-    setDraftProjectId('')
+    if (target?.kind === 'member') {
+      setDraftRole(target.data.role)
+      // Pre-fill dari keterkaitan project SAAT INI (project_id, backend
+      // gains field ini 2026-09-14 setelah user melaporkan "dropdown
+      // project tidak terbinding") -- tetap bisa diganti kalau AW memang
+      // ingin memindahkan (move semantics tetap berlaku saat Simpan).
+      setDraftProjectId(target.data.project_id || '')
+    }
     setConfirmingRemove(false)
   }, [target])
 
@@ -67,6 +67,12 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
     : target.data.email
   const email = target.data.email
   const currentRole = target.data.role
+  // isProjectScopedRole (susulan 2026-09-14, dikonfirmasi user setelah
+  // screenshot Fia/IT-Eldwin: "jika pm dan editor approver viewer, hanya
+  // dikeluarkan dari project") -- ASSIGNABLE_ROLES persis 4 role
+  // project-scoped (admin_workspace/division_viewer TIDAK termasuk, tetap
+  // "Keluarkan dari Workspace" seperti sebelumnya).
+  const isProjectScopedRole = isMember && ASSIGNABLE_ROLES.some((r) => r.key === currentRole)
 
   const handleSaveRole = () => {
     if (!isMember || !draftProjectId) return
@@ -87,7 +93,10 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
 
   const handleRemove = () => {
     if (isMember) {
-      removeMember.mutate(target.data.user_id, { onSuccess: onClose })
+      removeMember.mutate(
+        { userId: target.data.user_id, projectId: isProjectScopedRole ? target.data.project_id || undefined : undefined },
+        { onSuccess: onClose },
+      )
     } else {
       cancelInvitation.mutate(target.data.id, {
         onSuccess: () => {
@@ -126,9 +135,34 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
             </div>
           )}
 
+          {isMember && (
+            <div>
+              <label className="mb-2 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+                Project -- PM/Editor/Approver/Viewer berjalan PER PROJECT
+              </label>
+              <select
+                value={draftProjectId}
+                onChange={(e) => setDraftProjectId(e.target.value)}
+                className="w-full border border-line-strong bg-bg-deep px-2.5 py-2 font-mono text-[11px] text-text-body outline-none focus-visible:border-signal"
+              >
+                <option value="">— Pilih project —</option>
+                {activeProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} · {p.name}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-text-dim">
+                Wajib dipilih setiap kali menyimpan -- keterkaitan project LAMA (kalau ada) dipindah ke project ini,
+                bukan ditambah. Kalau member ini satu-satunya PM project lain, project itu tidak boleh sampai tanpa
+                PM -- tetapkan PM baru dulu lewat Kelola Project.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="mb-2 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
-              Role di Workspace {workspaceName}
+              {isMember ? 'Role Pada Project di Atas' : `Role di Workspace ${workspaceName}`}
             </label>
             {isMember ? (
               <div className="flex flex-col border border-line">
@@ -172,31 +206,6 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
           </div>
 
           {isMember && (
-            <div>
-              <label className="mb-2 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
-                Project (role restructuring: PM/Editor/Approver/Viewer berjalan per project)
-              </label>
-              <select
-                value={draftProjectId}
-                onChange={(e) => setDraftProjectId(e.target.value)}
-                className="w-full border border-line-strong bg-bg-deep px-2.5 py-2 font-mono text-[11px] text-text-body outline-none focus-visible:border-signal"
-              >
-                <option value="">— Pilih project —</option>
-                {activeProjects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code} · {p.name}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-text-dim">
-                Wajib dipilih setiap kali menyimpan -- keterkaitan project LAMA (kalau ada) dipindah ke project ini,
-                bukan ditambah. Kalau member ini satu-satunya PM project lain, project itu tidak boleh sampai tanpa
-                PM -- tetapkan PM baru dulu lewat Kelola Project.
-              </p>
-            </div>
-          )}
-
-          {isMember && (
             <div className="flex gap-2">
               <Button
                 onClick={handleSaveRole}
@@ -222,12 +231,18 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
 
           <div className="flex flex-col gap-2.5 border-t border-line pt-4">
             <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-destructive">
-              {isMember ? 'Keluarkan dari Workspace' : 'Batalkan Undangan'}
+              {isProjectScopedRole
+                ? `Keluarkan dari Project ${target.data.project_names || '-'}`
+                : isMember
+                  ? 'Keluarkan dari Workspace'
+                  : 'Batalkan Undangan'}
             </div>
             <p className="font-mono text-[9.5px] leading-relaxed text-text-muted">
-              {isMember
-                ? `Akses ke workspace ${workspaceName} langsung dicabut, termasuk seluruh project di dalamnya. Akun ${email} tetap aktif di organisasi induk dan dapat ditambahkan kembali kapan saja.`
-                : `Undangan untuk ${email} akan dibatalkan -- tautan yang sudah dikirim tidak berlaku lagi.`}
+              {isProjectScopedRole
+                ? `Keterkaitan ${email} ke project ${target.data.project_names || '-'} dilepas. Role ${currentRole.replace('_', ' ')} cuma berlaku lewat project -- kalau ini satu-satunya project yang dia tangani di workspace ini, aksesnya ke workspace ${workspaceName} ikut tercabut sepenuhnya (akun tetap aktif di organisasi induk, dapat ditambahkan kembali kapan saja). Kalau dia masih tertaut ke project lain, dia tetap member workspace ini.`
+                : isMember
+                  ? `Akses ke workspace ${workspaceName} langsung dicabut. Akun ${email} tetap aktif di organisasi induk dan dapat ditambahkan kembali kapan saja.`
+                  : `Undangan untuk ${email} akan dibatalkan -- tautan yang sudah dikirim tidak berlaku lagi.`}
             </p>
             {confirmingRemove ? (
               <div className="flex gap-2">
@@ -256,7 +271,11 @@ export default function ManageMemberPanel({ workspaceId, workspaceName, target, 
                 onClick={() => setConfirmingRemove(true)}
                 className="w-fit border-destructive/50 font-mono text-[10px] uppercase tracking-[0.06em] text-destructive hover:bg-destructive/10"
               >
-                {isMember ? 'Keluarkan dari Workspace' : 'Batalkan Undangan'}
+                {isProjectScopedRole
+                  ? `Keluarkan dari Project ${target.data.project_names || '-'}`
+                  : isMember
+                    ? 'Keluarkan dari Workspace'
+                    : 'Batalkan Undangan'}
               </Button>
             )}
           </div>

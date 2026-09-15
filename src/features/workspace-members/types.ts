@@ -10,6 +10,10 @@ export interface WorkspaceMember {
   // 2026-09-14) -- "" untuk role workspace-scoped (admin_workspace/
   // division_viewer) atau kalau belum ditautkan ke project mana pun.
   project_names: string
+  // project_id -- ID project PERTAMA dari project_names, dipakai
+  // ManageMemberPanel pre-fill pemilih project (ditemukan user: "dropdown
+  // project juga tidak terbinding"). "" kalau project_names juga "".
+  project_id: string
 }
 
 // admin_workspace SENGAJA tidak masuk daftar assignable -- per desain (AW
