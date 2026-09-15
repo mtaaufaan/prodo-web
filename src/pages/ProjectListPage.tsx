@@ -6,10 +6,29 @@ import AddProjectModal from "@/components/projects/AddProjectModal";
 import ManageProjectModal from "@/components/projects/ManageProjectModal";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { useProjects } from "@/features/projects/hooks";
+import { PROJECT_STATUSES, type ProjectStatus } from "@/features/projects/types";
 import { cn } from "@/lib/utils";
 
 const PROJECT_PAGE_SIZE = 10;
 type Filter = "Semua" | "Aktif" | "Arsip";
+
+// statusLabel/statusColor (susulan 2026-10-18, "tambahkan status project")
+// -- TERPISAH dari badge AKTIF/ARSIP (is_archived) yang sudah ada.
+function statusLabel(status: ProjectStatus) {
+  return PROJECT_STATUSES.find((s) => s.key === status)?.label ?? status;
+}
+function statusColor(status: ProjectStatus) {
+  switch (status) {
+    case "in_progress":
+      return "border-signal text-signal";
+    case "completed":
+      return "border-mint text-mint";
+    case "on_hold":
+      return "border-amber text-amber";
+    default:
+      return "border-line-strong text-text-muted";
+  }
+}
 
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
@@ -214,18 +233,33 @@ function ProjectListPageContent() {
                 </td>
                 <td className="py-3 pr-4 font-mono text-[10px] text-text-muted">
                   {p.sprint_count} sprint · {p.task_count} task
+                  <div className="mt-1 text-[8.5px] text-text-faint">
+                    {p.end_date
+                      ? `Berakhir ${new Date(p.end_date).toLocaleDateString("id-ID")}`
+                      : "Tanpa tanggal berakhir"}
+                  </div>
                 </td>
                 <td className="py-3 pr-4">
-                  <span
-                    className={cn(
-                      "border px-1.5 py-0.5 font-mono text-[9px] font-semibold",
-                      p.is_archived
-                        ? "border-amber text-amber"
-                        : "border-mint text-mint",
-                    )}
-                  >
-                    {p.is_archived ? "ARSIP" : "AKTIF"}
-                  </span>
+                  <div className="flex flex-col items-start gap-1">
+                    <span
+                      className={cn(
+                        "border px-1.5 py-0.5 font-mono text-[9px] font-semibold",
+                        statusColor(p.status),
+                      )}
+                    >
+                      {statusLabel(p.status).toUpperCase()}
+                    </span>
+                    <span
+                      className={cn(
+                        "border px-1.5 py-0.5 font-mono text-[9px] font-semibold",
+                        p.is_archived
+                          ? "border-amber text-amber"
+                          : "border-mint text-mint",
+                      )}
+                    >
+                      {p.is_archived ? "ARSIP" : "AKTIF"}
+                    </span>
+                  </div>
                 </td>
                 <td className="py-3 pr-4">
                   <button

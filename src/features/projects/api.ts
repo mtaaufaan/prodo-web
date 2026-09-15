@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api'
 
-import type { PMTarget, Project } from './types'
+import type { PMTarget, Project, ProjectStatus } from './types'
 
 export function listProjects(workspaceId: string) {
   return apiClient.get<Project[]>(`/api/v1/workspaces/${workspaceId}/projects`)
@@ -17,8 +17,10 @@ export function createProject(workspaceId: string, input: { name: string; code: 
   return apiClient.post<Project>(`/api/v1/workspaces/${workspaceId}/projects`, { name: input.name, code: input.code, ...pmRequestBody(input.pm) })
 }
 
-export function updateProject(projectId: string, input: { name: string }) {
-  return apiClient.put<{ id: string; name: string }>(`/api/v1/projects/${projectId}`, input)
+// status/end_date (susulan 2026-10-18) -- SELALU dikirim apa adanya (whole-
+// form save, sama kontrak dengan name), bukan partial patch.
+export function updateProject(projectId: string, input: { name: string; status: ProjectStatus; end_date: string | null }) {
+  return apiClient.put<{ id: string; name: string; status: ProjectStatus; end_date: string | null }>(`/api/v1/projects/${projectId}`, input)
 }
 
 // assignProjectPM/removeProjectPM (S4W susulan) -- seksi PM panel Kelola,
@@ -29,6 +31,16 @@ export function assignProjectPM(projectId: string, pm: PMTarget) {
 
 export function removeProjectPM(projectId: string) {
   return apiClient.delete<{ id: string }>(`/api/v1/projects/${projectId}/pm`)
+}
+
+// lookupProjectPM (susulan 2026-10-18, "saat input tambah PM, apabila
+// sudah pernah dimasukkan, setelah selesai input email, agar memunculkan
+// nama di input nama") -- preview baca-saja, dipanggil onBlur field email
+// form "+ Tetapkan PM".
+export function lookupProjectPM(projectId: string, email: string) {
+  return apiClient.get<{ found: boolean; display_name?: string }>(`/api/v1/projects/${projectId}/pm-lookup`, {
+    params: { email },
+  })
 }
 
 export function setProjectArchived(projectId: string, archive: boolean) {

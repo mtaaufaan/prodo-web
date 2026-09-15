@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '@/components/ui/button'
@@ -7,8 +7,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
 import { useCancelInvitation } from '@/features/workspace-members/hooks'
-import { projectKeys, useAssignProjectPM, useDeleteProject, useRemoveProjectPM, useSetProjectArchived, useUpdateProject } from '@/features/projects/hooks'
-import type { Project } from '@/features/projects/types'
+import {
+  projectKeys,
+  useAssignProjectPM,
+  useDeleteProject,
+  useLookupProjectPM,
+  useRemoveProjectPM,
+  useSetProjectArchived,
+  useUpdateProject,
+} from '@/features/projects/hooks'
+import { PROJECT_STATUSES, type Project, type ProjectStatus } from '@/features/projects/types'
 
 // S4-04/S4-05, US-012 (AW Projects.dc.html panel "KELOLA PROJECT") -- edit
 // nama, arsip/batal-arsip, dan hapus (soft-delete, konfirmasi ketik nama
@@ -35,16 +43,23 @@ interface ManageProjectModalProps {
 
 export default function ManageProjectModal({ workspaceId, project, onClose }: ManageProjectModalProps) {
   const [name, setName] = useState('')
+  // status/endDate (susulan 2026-10-18, "tambahkan status project, dan
+  // tanggal berakhir project") -- draft + Simpan Perubahan, sama section
+  // dengan Nama (bukan aksi langsung terpisah seperti PM/Arsip/Hapus).
+  const [status, setStatus] = useState<ProjectStatus>('not_started')
+  const [endDate, setEndDate] = useState('')
   const [confirmText, setConfirmText] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [pmEmail, setPmEmail] = useState('')
   const [pmName, setPmName] = useState('')
+  const prevProjectIdRef = useRef<string | null>(null)
 
   const queryClient = useQueryClient()
   const updateProject = useUpdateProject(workspaceId)
   const assignPM = useAssignProjectPM(workspaceId)
   const removePM = useRemoveProjectPM(workspaceId)
+  const lookupPM = useLookupProjectPM(project?.id ?? '')
   const cancelPMInvitation = useCancelInvitation(workspaceId)
   const setArchived = useSetProjectArchived(workspaceId)
   const deleteProject = useDeleteProject(workspaceId)
@@ -52,17 +67,43 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
   useEffect(() => {
     if (project) {
       setName(project.name)
+      setStatus(project.status)
+      // end_date dari backend RFC3339 penuh (mengikuti pola due_date task) --
+      // <input type="date"> butuh "YYYY-MM-DD" saja.
+      setEndDate(project.end_date ? project.end_date.slice(0, 10) : '')
       setConfirmText('')
       setError('')
-      setNotice('')
+      // notice HANYA direset saat ganti project (bukan setiap refetch) --
+      // ditemukan user 2026-09-15 ("kenapa di kelola project tidak
+      // dikerjakan juga"): tanpa guard ini, invalidateQueries setelah
+      // Simpan Perubahan berhasil memicu efek ini lagi (objek project baru
+      // dari .find(), walau ID sama) dan langsung menghapus notice yang
+      // baru saja di-set handleSave -- notice hijau tidak pernah sempat
+      // terlihat. Sama fix race condition seperti ManageOrganizationModal/
+      // ManageWorkspaceModal/ManageMemberModal/ManageMemberPanel.
+      if (prevProjectIdRef.current !== project.id) setNotice('')
+      prevProjectIdRef.current = project.id
       setPmEmail('')
       setPmName('')
+    } else {
+      prevProjectIdRef.current = null
     }
   }, [project])
 
   if (!project) return null
 
   const canDelete = confirmText.trim() === project.name
+  // dirty (susulan 2026-09-15, ditemukan user: "kenapa di kelola project
+  // tidak dikerjakan juga" -- pola yang sama dengan ManageMemberPanel)
+  // -- modal ini SUDAH punya notice hijau "tersimpan" tapi tidak pernah
+  // punya peringatan "belum disimpan" untuk field Nama Project, beda dari
+  // standar ManageWorkspaceModal/ManageOrganizationModal/ManageMemberModal
+  // GA. Cuma field Nama/Status/Tanggal Berakhir yang punya draft+tombol
+  // Simpan terpisah (section PM di bawah semuanya aksi langsung dengan
+  // tombolnya sendiri, sama pola "Tambah Admin" ManageWorkspaceModal --
+  // tidak butuh dirty check).
+  const originalEndDate = project.end_date ? project.end_date.slice(0, 10) : ''
+  const dirty = name.trim() !== project.name || status !== project.status || endDate !== originalEndDate
 
   const handleSave = () => {
     setError('')
@@ -71,12 +112,28 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
       return
     }
     updateProject.mutate(
-      { projectId: project.id, input: { name: name.trim() } },
+      { projectId: project.id, input: { name: name.trim(), status, end_date: endDate || null } },
       {
         onSuccess: () => setNotice('Perubahan tersimpan. Tercatat di audit trail.'),
         onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal menyimpan perubahan.'),
       },
     )
+  }
+
+  // handlePmEmailBlur (susulan 2026-10-18, "saat input tambah PM, apabila
+  // sudah pernah dimasukkan, setelah selesai input email, agar
+  // memunculkan nama di input nama") -- preview baca-saja saat AW selesai
+  // mengetik email (blur), TIDAK menetapkan apa pun. pmName TIDAK ditimpa
+  // kalau AW sudah mengetik sesuatu di situ duluan (jarang, tapi jangan
+  // sampai menimpa input yang disengaja).
+  const handlePmEmailBlur = () => {
+    const email = pmEmail.trim()
+    if (!email) return
+    lookupPM.mutate(email, {
+      onSuccess: (res) => {
+        if (res.found && res.display_name && !pmName.trim()) setPmName(res.display_name)
+      },
+    })
   }
 
   const handleAssignPM = () => {
@@ -154,24 +211,87 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
             {project.created_by_name && ` oleh ${project.created_by_name}`} · status{' '}
             {project.is_archived ? 'ARSIP' : 'AKTIF'}
           </div>
-        </DialogHeader>
-
-        <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
-          {notice && (
-            <div className="border border-mint px-3.5 py-3 font-mono text-[10px] leading-relaxed text-mint">✓ {notice}</div>
+          {/* notice/error (susulan 2026-10-18, diminta user: "notice gagal
+              atau notice berhasil diletakkan di header karena tombol
+              simpan berada didalam pop up, bukan di bottom") -- panel ini
+              punya BANYAK tombol aksi tersebar di seluruh body yang bisa
+              di-scroll (Simpan Perubahan, + Tetapkan PM, Cabut, Arsipkan,
+              Hapus), bukan satu tombol Simpan tunggal di footer/bottom.
+              Notice yang sebelumnya ada di ATAS body scroll jadi tidak
+              kelihatan begitu AW scroll ke bawah untuk klik aksi seperti
+              Cabut PM -- dipindah ke header (DialogHeader, TIDAK ikut
+              scroll) supaya selalu terlihat apa pun posisi scroll saat
+              aksi dijalankan. */}
+          {!dirty && notice && (
+            <div className="mt-2.5 border border-mint px-3.5 py-3 font-mono text-[10px] leading-relaxed text-mint">✓ {notice}</div>
           )}
           {error && (
-            <div className="border border-destructive px-3.5 py-3 font-mono text-[10px] leading-relaxed text-destructive">
+            <div className="mt-2.5 border border-destructive px-3.5 py-3 font-mono text-[10px] leading-relaxed text-destructive">
               ⚠ {error}
             </div>
           )}
+        </DialogHeader>
 
-          <div>
-            <Label htmlFor="manage-project-name" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
-              Nama Project
-            </Label>
-            <Input id="manage-project-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
+          <div className="flex gap-3.5">
+            <div className="flex-[2]">
+              <Label htmlFor="manage-project-name" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+                Nama Project
+              </Label>
+              <Input id="manage-project-name" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="flex-1">
+              {/* Kode Task (susulan 2026-10-18, diminta user "seperti pada
+                  desain claude, hanya kode task saja") -- sesuai desain
+                  "AW Projects.dc.html" panel Kelola: readonly, TIDAK bisa
+                  diubah karena sudah dipakai sebagai prefiks nomor task
+                  (RIL-001, dst) sejak project dibuat. */}
+              <Label htmlFor="manage-project-code" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+                Kode Task · Tetap
+              </Label>
+              <Input id="manage-project-code" value={project.code} readOnly disabled className="font-mono tracking-[0.1em]" />
+              <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-text-dim">
+                Kode tidak dapat diubah karena sudah dipakai nomor task.
+              </p>
+            </div>
           </div>
+
+          <div className="flex gap-3.5">
+            <div className="flex-1">
+              <Label htmlFor="manage-project-status" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+                Status Project
+              </Label>
+              <select
+                id="manage-project-status"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as ProjectStatus)}
+                className="w-full border border-line-strong bg-input-bg px-3 py-2.5 font-mono text-[11.5px] text-text-body outline-none focus-visible:border-signal"
+              >
+                {PROJECT_STATUSES.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex-1">
+              <Label htmlFor="manage-project-end-date" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+                Tanggal Berakhir
+              </Label>
+              <input
+                id="manage-project-end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full border border-line-strong bg-input-bg px-3 py-2 font-mono text-[11.5px] text-text-body outline-none focus-visible:border-signal"
+              />
+            </div>
+          </div>
+          {dirty && (
+            <p className="border border-amber p-2 font-mono text-[10px] leading-relaxed text-amber">
+              Ada perubahan yang belum disimpan. Tekan &quot;Simpan Perubahan&quot; untuk menerapkan.
+            </p>
+          )}
           <Button
             onClick={handleSave}
             disabled={updateProject.isPending}
@@ -230,6 +350,7 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
                   setPmEmail(e.target.value)
                   setError('')
                 }}
+                onBlur={handlePmEmailBlur}
                 placeholder="email@perusahaan.co.id"
                 className="flex-1"
               />
@@ -239,7 +360,7 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
                   setPmName(e.target.value)
                   setError('')
                 }}
-                placeholder="Nama (kalau belum terdaftar)"
+                placeholder={lookupPM.isPending ? 'Mencari...' : 'Nama (kalau belum terdaftar)'}
                 className="flex-1"
               />
               <Button
