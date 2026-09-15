@@ -20,7 +20,25 @@ export interface Project {
   pm_pending_invitation_id: string
   created_at: string
   archived_at: string | null
+  // status/end_date (susulan 2026-10-18, diminta user langsung "tambahkan
+  // status project, dan tanggal berakhir project") -- AC awal US-012
+  // (backlog.md: "tanggal mulai, tanggal selesai, dan status awal") tidak
+  // pernah masuk desain final "AW Add Project.dc.html"/"AW Projects.dc.html"
+  // -- gap yang baru ditutup sekarang. status TERPISAH dari is_archived
+  // (arsip murni soal akses baca-saja, bukan siklus progres kerja).
+  // Keduanya HANYA bisa diisi/diubah lewat Kelola Project.
+  status: ProjectStatus
+  end_date: string | null
 }
+
+export type ProjectStatus = 'not_started' | 'in_progress' | 'completed' | 'on_hold'
+
+export const PROJECT_STATUSES: { key: ProjectStatus; label: string }[] = [
+  { key: 'not_started', label: 'Belum Mulai' },
+  { key: 'in_progress', label: 'Berjalan' },
+  { key: 'completed', label: 'Selesai' },
+  { key: 'on_hold', label: 'Ditunda' },
+]
 
 // PMTarget -- PERSIS SATU dari userId (member existing workspace ini) atau
 // email+name (undang baru, name cuma wajib kalau email belum terdaftar --

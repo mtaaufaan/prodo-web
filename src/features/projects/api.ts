@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api'
 
-import type { PMTarget, Project } from './types'
+import type { PMTarget, Project, ProjectStatus } from './types'
 
 export function listProjects(workspaceId: string) {
   return apiClient.get<Project[]>(`/api/v1/workspaces/${workspaceId}/projects`)
@@ -17,8 +17,10 @@ export function createProject(workspaceId: string, input: { name: string; code: 
   return apiClient.post<Project>(`/api/v1/workspaces/${workspaceId}/projects`, { name: input.name, code: input.code, ...pmRequestBody(input.pm) })
 }
 
-export function updateProject(projectId: string, input: { name: string }) {
-  return apiClient.put<{ id: string; name: string }>(`/api/v1/projects/${projectId}`, input)
+// status/end_date (susulan 2026-10-18) -- SELALU dikirim apa adanya (whole-
+// form save, sama kontrak dengan name), bukan partial patch.
+export function updateProject(projectId: string, input: { name: string; status: ProjectStatus; end_date: string | null }) {
+  return apiClient.put<{ id: string; name: string; status: ProjectStatus; end_date: string | null }>(`/api/v1/projects/${projectId}`, input)
 }
 
 // assignProjectPM/removeProjectPM (S4W susulan) -- seksi PM panel Kelola,

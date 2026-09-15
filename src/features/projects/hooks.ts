@@ -3,7 +3,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { workspaceMemberKeys } from '@/features/workspace-members/hooks'
 
 import { assignProjectPM, createProject, deleteProject, listProjects, removeProjectPM, restoreProject, setProjectArchived, updateProject } from './api'
-import type { PMTarget } from './types'
+import type { PMTarget, ProjectStatus } from './types'
 
 export const projectKeys = {
   all: ['projects'] as const,
@@ -46,7 +46,8 @@ export function useCreateProject(workspaceId: string) {
 export function useUpdateProject(workspaceId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ projectId, input }: { projectId: string; input: { name: string } }) => updateProject(projectId, input),
+    mutationFn: ({ projectId, input }: { projectId: string; input: { name: string; status: ProjectStatus; end_date: string | null } }) =>
+      updateProject(projectId, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.list(workspaceId) }),
   })
 }
