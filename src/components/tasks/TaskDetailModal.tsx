@@ -107,6 +107,34 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
 
   if (!taskId) return null
 
+  // dirty (susulan 2026-09-15, "jadikan ini standar") -- cuma berarti
+  // saat editing (field draft cuma dirender/bisa diketik saat itu).
+  const dirty =
+    editing &&
+    !!task.data &&
+    (title.trim() !== task.data.title ||
+      priority !== task.data.priority ||
+      dueDate !== (task.data.due_date ?? '') ||
+      estimatedHours !== (task.data.estimated_hours != null ? String(task.data.estimated_hours) : '') ||
+      storyPoints !== task.data.story_points)
+
+  // handleCancelEdit -- "Batal" sebelumnya cuma setEditing(false), TIDAK
+  // mengembalikan draft ke nilai task.data (ditemukan sekalian lewat audit
+  // "jadikan ini standar": draft yang diketik lalu Batal tetap nyangkut
+  // sampai sesi Edit berikutnya, bikin dirty salah nyala walau belum
+  // benar-benar mengetik apa pun di sesi itu).
+  const handleCancelEdit = () => {
+    if (task.data) {
+      setTitle(task.data.title)
+      setPriority(task.data.priority)
+      setDueDate(task.data.due_date ?? '')
+      setEstimatedHours(task.data.estimated_hours != null ? String(task.data.estimated_hours) : '')
+      setStoryPoints(task.data.story_points)
+    }
+    setEditing(false)
+    setSaveError('')
+  }
+
   const onSave = () => {
     if (!task.data) return
     setSaveError('')
@@ -578,7 +606,12 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
               )}
             </div>
 
-            {notice && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {notice}</p>}
+            {dirty && (
+              <p className="border border-amber p-2.5 font-mono text-[10px] leading-relaxed text-amber">
+                Ada perubahan yang belum disimpan. Tekan &quot;Simpan Perubahan&quot; untuk menerapkan.
+              </p>
+            )}
+            {!dirty && notice && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {notice}</p>}
             {saveError && <p className="text-[11px] text-destructive">⚠ {saveError}</p>}
           </div>
         )}
@@ -589,7 +622,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
               <Button type="button" disabled={update.isPending} onClick={onSave} className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]">
                 {update.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
               </Button>
-              <Button type="button" variant="outline" onClick={() => setEditing(false)} className="font-mono text-[10px] uppercase tracking-[0.06em]">
+              <Button type="button" variant="outline" onClick={handleCancelEdit} className="font-mono text-[10px] uppercase tracking-[0.06em]">
                 Batal
               </Button>
             </>

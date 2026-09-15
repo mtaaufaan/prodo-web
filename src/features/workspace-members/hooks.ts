@@ -74,13 +74,25 @@ export function useUpdateMemberRole(workspaceId: string) {
 }
 
 // S3-15/18: keluarkan member dari workspace.
+//
+// projectId (susulan 2026-09-14, dikonfirmasi user "jika pm dan editor
+// approver viewer, hanya dikeluarkan dari project") -- diisi untuk role
+// project-scoped (WorkspaceMember.project_id) supaya backend tahu project
+// mana yang dilepas kalau member kebetulan terkait >1 project (jarang);
+// daftar project workspace ini ikut di-invalidate sama pola
+// useUpdateMemberRole, karena backend bisa saja cuma melepas pm_user_id/
+// project_members-nya tanpa menghapus workspace_members.
 export function useRemoveMember(workspaceId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (userId: string) => removeMember(workspaceId, userId),
-    onSuccess: () => {
+    mutationFn: ({ userId, projectId }: { userId: string; projectId?: string }) =>
+      removeMember(workspaceId, userId, projectId),
+    onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: workspaceMemberKeys.list(workspaceId) })
       invalidateMemberCountAggregates(queryClient)
+      if (variables.projectId) {
+        queryClient.invalidateQueries({ queryKey: ['projects', 'list', workspaceId] })
+      }
     },
   })
 }

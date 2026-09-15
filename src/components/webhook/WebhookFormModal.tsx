@@ -69,6 +69,19 @@ export default function WebhookFormModal({ open, onClose, groupId, orgs, editing
     onClose()
   }
 
+  // dirty (susulan 2026-09-15, "jadikan ini standar" -- pola dirty/saved
+  // notice yang sama diterapkan ke setiap modal Kelola) -- cuma berarti
+  // saat isEdit (mode create tidak punya baseline "tersimpan" untuk
+  // dibandingkan, sama konvensi create-modal lain).
+  const dirty =
+    isEdit &&
+    !!editing &&
+    (name.trim() !== editing.name ||
+      url.trim() !== editing.url ||
+      orgId !== editing.org_id ||
+      events.length !== editing.events.length ||
+      events.some((e) => !editing.events.includes(e)))
+
   const urlInvalid = url.trim() !== '' && !HTTPS_PATTERN.test(url.trim())
   const toggleEvent = (e: string) => setEvents((prev) => (prev.includes(e) ? prev.filter((x) => x !== e) : [...prev, e]))
 
@@ -271,7 +284,12 @@ export default function WebhookFormModal({ open, onClose, groupId, orgs, editing
             </div>
           )}
 
-          {notice && <p className="border border-mint p-2.5 font-mono text-[10px] leading-relaxed text-mint">✓ {notice}</p>}
+          {dirty && (
+            <p className="border border-amber p-2.5 font-mono text-[10px] leading-relaxed text-amber">
+              Ada perubahan yang belum disimpan. Tekan &quot;Simpan Perubahan&quot; untuk menerapkan.
+            </p>
+          )}
+          {!dirty && notice && <p className="border border-mint p-2.5 font-mono text-[10px] leading-relaxed text-mint">✓ {notice}</p>}
           {testRateLimited && (
             <p className="border border-destructive p-2.5 font-mono text-[10px] leading-relaxed text-destructive">
               ⚠ HTTP 429 -- Batas pengiriman tes webhook terlampaui (maks 5 permintaan/menit).
