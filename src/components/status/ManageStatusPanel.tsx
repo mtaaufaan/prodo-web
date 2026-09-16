@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
 import {
-  useMoveStatus,
   useRestoreStatus,
   useSetStatusStartConfirmation,
   useUndefineStatus,
@@ -40,7 +39,6 @@ export default function ManageStatusPanel({ workspaceId, status, onClose }: Mana
   const prevStatusIdRef = useRef<string | null>(null)
 
   const updateAppearance = useUpdateStatusAppearance(workspaceId)
-  const moveStatus = useMoveStatus(workspaceId)
   const setStartConfirmation = useSetStatusStartConfirmation(workspaceId)
   const undefineStatus = useUndefineStatus(workspaceId)
   const restoreStatus = useRestoreStatus(workspaceId)
@@ -71,14 +69,6 @@ export default function ManageStatusPanel({ workspaceId, status, onClose }: Mana
         onSuccess: () => setNotice('Perubahan tersimpan pada template workspace. Tercatat di Audit Trail.'),
         onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal menyimpan perubahan.'),
       },
-    )
-  }
-
-  const handleMove = (direction: 'up' | 'down') => {
-    setError('')
-    moveStatus.mutate(
-      { statusId: status.id, direction },
-      { onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal mengubah urutan.') },
     )
   }
 
@@ -130,43 +120,22 @@ export default function ManageStatusPanel({ workspaceId, status, onClose }: Mana
         <div className="flex max-h-[calc(100vh-260px)] flex-col gap-4 overflow-y-auto px-5 py-5">
           <div className="flex flex-col gap-3">
             <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Informasi Status</div>
-            <div className="flex gap-3.5">
-              <div className="flex-1">
-                <Label htmlFor="manage-status-name" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
-                  Nama Status
-                </Label>
-                <Input
-                  id="manage-status-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={status.is_system}
-                  className="font-mono uppercase tracking-[0.04em] disabled:opacity-50"
-                />
-                <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-text-dim">
-                  {status.is_system
-                    ? 'Nama status sistem tidak dapat diubah; warna dan urutan tetap dapat diatur.'
-                    : 'Mengubah nama hanya berlaku pada template -- project yang sudah menyalin status ini tidak berubah.'}
-                </p>
-              </div>
-              <div className="flex flex-shrink-0 flex-col items-center gap-1">
-                <Label className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Urut</Label>
-                <button
-                  type="button"
-                  onClick={() => handleMove('up')}
-                  disabled={moveStatus.isPending}
-                  className="border border-line-strong px-2.5 py-1 text-text-muted hover:text-text-bone disabled:opacity-40"
-                >
-                  ▲
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMove('down')}
-                  disabled={moveStatus.isPending}
-                  className="border border-line-strong px-2.5 py-1 text-text-muted hover:text-text-bone disabled:opacity-40"
-                >
-                  ▼
-                </button>
-              </div>
+            <div>
+              <Label htmlFor="manage-status-name" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+                Nama Status
+              </Label>
+              <Input
+                id="manage-status-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={status.is_system}
+                className="font-mono uppercase tracking-[0.04em] disabled:opacity-50"
+              />
+              <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-text-dim">
+                {status.is_system
+                  ? 'Nama status sistem tidak dapat diubah; warna tetap dapat diatur.'
+                  : 'Mengubah nama hanya berlaku pada template -- project yang sudah menyalin status ini tidak berubah.'}
+              </p>
             </div>
 
             <div>

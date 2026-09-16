@@ -5,7 +5,7 @@ import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import AddStatusModal from '@/components/status/AddStatusModal'
 import ManageStatusPanel from '@/components/status/ManageStatusPanel'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
-import { useWorkspaceStatuses } from '@/features/tasks/hooks'
+import { useMoveStatus, useWorkspaceStatuses } from '@/features/tasks/hooks'
 import { statusColorClasses, type CustomStatus } from '@/features/tasks/types'
 import { useProjects } from '@/features/projects/hooks'
 import { cn } from '@/lib/utils'
@@ -35,6 +35,7 @@ function CustomStatusPageContent() {
   const filter = view as Filter
   const { data, isLoading, isError } = useWorkspaceStatuses(workspaceId)
   const projects = useProjects(workspaceId)
+  const moveStatus = useMoveStatus(workspaceId)
   const [addOpen, setAddOpen] = useState(false)
   const [managingId, setManagingId] = useState<string | null>(null)
 
@@ -47,6 +48,13 @@ function CustomStatusPageContent() {
   const all = useMemo(() => data ?? [], [data])
   const managingStatus = all.find((s) => s.id === managingId) ?? null
   const active = all.filter((s) => !s.is_undefined)
+  // orderIndex -- posisi status DI DAFTAR PENUH (bukan di tab yang sedang
+  // difilter) -- ▲▼ menukar posisi dengan tetangga di daftar penuh persis
+  // seperti backend Move, jadi nomor URUT dan batas atas/bawah tombol
+  // harus mengikuti daftar penuh juga, sama seperti "AW Custom
+  // Status.dc.html" (index `i` dari `this.state.statuses`, bukan dari
+  // hasil filter tab).
+  const orderIndex = useMemo(() => new Map(all.map((s, i) => [s.id, i])), [all])
 
   const rows = useMemo(() => {
     if (filter === 'Kustom') return all.filter((s) => !s.is_system)
@@ -125,9 +133,21 @@ function CustomStatusPageContent() {
           {!isLoading && !isError && rows.length === 0 && (
             <div className="px-4 py-6 text-center font-mono text-[10.5px] text-text-muted">Tidak ada status berjenis ini.</div>
           )}
-          {rows.map((s, i) => (
-            <StatusRow key={s.id} status={s} order={i + 1} onManage={() => setManagingId(s.id)} />
-          ))}
+          {rows.map((s) => {
+            const idx = orderIndex.get(s.id) ?? 0
+            return (
+              <StatusRow
+                key={s.id}
+                status={s}
+                order={idx + 1}
+                isFirst={idx === 0}
+                isLast={idx === all.length - 1}
+                moving={moveStatus.isPending}
+                onMove={(direction) => moveStatus.mutate({ statusId: s.id, direction })}
+                onManage={() => setManagingId(s.id)}
+              />
+            )
+          })}
           <div className="border-t border-line bg-raised-2 px-4 py-2.5 font-mono text-[9px] leading-relaxed text-text-muted">
             Template ini menjadi daftar status bawaan setiap PROJECT BARU di workspace -- project yang sudah berjalan
             tetap memakai daftar statusnya sendiri dan diatur Project Manager masing-masing.
@@ -141,14 +161,44 @@ function CustomStatusPageContent() {
   )
 }
 
-function StatusRow({ status, order, onManage }: { status: CustomStatus; order: number; onManage: () => void }) {
+interface StatusRowProps {
+  status: CustomStatus
+  order: number
+  isFirst: boolean
+  isLast: boolean
+  moving: boolean
+  onMove: (direction: 'up' | 'down') => void
+  onManage: () => void
+}
+
+function StatusRow({ status, order, isFirst, isLast, moving, onMove, onManage }: StatusRowProps) {
   const cls = statusColorClasses(status.color_token)
   const trackable = !status.is_system || !UNTRACKED.includes(status.name)
   const kind = status.is_undefined ? 'UNDEF' : status.is_system ? 'SISTEM' : 'KUSTOM'
   const kindColor = status.is_undefined ? 'border-destructive text-destructive' : status.is_system ? 'border-blue text-blue' : 'border-amber text-amber'
   return (
     <div className="grid grid-cols-[60px_2.2fr_0.8fr_1.1fr_0.7fr] items-center gap-2 border-t border-line px-4 py-3">
-      <span className="font-mono text-[10px] text-text-muted">{order}</span>
+      <div className="flex items-center gap-1.5 font-mono text-[10px] text-text-muted">
+        <span>{order}</span>
+        <div className="flex flex-col gap-0.5 leading-none">
+          <button
+            type="button"
+            disabled={isFirst || moving}
+            onClick={() => onMove('up')}
+            className="text-text-muted hover:text-signal disabled:cursor-not-allowed disabled:text-line-strong disabled:hover:text-line-strong"
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            disabled={isLast || moving}
+            onClick={() => onMove('down')}
+            className="text-text-muted hover:text-signal disabled:cursor-not-allowed disabled:text-line-strong disabled:hover:text-line-strong"
+          >
+            ▼
+          </button>
+        </div>
+      </div>
       <div className="flex min-w-0 items-center gap-2.5">
         <span className={cn('block h-[26px] w-[26px] flex-shrink-0', status.is_undefined ? 'bg-line-strong' : cls.dot)} />
         <div className="min-w-0 leading-tight">
