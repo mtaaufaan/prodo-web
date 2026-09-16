@@ -29,6 +29,11 @@ export interface Project {
   // Keduanya HANYA bisa diisi/diubah lewat Kelola Project.
   status: ProjectStatus
   end_date: string | null
+  // mention_cooldown_minutes (S4W-07, US-033, "AW Cooldown
+  // Mention.dc.html" kartu "OVERRIDE LEVEL PROJECT") -- NULL berarti
+  // ikut nilai workspace. Belum ada UI untuk PM mengisinya (scope
+  // terpisah), baca-saja di sini.
+  mention_cooldown_minutes: number | null
 }
 
 export type ProjectStatus = 'not_started' | 'in_progress' | 'completed' | 'on_hold'
