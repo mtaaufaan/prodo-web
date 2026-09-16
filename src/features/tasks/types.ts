@@ -8,6 +8,50 @@ export interface CustomStatus {
   is_system: boolean
   is_undefined: boolean
   require_start_confirmation: boolean
+  // task_count (S4W-05, US-021) -- jumlah task yang sedang memakai status
+  // ini, ditampilkan di panel Kelola sebelum AW menjadikannya UNDEFINED.
+  task_count: number
+}
+
+// CUSTOM_STATUS_COLORS (S4W-05, "AW Add Status.dc.html" WARNA PENANDA) -- 7
+// token warna resmi Tailwind (tailwind.config.ts, docs/design.md §2),
+// dipetakan ke kelas utility supaya konsisten dengan warna lain di
+// codebase ini (bukan literal oklch seperti prototype Claude Design).
+// 'accent' -- token lama dari seed 5 status sistem (IN PROGRESS) yang
+// TIDAK ADA di 7 token resmi -- di-alias ke 'signal' di sini supaya tetap
+// tampil benar, pilihan warna BARU selalu simpan salah satu dari 7 ini.
+export type CustomStatusColorToken = 'grey' | 'signal' | 'violet' | 'amber' | 'red' | 'blue' | 'mint'
+
+export const CUSTOM_STATUS_COLORS: { key: CustomStatusColorToken; label: string }[] = [
+  { key: 'grey', label: 'ABU-ABU' },
+  { key: 'signal', label: 'ORANYE' },
+  { key: 'violet', label: 'UNGU' },
+  { key: 'amber', label: 'KUNING' },
+  { key: 'red', label: 'MERAH' },
+  { key: 'blue', label: 'BIRU' },
+  { key: 'mint', label: 'HIJAU' },
+]
+
+export function normalizeStatusColor(token: string | null): CustomStatusColorToken {
+  if (token === 'accent') return 'signal'
+  return (CUSTOM_STATUS_COLORS.some((c) => c.key === token) ? token : 'grey') as CustomStatusColorToken
+}
+
+// statusColorClasses -- kelas Tailwind literal per token (BUKAN interpolasi
+// `text-${token}`, purge JIT tidak mengenali itu). dot dipakai kolom
+// STATUS (kotak warna), text+border dipakai badge JENIS/chip.
+const STATUS_COLOR_CLASSES: Record<CustomStatusColorToken, { dot: string; text: string; border: string }> = {
+  grey: { dot: 'bg-grey', text: 'text-grey', border: 'border-grey' },
+  signal: { dot: 'bg-signal', text: 'text-signal', border: 'border-signal' },
+  violet: { dot: 'bg-violet', text: 'text-violet', border: 'border-violet' },
+  amber: { dot: 'bg-amber', text: 'text-amber', border: 'border-amber' },
+  red: { dot: 'bg-red', text: 'text-red', border: 'border-red' },
+  blue: { dot: 'bg-blue', text: 'text-blue', border: 'border-blue' },
+  mint: { dot: 'bg-mint', text: 'text-mint', border: 'border-mint' },
+}
+
+export function statusColorClasses(token: string | null) {
+  return STATUS_COLOR_CLASSES[normalizeStatusColor(token)]
 }
 
 export interface Sprint {

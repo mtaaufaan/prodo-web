@@ -9,6 +9,7 @@ import RetentionExportDownloadPage from '@/pages/RetentionExportDownloadPage'
 import Activate from '@/pages/Activate'
 import ActivateMfaSetup from '@/pages/ActivateMfaSetup'
 import CrossOrgMembershipsPage from '@/pages/CrossOrgMembershipsPage'
+import CustomStatusPage from '@/pages/CustomStatusPage'
 import DesignPage from '@/pages/DesignPage'
 import ErasureRequestsPage from '@/pages/ErasureRequestsPage'
 import Forbidden from '@/pages/Forbidden'
@@ -85,6 +86,8 @@ export default function AppRouter() {
               Board.dc.html" disederhanakan -- lihat komentar
               ProjectBoardPage.tsx). */}
           <Route path="/workspaces/:wsId/projects/:projectId/board" element={<ProjectBoardPage />} />
+          {/* S4W-05/06, US-020/021 ("AW Custom Status.dc.html"). */}
+          <Route path="/workspaces/:wsId/statuses" element={<CustomStatusPage />} />
         </Route>
         {/* S3-24, US-009b: TANPA RoleGuard platform-role -- aktor sah (AW/PM)
             platform_role-nya "member" biasa, otorisasi penuh di backend

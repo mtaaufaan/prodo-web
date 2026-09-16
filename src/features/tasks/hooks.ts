@@ -4,6 +4,7 @@ import {
   acknowledgePic,
   addTaskDependency,
   completeSprint,
+  createCustomStatus,
   createSprint,
   createTask,
   deleteSprint,
@@ -15,11 +16,16 @@ import {
   getTaskDependencies,
   getTaskStatusSessions,
   getWorkspaceStatuses,
+  moveStatus,
   removeTaskDependency,
+  restoreStatus,
+  setStatusStartConfirmation,
   setTaskCompleteness,
   setTaskStatus,
   startSprint,
   startWork,
+  undefineStatus,
+  updateStatusAppearance,
   updateTask,
 } from './api'
 import type { TaskFormValues } from './types'
@@ -40,6 +46,59 @@ export function useWorkspaceStatuses(workspaceId: string) {
     queryKey: taskKeys.statuses(workspaceId),
     queryFn: () => getWorkspaceStatuses(workspaceId),
     enabled: workspaceId !== '',
+  })
+}
+
+// useCreateCustomStatus/useUpdateStatusAppearance/useMoveStatus/
+// useUndefineStatus/useRestoreStatus/useSetStatusStartConfirmation (S4W-05)
+// -- semua invalidate taskKeys.statuses(workspaceId) yang sama supaya
+// tabel AW Custom Status DAN chip status TaskDetailModal (query key sama)
+// ikut ter-refresh dari satu sumber.
+export function useCreateCustomStatus(workspaceId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { name: string; color_token: string; position: number }) => createCustomStatus(workspaceId, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.statuses(workspaceId) }),
+  })
+}
+
+export function useUpdateStatusAppearance(workspaceId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ statusId, input }: { statusId: string; input: { name: string; color_token: string } }) => updateStatusAppearance(statusId, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.statuses(workspaceId) }),
+  })
+}
+
+export function useMoveStatus(workspaceId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ statusId, direction }: { statusId: string; direction: 'up' | 'down' }) => moveStatus(statusId, direction),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.statuses(workspaceId) }),
+  })
+}
+
+export function useUndefineStatus(workspaceId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (statusId: string) => undefineStatus(statusId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.statuses(workspaceId) }),
+  })
+}
+
+export function useRestoreStatus(workspaceId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (statusId: string) => restoreStatus(statusId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.statuses(workspaceId) }),
+  })
+}
+
+export function useSetStatusStartConfirmation(workspaceId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ statusId, require }: { statusId: string; require: boolean }) => setStatusStartConfirmation(statusId, require),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.statuses(workspaceId) }),
   })
 }
 
