@@ -6,6 +6,34 @@ export function getWorkspaceStatuses(workspaceId: string) {
   return apiClient.get<CustomStatus[]>(`/api/v1/workspaces/${workspaceId}/statuses`)
 }
 
+// createCustomStatus/updateStatusAppearance/moveStatus/undefineStatus/
+// restoreStatus/setStatusStartConfirmation (S4W-05, "AW Custom
+// Status.dc.html"/"AW Add Status.dc.html") -- CRUD template status
+// workspace, AW-only (ditegakkan backend).
+export function createCustomStatus(workspaceId: string, input: { name: string; color_token: string; position: number }) {
+  return apiClient.post<CustomStatus>(`/api/v1/workspaces/${workspaceId}/statuses`, input)
+}
+
+export function updateStatusAppearance(statusId: string, input: { name: string; color_token: string }) {
+  return apiClient.put<{ id: string }>(`/api/v1/statuses/${statusId}/appearance`, input)
+}
+
+export function moveStatus(statusId: string, direction: 'up' | 'down') {
+  return apiClient.post<{ id: string }>(`/api/v1/statuses/${statusId}/move`, { direction })
+}
+
+export function undefineStatus(statusId: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/statuses/${statusId}/undefine`)
+}
+
+export function restoreStatus(statusId: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/statuses/${statusId}/restore`)
+}
+
+export function setStatusStartConfirmation(statusId: string, require: boolean) {
+  return apiClient.put<{ id: string; require_start_confirmation: boolean }>(`/api/v1/statuses/${statusId}`, { require_start_confirmation: require })
+}
+
 export function getProjectSprints(projectId: string) {
   return apiClient.get<Sprint[]>(`/api/v1/projects/${projectId}/sprints`)
 }
