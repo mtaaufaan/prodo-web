@@ -33,6 +33,16 @@ export function updateWorkspace(id: string, values: Pick<UpdateWorkspaceFormValu
   return apiClient.put<{ id: string }>(`/api/v1/workspaces/${id}`, values)
 }
 
+// updateMentionSettings (S4W-07, US-033, "AW Cooldown Mention.dc.html"
+// tombol "SIMPAN PENGATURAN") -- whole-form save (cooldown+digest
+// sekaligus), AW-only (ditegakkan backend).
+export function updateMentionSettings(id: string, values: { cooldown_minutes: number; digest_enabled: boolean }) {
+  return apiClient.put<{ id: string; mention_cooldown_minutes: number; mention_digest_enabled: boolean }>(
+    `/api/v1/workspaces/${id}/mention-settings`,
+    values,
+  )
+}
+
 export function moveWorkspace(id: string, targetOrgId: string) {
   return apiClient.put<{ id: string; org_id: string }>(`/api/v1/workspaces/${id}/move`, { target_org_id: targetOrgId })
 }

@@ -7,7 +7,20 @@ export interface Workspace {
   archived_at: string | null
   deactivated_at: string | null
   created_at: string
+  // mention_cooldown_minutes/mention_digest_enabled (S4W-07/08, US-033,
+  // "AW Cooldown Mention.dc.html") -- kolom cooldown sudah ada sejak awal
+  // (belum pernah dipakai), mention_digest_enabled ditambah migrasi
+  // 20261019090000.
+  mention_cooldown_minutes: number
+  mention_digest_enabled: boolean
 }
+
+// MENTION_COOLDOWN_OPTIONS -- 4 nilai resmi US-033 AC ("10 menit, 15
+// menit, 20 menit, 30 menit"), bukan input bebas walau kolomnya
+// mendukung range 10-30 (sama daftar dengan backend
+// mentionCooldownOptions).
+export const MENTION_COOLDOWN_OPTIONS = [10, 15, 20, 30] as const
+export type MentionCooldownMinutes = (typeof MENTION_COOLDOWN_OPTIONS)[number]
 
 // WorkspaceListRow -- GET /workspaces?group_id= (S4G-05, Track S4G, desain
 // "GA Workspaces.dc.html") -- grid LINTAS organisasi dalam satu grup, org

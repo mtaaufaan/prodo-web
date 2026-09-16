@@ -61,6 +61,15 @@ function navItems(workspaceId: string): WorkspaceNavItemDef[] {
     { key: 'members', icon: '◉', label: 'Members & Roles', to: `/workspaces/${workspaceId}/members`, tabs: null, cta: '+ Undang Member' },
     { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: null, tabs: null, cta: null },
     {
+      key: 'cooldown',
+      icon: '◷',
+      label: 'Cooldown Mention',
+      to: `/workspaces/${workspaceId}/cooldown-mention`,
+      tabs: null,
+      cta: null,
+      adminOnly: true,
+    },
+    {
       key: 'status',
       icon: '◫',
       label: 'Custom Status',

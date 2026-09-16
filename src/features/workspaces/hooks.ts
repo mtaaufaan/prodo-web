@@ -14,6 +14,7 @@ import {
   reactivateWorkspace,
   restoreWorkspace,
   unarchiveWorkspace,
+  updateMentionSettings,
   updateWorkspace,
 } from './api'
 
@@ -79,6 +80,17 @@ export function useUpdateWorkspace(id: string) {
   return useMutation({
     mutationFn: (name: string) => updateWorkspace(id, { name }),
     onSuccess: () => invalidateWorkspaceLists(queryClient),
+  })
+}
+
+// useUpdateMentionSettings (S4W-07, "AW Cooldown Mention.dc.html") --
+// invalidate query 'detail' (dipakai useWorkspace, dibaca CooldownMentionPage
+// DAN WorkspaceLayout) supaya nilai tersimpan langsung ter-refresh.
+export function useUpdateMentionSettings(id: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (values: { cooldown_minutes: number; digest_enabled: boolean }) => updateMentionSettings(id, values),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [...workspaceKeys.all, 'detail', id] }),
   })
 }
 
