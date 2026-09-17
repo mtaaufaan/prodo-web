@@ -8,6 +8,7 @@ import AccountSettingsPage from '@/pages/AccountSettingsPage'
 import RetentionExportDownloadPage from '@/pages/RetentionExportDownloadPage'
 import Activate from '@/pages/Activate'
 import ActivateMfaSetup from '@/pages/ActivateMfaSetup'
+import CooldownMentionPage from '@/pages/CooldownMentionPage'
 import CrossOrgMembershipsPage from '@/pages/CrossOrgMembershipsPage'
 import CustomStatusPage from '@/pages/CustomStatusPage'
 import DesignPage from '@/pages/DesignPage'
@@ -88,6 +89,8 @@ export default function AppRouter() {
           <Route path="/workspaces/:wsId/projects/:projectId/board" element={<ProjectBoardPage />} />
           {/* S4W-05/06, US-020/021 ("AW Custom Status.dc.html"). */}
           <Route path="/workspaces/:wsId/statuses" element={<CustomStatusPage />} />
+          {/* S4W-07/08, US-033 ("AW Cooldown Mention.dc.html"). */}
+          <Route path="/workspaces/:wsId/cooldown-mention" element={<CooldownMentionPage />} />
         </Route>
         {/* S3-24, US-009b: TANPA RoleGuard platform-role -- aktor sah (AW/PM)
             platform_role-nya "member" biasa, otorisasi penuh di backend
