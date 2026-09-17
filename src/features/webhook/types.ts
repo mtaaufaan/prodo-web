@@ -7,10 +7,17 @@ export const SUPPORTED_WEBHOOK_EVENTS = ['project.created', 'project.updated', '
 
 export type WebhookEvent = (typeof SUPPORTED_WEBHOOK_EVENTS)[number]
 
+// workspace_id/project_id/project_name (S4W-14, US-054, "AW Webhook.
+// dc.html") -- cakupan workspace, PERSIS SATU dari org_id/workspace_id
+// terisi (webhook_configs.chk_webhook_configs_scope). project_id NULL
+// berarti LINGKUP "Seluruh workspace".
 export interface Webhook {
   id: string
   org_id: string | null
   org_name: string | null
+  workspace_id: string | null
+  project_id: string | null
+  project_name: string | null
   name: string
   url: string
   events: string[]
@@ -38,6 +45,15 @@ export interface WebhookDelivery {
 
 export interface WebhookFormValues {
   org_id: string
+  name: string
+  url: string
+  events: string[]
+}
+
+// WorkspaceWebhookFormValues -- LINGKUP "AW Add Webhook.dc.html" pakai
+// project_id (bukan org_id), kosong berarti "Seluruh workspace".
+export interface WorkspaceWebhookFormValues {
+  project_id: string
   name: string
   url: string
   events: string[]

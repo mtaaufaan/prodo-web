@@ -79,7 +79,15 @@ function navItems(workspaceId: string): WorkspaceNavItemDef[] {
       adminOnly: true,
     },
     { key: 'rule', icon: '⌗', label: 'Rule Automation', to: null, tabs: null, cta: null, adminOnly: true },
-    { key: 'webhook', icon: '⇄', label: 'Webhook', to: null, tabs: null, cta: null, adminOnly: true },
+    {
+      key: 'webhook',
+      icon: '⇄',
+      label: 'Webhook',
+      to: `/workspaces/${workspaceId}/webhooks`,
+      tabs: ['Endpoint', 'Log Pengiriman'],
+      cta: '+ Webhook',
+      adminOnly: true,
+    },
     { key: 'docs', icon: '▧', label: 'Dokumen & Lampiran', to: null, tabs: null, cta: null, adminOnly: true },
     { key: 'audit', icon: '☰', label: 'Audit Trail Workspace', to: null, tabs: null, cta: null, adminOnly: true },
   ]
