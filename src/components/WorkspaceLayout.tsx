@@ -78,7 +78,15 @@ function navItems(workspaceId: string): WorkspaceNavItemDef[] {
       cta: '+ Tambah Status',
       adminOnly: true,
     },
-    { key: 'rule', icon: '⌗', label: 'Rule Automation', to: null, tabs: null, cta: null, adminOnly: true },
+    {
+      key: 'rule',
+      icon: '⌗',
+      label: 'Rule Automation',
+      to: `/workspaces/${workspaceId}/rules`,
+      tabs: ['Rule Aktif', 'Template Library', 'Log Eksekusi'],
+      cta: '+ Rule',
+      adminOnly: true,
+    },
     {
       key: 'webhook',
       icon: '⇄',
