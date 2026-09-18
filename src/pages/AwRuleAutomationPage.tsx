@@ -4,11 +4,23 @@ import { useOutletContext, useParams } from 'react-router-dom'
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import AddRuleModal from '@/components/rules/AddRuleModal'
+import { exportRuleExecutionsCSV } from '@/features/rules/api'
 import { useDeleteRule, useRuleExecutions, useRules, useToggleRuleActive } from '@/features/rules/hooks'
 import { RULE_ACTION_LABELS, RULE_CONDITION_LABELS, RULE_TEMPLATES, RULE_TRIGGER_LABELS } from '@/features/rules/types'
 import type { Rule, RuleExecution, RuleTemplate } from '@/features/rules/types'
 import { useWorkspace } from '@/features/workspaces/hooks'
 import { cn } from '@/lib/utils'
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
 
 function StatCard({ label, value, note, tone }: { label: string; value: string; note: string; tone?: 'mint' | 'destructive' | 'amber' }) {
   return (
@@ -128,12 +140,10 @@ function ExecutionRow({ execution }: { execution: RuleExecution }) {
 
 type ViewTab = 'Rule Aktif' | 'Template Library' | 'Log Eksekusi'
 
-// AwRuleAutomationPage (S4W-10/12/13, EPIC 7, desain "AW Rule Automation.
+// AwRuleAutomationPage (S4W-10/11/12/13, EPIC 7, desain "AW Rule Automation.
 // dc.html"+"AW Add Rule.dc.html") -- reuse RuleService. Level workspace
 // saja (scope='workspace') -- rule level project (PM) di luar cakupan
-// Track S4W, sama batas Custom Status/Cooldown Mention/Webhook. Tab Log
-// Eksekusi akan kosong sampai S4W-11 (execution engine, H17-19) benar-benar
-// menulis baris -- bukan bug, sesuai urutan kickoff plan.
+// Track S4W, sama batas Custom Status/Cooldown Mention/Webhook.
 function AwRuleAutomationPageContent() {
   const { wsId } = useParams<{ wsId: string }>()
   const workspaceId = wsId ?? ''
@@ -145,6 +155,8 @@ function AwRuleAutomationPageContent() {
   const [templateForNew, setTemplateForNew] = useState<RuleTemplate | null>(null)
   const [logStatus, setLogStatus] = useState('')
   const [confirmDelete, setConfirmDelete] = useState<Rule | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportNotice, setExportNotice] = useState('')
 
   const rules = useRules(workspaceId)
   const executions = useRuleExecutions(workspaceId, logStatus)
@@ -173,6 +185,25 @@ function AwRuleAutomationPageContent() {
     const days = (Date.now() - new Date(l.executed_at).getTime()) / 86400000
     return l.status === 'failed' && days <= 7
   }).length
+
+  useEffect(() => {
+    if (!exportNotice) return
+    const t = setTimeout(() => setExportNotice(''), 15000)
+    return () => clearTimeout(t)
+  }, [exportNotice])
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const blob = await exportRuleExecutionsCSV(workspaceId, logStatus)
+      triggerDownload(blob, 'rule-execution-log.csv')
+      setExportNotice(
+        `${logRows.length} baris diekspor ke rule-execution-log.csv — kolom: rule, trigger, task, action, hasil, timestamp, durasi. Tercatat di Audit Trail.`,
+      )
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className="space-y-3.5 p-6">
@@ -240,8 +271,29 @@ function AwRuleAutomationPageContent() {
               <option value="completed">Berhasil</option>
               <option value="failed">Gagal</option>
             </select>
-            <span className="ml-auto font-mono text-[9px] text-text-dim">{logRows.length} eksekusi</span>
+            <span className="font-mono text-[9px] text-text-dim">{logRows.length} eksekusi</span>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting}
+              className="ml-auto font-mono text-[9.5px] text-signal hover:underline disabled:opacity-50"
+            >
+              {exporting ? '...' : '⤓ Ekspor CSV'}
+            </button>
           </div>
+          {exportNotice && (
+            <div className="relative border border-line px-3.5 py-2.5 pr-8 font-mono text-[9.5px] leading-relaxed text-mint">
+              ✓ {exportNotice}
+              <button
+                type="button"
+                onClick={() => setExportNotice('')}
+                title="Tutup"
+                className="absolute right-1.5 top-1.5 px-1 py-0.5 text-[11px] leading-none text-mint/60 hover:text-mint"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           <div className="border border-line">
             {executions.isLoading && <p className="p-4 text-sm text-text-muted">Memuat...</p>}
             {logRows.length === 0 && !executions.isLoading && (
