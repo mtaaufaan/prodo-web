@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -43,10 +43,30 @@ export default function AddWorkspaceWebhookModal({ open, onClose, workspaceId, w
   const [errorMsg, setErrorMsg] = useState('')
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
   const [savedSecret, setSavedSecret] = useState<string | null>(null)
+  // created (susulan, dikonfirmasi user setelah laporan "field kok berubah
+  // sendiri") -- begitu Tambah baru berhasil, form dikunci (bukan
+  // dikosongkan seperti sebelumnya): field tetap menampilkan apa yang baru
+  // disimpan, tombol Simpan disembunyikan. Alasannya BUKAN kosmetik --
+  // kalau field tetap bisa diedit dan tombol Simpan masih ada, klik lagi
+  // akan create.mutate() KEDUA KALINYA (bukan update, isEdit tetap false)
+  // dan bikin webhook duplikat dengan secret baru. Untuk edit endpoint yang
+  // sudah dibuat, tutup modal ini lalu buka "Kelola" dari grid.
+  const [created, setCreated] = useState(false)
+  const locked = !isEdit && created
+  // secretRef -- signing secret sengaja diletakkan PALING BAWAH form
+  // (setelah semua field), bukan paling atas -- supaya begitu berhasil
+  // simpan, view di-scroll ke situ (kalau cuma diletakkan di atas, sempat
+  // luput dari perhatian user karena bukan area yang sedang dilihat saat
+  // menekan tombol Simpan di bawah).
+  const secretRef = useRef<HTMLDivElement>(null)
 
   const projects = useProjects(workspaceId)
   const create = useCreateWorkspaceWebhook(workspaceId)
   const update = useUpdateWorkspaceWebhook(workspaceId)
+
+  useEffect(() => {
+    if (savedSecret) secretRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [savedSecret])
 
   useEffect(() => {
     if (!open) return
@@ -58,6 +78,7 @@ export default function AddWorkspaceWebhookModal({ open, onClose, workspaceId, w
     setErrorMsg('')
     setSavedMsg(null)
     setSavedSecret(null)
+    setCreated(false)
     create.reset()
     update.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,8 +126,7 @@ export default function AddWorkspaceWebhookModal({ open, onClose, workspaceId, w
       onSuccess: (res) => {
         setSavedSecret(res.secret)
         setSavedMsg(`Endpoint "${trimmedName}" aktif dan menerima ${events.length} jenis event.`)
-        setName('')
-        setUrl('')
+        setCreated(true)
         setFormError(false)
       },
     })
@@ -128,31 +148,18 @@ export default function AddWorkspaceWebhookModal({ open, onClose, workspaceId, w
         </DialogHeader>
 
         <div className="flex max-h-[calc(100vh-320px)] flex-col gap-4 overflow-y-auto px-5 py-5">
-          {savedSecret && (
-            <div className="relative flex flex-col gap-2 border border-mint p-3.5 pr-8">
-              <button type="button" onClick={() => { setSavedMsg(null); setSavedSecret(null) }} className="absolute right-2 top-2 text-text-muted hover:text-text-bone" title="Tutup">
-                ✕
-              </button>
-              <div className="font-mono text-[10px] leading-relaxed text-mint">✓ {savedMsg}</div>
-              <div className="font-mono text-[9px] tracking-[0.1em] text-text-dim">SIGNING SECRET</div>
-              <div className="break-all border border-line-strong bg-input-bg p-2.5 font-mono text-[12.5px] text-text-bone">{savedSecret}</div>
-              <div className="font-mono text-[9px] leading-relaxed text-text-dim">
-                Salin sekarang -- nilai penuh tidak ditampilkan lagi dan tidak dicatat di Audit Trail.
-              </div>
-            </div>
-          )}
-
           <div>
             <label className="mb-1.5 block font-mono text-[9px] tracking-[0.14em] text-text-dim">NAMA ENDPOINT</label>
             <input
               value={name}
+              disabled={locked}
               onChange={(e) => {
                 setName(e.target.value)
                 setFormError(false)
               }}
               placeholder="Notifikasi channel operasional"
               className={cn(
-                'w-full border bg-input-bg px-3 py-2.5 text-[12.5px] text-text-bone outline-none focus-visible:border-signal',
+                'w-full border bg-input-bg px-3 py-2.5 text-[12.5px] text-text-bone outline-none focus-visible:border-signal disabled:opacity-50',
                 formError && name.trim().length < 4 ? 'border-destructive' : 'border-line-strong',
               )}
             />
@@ -162,13 +169,14 @@ export default function AddWorkspaceWebhookModal({ open, onClose, workspaceId, w
             <label className="mb-1.5 block font-mono text-[9px] tracking-[0.14em] text-text-dim">URL TUJUAN · WAJIB HTTPS</label>
             <input
               value={url}
+              disabled={locked}
               onChange={(e) => {
                 setUrl(e.target.value.replace(/\s/g, ''))
                 setFormError(false)
               }}
               placeholder="https://hooks.workspace.internal/prodo/ops"
               className={cn(
-                'w-full border bg-input-bg px-3 py-2.5 font-mono text-[12px] text-text-bone outline-none focus-visible:border-signal',
+                'w-full border bg-input-bg px-3 py-2.5 font-mono text-[12px] text-text-bone outline-none focus-visible:border-signal disabled:opacity-50',
                 urlInvalid || (formError && !HTTPS_PATTERN.test(url.trim())) ? 'border-destructive' : 'border-line-strong',
               )}
             />
@@ -177,23 +185,29 @@ export default function AddWorkspaceWebhookModal({ open, onClose, workspaceId, w
           <div>
             <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">LINGKUP</label>
             <div className="flex flex-wrap gap-2">
+              {/* Label pakai nama workspace ini (bukan "Seluruh Workspace" generik,
+                  susulan dikonfirmasi user) -- cakupannya SELALU workspace ini saja
+                  (project_id NULL), tidak pernah lintas workspace/organisasi lain;
+                  label lama membingungkan seolah berlaku lintas semua workspace. */}
               <button
                 type="button"
+                disabled={locked}
                 onClick={() => setScope('')}
                 className={cn(
-                  'border px-3 py-2 font-mono text-[10px] tracking-[0.04em]',
+                  'border px-3 py-2 font-mono text-[10px] tracking-[0.04em] disabled:opacity-50',
                   scope === '' ? 'border-signal bg-signal text-bg-deep' : 'border-line-strong text-text-muted',
                 )}
               >
-                SELURUH WORKSPACE
+                WORKSPACE {workspaceName.toUpperCase()}
               </button>
               {activeProjects.map((p) => (
                 <button
                   key={p.id}
                   type="button"
+                  disabled={locked}
                   onClick={() => setScope(p.id)}
                   className={cn(
-                    'border px-3 py-2 font-mono text-[10px] tracking-[0.04em]',
+                    'border px-3 py-2 font-mono text-[10px] tracking-[0.04em] disabled:opacity-50',
                     scope === p.id ? 'border-signal bg-signal text-bg-deep' : 'border-line-strong text-text-muted',
                   )}
                 >
@@ -215,11 +229,13 @@ export default function AddWorkspaceWebhookModal({ open, onClose, workspaceId, w
                   <div
                     key={e}
                     onClick={() => {
+                      if (locked) return
                       toggleEvent(e)
                       setFormError(false)
                     }}
                     className={cn(
-                      'flex cursor-pointer items-center gap-2.5 px-3 py-2.5 hover:border-signal',
+                      'flex items-center gap-2.5 px-3 py-2.5',
+                      locked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-signal',
                       i > 0 && 'border-t border-line',
                       on && 'bg-signal/10',
                     )}
@@ -241,15 +257,39 @@ export default function AddWorkspaceWebhookModal({ open, onClose, workspaceId, w
               Ada perubahan yang belum disimpan. Tekan &quot;Simpan Perubahan&quot; untuk menerapkan.
             </p>
           )}
+          {locked && (
+            <p className="font-mono text-[9px] leading-relaxed text-text-dim">
+              Endpoint ini sudah tersimpan dan tidak dapat diubah lagi di form ini -- tutup lalu buka &quot;✎ Kelola&quot; dari grid untuk mengubahnya.
+            </p>
+          )}
           {!dirty && savedMsg && !savedSecret && <p className="border border-mint p-2.5 font-mono text-[10px] leading-relaxed text-mint">✓ {savedMsg}</p>}
           {formError && <p className="border border-destructive p-2.5 font-mono text-[10px] leading-relaxed text-destructive">⚠ {errorMsg}</p>}
           {saveError && <p className="text-[11px] text-destructive">{saveError.message}</p>}
+
+          {/* Signing secret sengaja PALING BAWAH (susulan, dikonfirmasi user)
+              -- ref di-scroll otomatis ke sini begitu tersimpan, supaya user
+              benar-benar sadar nilai sekali-tampil ini sebelum menutup modal. */}
+          {savedSecret && (
+            <div ref={secretRef} className="relative flex flex-col gap-2 border border-mint p-3.5 pr-8">
+              <button type="button" onClick={() => { setSavedMsg(null); setSavedSecret(null) }} className="absolute right-2 top-2 text-text-muted hover:text-text-bone" title="Tutup">
+                ✕
+              </button>
+              <div className="font-mono text-[10px] leading-relaxed text-mint">✓ {savedMsg}</div>
+              <div className="font-mono text-[9px] tracking-[0.1em] text-text-dim">SIGNING SECRET</div>
+              <div className="break-all border border-line-strong bg-input-bg p-2.5 font-mono text-[12.5px] text-text-bone">{savedSecret}</div>
+              <div className="font-mono text-[9px] leading-relaxed text-text-dim">
+                Salin sekarang -- nilai penuh tidak ditampilkan lagi dan tidak dicatat di Audit Trail.
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
-          <Button type="button" disabled={saving} onClick={onSave} className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]">
-            {saving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan Endpoint'}
-          </Button>
+          {!locked && (
+            <Button type="button" disabled={saving} onClick={onSave} className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]">
+              {saving ? 'Menyimpan...' : isEdit ? 'Simpan Perubahan' : 'Simpan'}
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={onClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
             Tutup
           </Button>
