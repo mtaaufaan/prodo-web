@@ -21,3 +21,10 @@ export function deleteRule(ruleId: string) {
 export function getRuleExecutions(workspaceId: string, status: string) {
   return apiClient.get<RuleExecution[]>(`/api/v1/workspaces/${workspaceId}/rules/executions`, { params: { status } })
 }
+
+export function exportRuleExecutionsCSV(workspaceId: string, status: string) {
+  return apiClient.get<Blob>(`/api/v1/workspaces/${workspaceId}/rules/executions`, {
+    params: { status, export: 'csv' },
+    responseType: 'blob',
+  })
+}
