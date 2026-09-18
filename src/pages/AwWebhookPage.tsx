@@ -51,6 +51,7 @@ function StatCard({ label, value, note, tone }: { label: string; value: string; 
 
 interface EndpointRowProps {
   webhook: Webhook
+  workspaceName: string
   onTest: () => void
   onToggle: () => void
   onRotate: () => void
@@ -61,11 +62,15 @@ interface EndpointRowProps {
   rotating: boolean
 }
 
-function EndpointRow({ webhook, onTest, onToggle, onRotate, onDelete, onManage, testing, toggling, rotating }: EndpointRowProps) {
+function EndpointRow({ webhook, workspaceName, onTest, onToggle, onRotate, onDelete, onManage, testing, toggling, rotating }: EndpointRowProps) {
   const total = webhook.sent_30d + webhook.failed_30d
   const failRate = total > 0 ? (webhook.failed_30d / total) * 100 : 0
   const failing = webhook.is_active && failRate >= 5
-  const scope = webhook.project_name ? `Project ${webhook.project_name}` : 'Seluruh workspace'
+  // scope -- "Seluruh workspace" diganti nama workspace-nya (susulan,
+  // dikonfirmasi user): label lama membingungkan, terbaca seolah lintas
+  // SEMUA workspace/organisasi padahal isolasinya tetap per-workspace ini
+  // saja (WHERE workspace_id = $1, lihat webhook_repository.go).
+  const scope = webhook.project_name ? `Project ${webhook.project_name}` : `Workspace ${workspaceName}`
 
   return (
     <div className="flex flex-col gap-2.5 border-t border-line px-4 py-3.5">
@@ -244,6 +249,7 @@ function AwWebhookPageContent() {
             <EndpointRow
               key={w.id}
               webhook={w}
+              workspaceName={workspace?.name ?? ''}
               testing={test.isPending}
               toggling={toggle.isPending}
               rotating={rotate.isPending}
