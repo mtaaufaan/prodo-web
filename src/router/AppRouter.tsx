@@ -8,6 +8,7 @@ import AccountSettingsPage from '@/pages/AccountSettingsPage'
 import RetentionExportDownloadPage from '@/pages/RetentionExportDownloadPage'
 import Activate from '@/pages/Activate'
 import ActivateMfaSetup from '@/pages/ActivateMfaSetup'
+import AwAuditTrailPage from '@/pages/AwAuditTrailPage'
 import AwDocumentsPage from '@/pages/AwDocumentsPage'
 import AwRuleAutomationPage from '@/pages/AwRuleAutomationPage'
 import AwWebhookPage from '@/pages/AwWebhookPage'
@@ -103,6 +104,9 @@ export default function AppRouter() {
           <Route path="/workspaces/:wsId/documents" element={<AwDocumentsPage />} />
           {/* EPIC 12, US-075/076/077/078 ("Performance Dashboard.dc.html"). */}
           <Route path="/workspaces/:wsId/performance" element={<PerformanceDashboardPage />} />
+          {/* S4W-16/17, US-058 ("AW Audit Trail.dc.html"), dikerjakan
+              TERAKHIR di Track S4W atas instruksi user. */}
+          <Route path="/workspaces/:wsId/audit-trail" element={<AwAuditTrailPage />} />
         </Route>
         {/* S3-24, US-009b: TANPA RoleGuard platform-role -- aktor sah (AW/PM)
             platform_role-nya "member" biasa, otorisasi penuh di backend
