@@ -96,7 +96,15 @@ function navItems(workspaceId: string): WorkspaceNavItemDef[] {
       cta: '+ Webhook',
       adminOnly: true,
     },
-    { key: 'docs', icon: '▧', label: 'Dokumen & Lampiran', to: null, tabs: null, cta: null, adminOnly: true },
+    {
+      key: 'docs',
+      icon: '▧',
+      label: 'Dokumen & Lampiran',
+      to: `/workspaces/${workspaceId}/documents`,
+      tabs: null,
+      cta: null,
+      adminOnly: true,
+    },
     { key: 'audit', icon: '☰', label: 'Audit Trail Workspace', to: null, tabs: null, cta: null, adminOnly: true },
   ]
 }
