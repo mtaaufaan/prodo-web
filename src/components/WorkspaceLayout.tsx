@@ -59,7 +59,14 @@ function navItems(workspaceId: string): WorkspaceNavItemDef[] {
   return [
     { key: 'project', icon: '▤', label: 'Project', to: `/workspaces/${workspaceId}/projects`, tabs: ['Semua', 'Aktif', 'Arsip'], cta: '+ Project' },
     { key: 'members', icon: '◉', label: 'Members & Roles', to: `/workspaces/${workspaceId}/members`, tabs: null, cta: '+ Undang Member' },
-    { key: 'kinerja', icon: '◎', label: 'Performance Dashboard', to: null, tabs: null, cta: null },
+    {
+      key: 'kinerja',
+      icon: '◎',
+      label: 'Performance Dashboard',
+      to: `/workspaces/${workspaceId}/performance`,
+      tabs: ['Project Health', 'Member Performance', 'Flow Efficiency'],
+      cta: null,
+    },
     {
       key: 'cooldown',
       icon: '◷',
