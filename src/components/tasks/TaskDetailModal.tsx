@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { downloadAttachment } from '@/features/attachments/api'
+import { useDeleteAttachment, useRenameAttachment, useTaskAttachments, useUploadAttachment } from '@/features/attachments/hooks'
+import { ALLOWED_EXTENSIONS, MAX_ATTACHMENT_SIZE_BYTES, fileExt, formatBytes } from '@/features/attachments/types'
 import { useProjectMembers } from '@/features/project-members/hooks'
 import {
   useAcknowledgePic,
@@ -42,17 +45,20 @@ interface TaskDetailModalProps {
   statuses: CustomStatus[]
 }
 
-// TaskDetailModal (Task Management Core Phase 1/2/3/4). Versi
-// DISEDERHANAKAN dari desain "PM Task Detail.dc.html" (panel raksasa
-// dengan file upload, history, drag-drop) -- lihat+edit field dasar, ganti
-// status via chip + pilih PIC (Phase 2, S4-31/32) + riwayat PIC, toggle
+// TaskDetailModal (Task Management Core Phase 1/2/3/4, + LAMPIRAN H20
+// S4W-20/EPIC 10). Versi DISEDERHANAKAN dari desain "PM Task Detail.dc.html"
+// (panel raksasa dengan tab kiri) -- lihat+edit field dasar, ganti status
+// via chip + pilih PIC (Phase 2, S4-31/32) + riwayat PIC, toggle
 // kelengkapan (Phase 3, S4-44/45), dependency Finish-to-Start (Phase 3,
 // S4-51/52 -- "autocomplete" disederhanakan jadi <select> native atas
 // daftar task project yang sudah di-fetch), tombol "Mulai Pengerjaan" +
 // widget Status Time Tracking (Phase 4, S4-65/66 -- Queue/Active/Lead Time
 // dihitung di klien dari raw session rows, bukan agregat backend
-// terpisah). Attachment menyusul (belum ada task backlog untuk itu di
-// Task Core), dicatat sebagai gap yang disengaja, bukan kelupaan.
+// terpisah). LAMPIRAN jadi SECTION baru (bukan tab terpisah -- modal ini
+// tidak pernah pakai pola tab sama sekali, beda dari desain aslinya) --
+// rename/hapus di FE cuma ditampilkan untuk pengunggah sendiri (server
+// tetap mengizinkan PM/AW lewat endpoint yang sama; PM/AW mengelola
+// lampiran user lain lewat halaman "AW Documents", bukan dari modal ini).
 export default function TaskDetailModal({ taskId, onClose, projectId, statuses }: TaskDetailModalProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const task = useTask(taskId)
@@ -69,6 +75,11 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const removeDependency = useRemoveDependency(projectId)
   const startWork = useStartWork(taskId ?? '')
   const statusSessions = useTaskStatusSessions(taskId)
+  const attachments = useTaskAttachments(taskId)
+  const uploadAttachment = useUploadAttachment(taskId ?? '')
+  const renameAttachment = useRenameAttachment(taskId ?? '')
+  const deleteAttachmentMut = useDeleteAttachment(taskId ?? '')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState('')
@@ -84,6 +95,11 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const [depCandidateId, setDepCandidateId] = useState('')
   const [depError, setDepError] = useState('')
   const [saveError, setSaveError] = useState('')
+  const [attachError, setAttachError] = useState('')
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState(false)
 
   useEffect(() => {
     if (task.data) {
@@ -102,6 +118,10 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     setDepCandidateId('')
     setDepError('')
     setSaveError('')
+    setAttachError('')
+    setRenamingId(null)
+    setRenameDraft('')
+    setDeleteConfirmId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sinkron SEKALI saat task berganti (by id), bukan tiap refetch
   }, [task.data?.id, taskId])
 
@@ -235,6 +255,46 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
         },
       },
     )
+  }
+
+  // handleUpload -- validasi ekstensi klien (US-064 AC), server tetap
+  // validasi ulang via sniff MIME -- ini murni supaya error cepat tanpa
+  // menunggu round-trip untuk kasus yang jelas salah.
+  const handleUpload = (file: File | undefined) => {
+    if (!file || !taskId) return
+    setAttachError('')
+    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+      setAttachError('Ukuran file melebihi 50 MB.')
+      return
+    }
+    if (!ALLOWED_EXTENSIONS.includes(fileExt(file.name))) {
+      setAttachError('Tipe file ini tidak diizinkan.')
+      return
+    }
+    uploadAttachment.mutate(file, {
+      onError: (err: unknown) => {
+        const apiErr = err as { code?: string }
+        setAttachError(
+          apiErr.code === 'STORAGE_QUOTA_FULL'
+            ? 'Penyimpanan organisasi penuh. Hubungi Group Admin Anda untuk menambah kuota.'
+            : apiErr.code === 'FILE_TYPE_NOT_ALLOWED'
+              ? 'Tipe file ini tidak diizinkan.'
+              : 'Gagal mengunggah lampiran.',
+        )
+      },
+    })
+  }
+
+  const onDownloadAttachment = async (id: string, name: string) => {
+    const blob = await downloadAttachment(id)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const activePics = task.data?.active_pics ?? []
@@ -604,6 +664,138 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                   ))}
                 </div>
               )}
+            </div>
+
+            <div>
+              <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">LAMPIRAN</div>
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setDragOver(false)
+                  handleUpload(e.dataTransfer.files[0])
+                }}
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  'cursor-pointer border border-dashed p-4 text-center font-mono text-[10px] text-text-muted',
+                  dragOver ? 'border-signal bg-signal/5' : 'border-line-strong',
+                )}
+              >
+                Seret &amp; lepas file, atau <span className="text-signal">pilih file</span>
+                <div className="mt-1.5 text-[8.5px] leading-relaxed text-text-dim">
+                  Maks 50 MB per file. Diizinkan: jpg png gif webp svg · pdf doc docx xls xlsx ppt pptx txt md csv · zip rar 7z · json xml
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleUpload(e.target.files?.[0])
+                    e.target.value = ''
+                  }}
+                />
+              </div>
+              {uploadAttachment.isPending && <p className="mt-1.5 font-mono text-[9.5px] text-text-muted">Mengunggah...</p>}
+              {attachError && <p className="mt-1.5 font-mono text-[10px] text-destructive">⚠ {attachError}</p>}
+
+              <div className="mt-2.5 flex flex-col gap-1.5">
+                {(attachments.data ?? []).map((a) => {
+                  const isOwner = a.uploader_id === currentUserId
+                  const isRenaming = renamingId === a.id
+                  const isConfirmingDelete = deleteConfirmId === a.id
+                  return (
+                    <div key={a.id} className="border border-line-strong p-2.5">
+                      {isRenaming ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            value={renameDraft}
+                            onChange={(e) => setRenameDraft(e.target.value)}
+                            className="flex-1 border border-line-strong bg-input-bg px-2 py-1 text-[11px] text-text-bone outline-none focus-visible:border-signal"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              renameAttachment.mutate(
+                                { id: a.id, displayName: renameDraft },
+                                { onSuccess: () => setRenamingId(null) },
+                              )
+                            }
+                            disabled={renameAttachment.isPending || renameDraft.trim() === ''}
+                            className="border border-signal px-2 py-1 font-mono text-[9px] font-bold uppercase text-signal disabled:opacity-40"
+                          >
+                            Simpan
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setRenamingId(null)}
+                            className="border border-line-strong px-2 py-1 font-mono text-[9px] uppercase text-text-muted"
+                          >
+                            Batal
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2.5">
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[12px] text-text-bone">{a.display_name}</div>
+                            <div className="font-mono text-[9px] text-text-dim">
+                              {formatBytes(a.size_bytes)} · {a.uploader_name || a.uploader_email} · {new Date(a.created_at).toLocaleDateString('id-ID')}
+                            </div>
+                          </div>
+                          <div className="flex flex-shrink-0 items-center gap-2.5">
+                            <button
+                              type="button"
+                              onClick={() => onDownloadAttachment(a.id, a.display_name)}
+                              className="font-mono text-[9.5px] text-signal hover:underline"
+                            >
+                              Unduh
+                            </button>
+                            {isOwner && (
+                              <button
+                                type="button"
+                                onClick={() => { setRenamingId(a.id); setRenameDraft(a.display_name) }}
+                                className="font-mono text-[9.5px] text-text-muted hover:text-signal"
+                              >
+                                Rename
+                              </button>
+                            )}
+                            {isOwner && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmId(a.id)}
+                                className="font-mono text-[9.5px] text-destructive hover:underline"
+                              >
+                                Hapus
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {isConfirmingDelete && (
+                        <div className="mt-2 flex items-center gap-2 border-t border-line pt-2">
+                          <span className="font-mono text-[9.5px] text-amber">Hapus lampiran ini?</span>
+                          <button
+                            type="button"
+                            onClick={() => deleteAttachmentMut.mutate(a.id, { onSuccess: () => setDeleteConfirmId(null) })}
+                            disabled={deleteAttachmentMut.isPending}
+                            className="border border-destructive px-2 py-1 font-mono text-[9px] font-bold uppercase text-destructive"
+                          >
+                            Ya, Hapus
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="border border-line-strong px-2 py-1 font-mono text-[9px] uppercase text-text-muted"
+                          >
+                            Batal
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                {(attachments.data ?? []).length === 0 && <p className="font-mono text-[9.5px] text-text-dim">Belum ada lampiran.</p>}
+              </div>
             </div>
 
             {dirty && (
