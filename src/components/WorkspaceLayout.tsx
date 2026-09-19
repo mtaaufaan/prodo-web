@@ -112,7 +112,15 @@ function navItems(workspaceId: string): WorkspaceNavItemDef[] {
       cta: null,
       adminOnly: true,
     },
-    { key: 'audit', icon: '☰', label: 'Audit Trail Workspace', to: null, tabs: null, cta: null, adminOnly: true },
+    {
+      key: 'audit',
+      icon: '☰',
+      label: 'Audit Trail Workspace',
+      to: `/workspaces/${workspaceId}/audit-trail`,
+      tabs: ['Semua Aktivitas', 'Akses & Keamanan'],
+      cta: null,
+      adminOnly: true,
+    },
   ]
 }
 
