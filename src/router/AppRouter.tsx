@@ -28,6 +28,7 @@ import GroupLocalePage from '@/pages/GroupLocalePage'
 import GroupStorageQuotaPage from '@/pages/GroupStorageQuotaPage'
 import GroupSummaryPage from '@/pages/GroupSummaryPage'
 import GroupWebhookPage from '@/pages/GroupWebhookPage'
+import PerformanceDashboardPage from '@/pages/PerformanceDashboardPage'
 import Home from '@/pages/Home'
 import Login from '@/pages/Login'
 import NotFound from '@/pages/NotFound'
@@ -100,6 +101,8 @@ export default function AppRouter() {
           <Route path="/workspaces/:wsId/rules" element={<AwRuleAutomationPage />} />
           {/* H20-22, S4W-19/21, EPIC 10 ("AW Documents.dc.html"). */}
           <Route path="/workspaces/:wsId/documents" element={<AwDocumentsPage />} />
+          {/* EPIC 12, US-075/076/077/078 ("Performance Dashboard.dc.html"). */}
+          <Route path="/workspaces/:wsId/performance" element={<PerformanceDashboardPage />} />
         </Route>
         {/* S3-24, US-009b: TANPA RoleGuard platform-role -- aktor sah (AW/PM)
             platform_role-nya "member" biasa, otorisasi penuh di backend
