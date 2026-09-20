@@ -232,8 +232,8 @@ export default function WorkspaceLayout() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/settings/sessions')}
-            title="Sesi & perangkat"
+            onClick={() => navigate('/account-settings')}
+            title="Pengaturan akun"
             className="flex h-[38px] w-[38px] items-center justify-center border-l-2 border-transparent font-mono text-[15px] text-text-dim hover:text-signal"
           >
             ⚙
@@ -376,11 +376,11 @@ export default function WorkspaceLayout() {
                 type="button"
                 onClick={() => {
                   setProfileMenuOpen(false)
-                  navigate('/settings/sessions')
+                  navigate('/account-settings')
                 }}
                 className="w-full border-t border-line p-2 text-left font-mono text-[11px] text-text-muted hover:text-signal"
               >
-                ⚙ Sesi & perangkat
+                ⚙ Pengaturan akun
               </button>
               <div className="flex items-center gap-2 border-t border-line p-2">
                 <span className="font-mono text-[11px] text-text-muted">Bahasa</span>
