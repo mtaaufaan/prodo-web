@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 
@@ -19,11 +19,14 @@ import { useAuthStore } from '@/store/useAuthStore'
 // sebelum ini). Sekarang mengikuti struktur PERSIS GroupAdminLayout.tsx:
 // icon rail + sidebar konteks (switcher workspace inline, bukan komponen
 // WorkspaceSwitcher terpisah lagi -- dihapus, cuma dipakai di sini) +
-// topbar (breadcrumb, notif disabled, CTA per-menu) + baris tab opsional.
-// Input pencarian topbar (versi disabled, sama pola GroupAdminLayout)
-// SENGAJA dihapus lagi (dikonfirmasi user 2026-09-13, sama instruksi
-// dengan penghapusan search bebas WorkspaceListPage) -- tab status/filter
-// yang sudah ada di tiap halaman workspace dianggap cukup.
+// topbar (breadcrumb, search, notif disabled, CTA per-menu) + baris tab
+// opsional. Input pencarian topbar (versi disabled, sama pola
+// GroupAdminLayout) sempat SENGAJA dihapus 2026-09-13 -- tapi 17 menit
+// setelahnya di hari yang sama, versi GA yang sama-sama disabled itu
+// justru dibangun jadi filter page-local sungguhan (commit ac25985), AW
+// tidak pernah disusulkan. Dibangun kembali 2026-09-21 (IG-88, ditemukan
+// user) mengikuti pola PERSIS `query`/`searchableNav` GroupAdminLayout --
+// lihat komentar `searchableNav` di bawah untuk nav mana yang tersambung.
 //
 // Cakupan menu SENGAJA belum penuh sesuai desain (dikonfirmasi user): 9
 // item Admin Workspace di desain, di sini masih 8 (Cooldown Mention belum
@@ -40,6 +43,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 export interface WorkspaceOutletContext {
   view: string
   registerCta: (handler: (() => void) | null) => void
+  query: string
 }
 
 interface WorkspaceNavItemDef {
@@ -167,9 +171,27 @@ export default function WorkspaceLayout() {
   const registerCta = useCallback((handler: (() => void) | null) => setCtaHandler(() => handler), [])
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [wsMenuOpen, setWsMenuOpen] = useState(false)
+  const [query, setQuery] = useState('')
 
   const items = useMemo(() => navItems(workspaceId), [workspaceId])
   const activeNav = useMemo(() => items.find((n) => n.to && location.pathname.startsWith(n.to)) ?? null, [items, location.pathname])
+
+  // query (IG-88, pola PERSIS GroupAdminLayout/ac25985): topbar
+  // WorkspaceLayout dulu punya input search disabled, dihapus 2026-09-13
+  // (komentar di atas) dengan alasan "tab status/filter per halaman sudah
+  // cukup" -- tapi 17 menit setelahnya di commit yang sama harinya, input
+  // topbar GroupAdminLayout yang sama-sama disabled itu JUSTRU dibangun
+  // jadi filter page-local sungguhan (nama/email), bukan dihapus. AW tidak
+  // pernah dapat susulan yang sama. Cuma nav 'project'/'members' yang
+  // disambungkan (sama pola GA: 'workspace'/'members', BUKAN 'Organisasi'
+  // di sana / BUKAN item admin-only lain di sini yang sudah py filter
+  // dropdown sendiri).
+  const searchableNav = activeNav?.key === 'project' || activeNav?.key === 'members'
+  const searchPlaceholder = activeNav?.key === 'project' ? 'Cari nama project…' : 'Cari nama atau email member…'
+
+  useEffect(() => {
+    setQuery('')
+  }, [location.pathname])
 
   // canSeeAdminItems (S4W-00): platform_admin/group_admin yang sedang
   // context-switch ke workspace ini SELALU bypass (mereka bisa tidak
@@ -415,6 +437,14 @@ export default function WorkspaceLayout() {
               <span className="text-text-bone">{activeNav?.label ?? '—'}</span>
             </div>
             <div className="flex-1" />
+            {searchableNav && (
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="hidden max-w-[220px] flex-1 border border-line bg-transparent px-3 py-1.5 font-mono text-[11px] text-text-bone outline-none placeholder:text-text-dim focus-visible:border-signal md:block"
+              />
+            )}
             <button
               type="button"
               disabled
@@ -453,7 +483,7 @@ export default function WorkspaceLayout() {
           )}
 
           <div className="min-h-0 flex-1 overflow-auto bg-content">
-            <Outlet context={{ view, registerCta } satisfies WorkspaceOutletContext} />
+            <Outlet context={{ view, registerCta, query } satisfies WorkspaceOutletContext} />
           </div>
         </main>
       </div>

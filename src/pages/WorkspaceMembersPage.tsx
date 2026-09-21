@@ -49,7 +49,7 @@ function WorkspaceMembersPageContent() {
   const viewerRole = members.data?.find((m) => m.user_id === currentUser?.id)?.role
   const canManage = platformRole === 'platform_admin' || platformRole === 'group_admin' || viewerRole === 'admin_workspace'
 
-  const { registerCta } = useOutletContext<WorkspaceOutletContext>()
+  const { registerCta, query } = useOutletContext<WorkspaceOutletContext>()
   const [inviteOpen, setInviteOpen] = useState(false)
   // Tombol "+ Undang Member" sekarang CTA topbar WorkspaceLayout (S4W
   // frame parity) -- cuma didaftarkan kalau viewer berwenang, sama seperti
@@ -102,11 +102,17 @@ function WorkspaceMembersPageContent() {
     [memberList, invitationList],
   )
 
+  const q = query.trim().toLowerCase()
   const matched = allRows.filter((row) => {
     if (fRole !== 'Semua' && row.data.role !== fRole) return false
     if (fProject !== 'Semua') {
       if (row.kind !== 'member') return false
       if (!projectEmails.has(row.data.email.toLowerCase())) return false
+    }
+    // query (IG-88): pending invitation tidak punya display_name, cuma email.
+    if (q) {
+      const name = row.kind === 'member' ? row.data.display_name : ''
+      if (!name.toLowerCase().includes(q) && !row.data.email.toLowerCase().includes(q)) return false
     }
     return true
   })
@@ -122,6 +128,8 @@ function WorkspaceMembersPageContent() {
     fProject === 'Semua'
       ? `Seluruh member workspace ${workspaceName}`
       : `Member project ${selectedProject?.name ?? '...'} · ${matched.length} orang`
+
+  useEffect(() => setPage(1), [query])
 
   const resetFilters = () => {
     setFProject('Semua')
