@@ -49,7 +49,7 @@ function ProjectListPageContent() {
   const { wsId } = useParams<{ wsId: string }>();
   const workspaceId = wsId ?? "";
   const { data, isLoading, isError } = useProjects(workspaceId);
-  const { view, registerCta } = useOutletContext<WorkspaceOutletContext>();
+  const { view, registerCta, query } = useOutletContext<WorkspaceOutletContext>();
   const filter = view as Filter;
   const [addOpen, setAddOpen] = useState(false);
   const [managingId, setManagingId] = useState<string | null>(null);
@@ -71,12 +71,14 @@ function ProjectListPageContent() {
   // (React Query invalidate+refetch, bukan WebSocket, jadi wajib re-lookup).
   const managingProject = all.find((p) => p.id === managingId) ?? null;
   const filtered = useMemo(() => {
-    if (filter === "Semua") return all;
-    return all.filter((p) =>
-      filter === "Aktif" ? !p.is_archived : p.is_archived,
-    );
+    const byTab =
+      filter === "Semua" ? all : all.filter((p) => (filter === "Aktif" ? !p.is_archived : p.is_archived));
+    const q = query.trim().toLowerCase();
+    if (!q) return byTab;
+    // query (IG-88): search nama project, pola sama WorkspaceListPage (GA).
+    return byTab.filter((p) => p.name.toLowerCase().includes(q));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `data` (bukan `all`) sumber identitas yang stabil
-  }, [data, filter]);
+  }, [data, filter, query]);
 
   const totalPages = Math.max(
     1,
@@ -100,7 +102,7 @@ function ProjectListPageContent() {
   // filter sendiri, sekarang filter datang dari shell (`view`).
   useEffect(() => {
     setPage(1);
-  }, [filter]);
+  }, [filter, query]);
 
   return (
     <div className="space-y-3.5 p-6">
