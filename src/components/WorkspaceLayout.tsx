@@ -121,7 +121,11 @@ function navItems(workspaceId: string): WorkspaceNavItemDef[] {
       icon: '☰',
       label: 'Audit Trail Workspace',
       to: `/workspaces/${workspaceId}/audit-trail`,
-      tabs: ['Semua Aktivitas', 'Akses & Keamanan'],
+      // tabs: null (2026-09-21, dibangun ulang meniru GroupAuditTrailPage
+      // persis) -- tab Semua Aktivitas/Akses & Keamanan sekarang dirender
+      // DI DALAM AwAuditTrailPage sendiri, sama seperti GroupAdminLayout's
+      // 'audit' nav item (tabs: null juga).
+      tabs: null,
       cta: null,
       adminOnly: true,
     },
