@@ -61,8 +61,9 @@ interface WorkspaceNavItemDef {
 // /workspaces/:wsId/... di AppRouter (lihat komentar lama, masih berlaku).
 function navItems(workspaceId: string): WorkspaceNavItemDef[] {
   return [
-    { key: 'project', icon: '▤', label: 'Project', to: `/workspaces/${workspaceId}/projects`, tabs: ['Semua', 'Aktif', 'Arsip'], cta: '+ Project' },
-    { key: 'members', icon: '◉', label: 'Members & Roles', to: `/workspaces/${workspaceId}/members`, tabs: null, cta: '+ Undang Member' },
+    // Performance Dashboard SENGAJA di posisi PALING AWAL (dipindah
+    // 2026-09-22, dikonfirmasi user) -- sebelumnya urutan ketiga (setelah
+    // Project/Members), sekarang jadi landing pertama yang dilihat AW.
     {
       key: 'kinerja',
       icon: '◎',
@@ -71,6 +72,8 @@ function navItems(workspaceId: string): WorkspaceNavItemDef[] {
       tabs: ['Project Health', 'Member Performance', 'Flow Efficiency'],
       cta: null,
     },
+    { key: 'project', icon: '▤', label: 'Project', to: `/workspaces/${workspaceId}/projects`, tabs: ['Semua', 'Aktif', 'Arsip'], cta: '+ Project' },
+    { key: 'members', icon: '◉', label: 'Members & Roles', to: `/workspaces/${workspaceId}/members`, tabs: null, cta: '+ Undang Member' },
     {
       key: 'cooldown',
       icon: '◷',
