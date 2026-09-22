@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useOutletContext, useParams } from 'react-router-dom'
 
+import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import AddMemberModal from '@/components/projects/AddMemberModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { Button } from '@/components/ui/button'
@@ -12,16 +13,35 @@ import { cn } from '@/lib/utils'
 
 // S3-24, US-009b (implementation_gaps.md IG-17 -- forward-pull projects/
 // project_members). Versi minimal: list + tambah member (pencarian lintas
-// org, S3-20) + ubah role + hapus. Dibuka lewat projectId di URL langsung
-// (belum ada ProjectListPage -- pembuatan/daftar project sendiri baru S4).
+// org, S3-20) + ubah role + hapus.
+//
+// Disambungkan ke menu "Member Project" PM 2026-09-22 (master frame PM,
+// sprint_backlog.md Track S5) -- SEBELUMNYA halaman berdiri sendiri
+// (min-h-screen sendiri, h1 + tombol CTA sendiri) karena dibuka lewat
+// projectId di URL langsung sebelum WorkspaceLayout ada. Chrome halaman
+// (judul, CTA) sekarang dari shell (breadcrumb + registerCta), pola sama
+// ProjectListPage/WorkspaceMembersPage. Rute lama `/projects/:projectId/
+// members` (tanpa shell) TETAP ada di AppRouter, tidak dihapus -- tidak
+// pernah di-link dari mana pun di UI, dipertahankan apa adanya.
 function ProjectMembersPageContent() {
   const { projectId } = useParams<{ projectId: string }>()
   const id = projectId ?? ''
+  // outletContext undefined kalau diakses lewat rute lama tanpa shell
+  // (/projects/:projectId/members, dipertahankan apa adanya) -- registerCta
+  // no-op supaya tidak crash, CTA di rute lama itu memang tidak pernah ada.
+  const outletContext = useOutletContext<WorkspaceOutletContext>()
+  const { registerCta } = outletContext ?? { registerCta: () => {} }
   const { data, isLoading, isError } = useProjectMembers(id)
   const [addOpen, setAddOpen] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<ProjectMember | null>(null)
   const updateRole = useUpdateProjectMemberRole(id)
   const removeMember = useRemoveProjectMember(id)
+
+  useEffect(() => {
+    registerCta(() => setAddOpen(true))
+    return () => registerCta(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleConfirmRemove = () => {
     if (!removeTarget) return
@@ -29,44 +49,35 @@ function ProjectMembersPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-bg-deep">
-      <div className="mx-auto max-w-4xl space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Member Project</h1>
-          <Button onClick={() => setAddOpen(true)} className="font-mono text-[10px] uppercase tracking-[0.06em]">
-            + Tambah Member
-          </Button>
-        </div>
+    <div className="space-y-5 p-6">
+      {isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
+      {isError && <p className="text-sm text-destructive">Gagal memuat daftar member project.</p>}
 
-        {isLoading && <p className="text-sm text-text-muted">Memuat...</p>}
-        {isError && <p className="text-sm text-destructive">Gagal memuat daftar member project.</p>}
-
-        {data && (
-          <Card className="border-line bg-transparent shadow-none">
-            <CardHeader className="border-b border-line pb-3">
-              <CardTitle className="font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
-                <div className="grid grid-cols-[1.8fr_1fr_1fr_0.9fr] gap-3">
-                  <span>Member</span>
-                  <span>Tipe</span>
-                  <span>Role</span>
-                  <span>Aksi</span>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {data.length === 0 && <p className="p-4 text-sm text-text-muted">Belum ada member project.</p>}
-              {data.map((member) => (
-                <ProjectMemberRow
-                  key={member.user_id}
-                  member={member}
-                  onRoleChange={(role) => updateRole.mutate({ userId: member.user_id, role })}
-                  onRemove={() => setRemoveTarget(member)}
-                />
-              ))}
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {data && (
+        <Card className="border-line bg-transparent shadow-none">
+          <CardHeader className="border-b border-line pb-3">
+            <CardTitle className="font-mono text-[9px] uppercase tracking-[0.1em] text-text-dim">
+              <div className="grid grid-cols-[1.8fr_1fr_1fr_0.9fr] gap-3">
+                <span>Member</span>
+                <span>Tipe</span>
+                <span>Role</span>
+                <span>Aksi</span>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {data.length === 0 && <p className="p-4 text-sm text-text-muted">Belum ada member project.</p>}
+            {data.map((member) => (
+              <ProjectMemberRow
+                key={member.user_id}
+                member={member}
+                onRoleChange={(role) => updateRole.mutate({ userId: member.user_id, role })}
+                onRemove={() => setRemoveTarget(member)}
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <AddMemberModal projectId={id} open={addOpen} onClose={() => setAddOpen(false)} />
 

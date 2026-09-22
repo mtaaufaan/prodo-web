@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 
 import { useMyContext, useSwitchContext } from '@/features/context/hooks'
+import { useProjects } from '@/features/projects/hooks'
 import { useWorkspace } from '@/features/workspaces/hooks'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -59,7 +60,7 @@ interface WorkspaceNavItemDef {
 // to: null berarti belum ada halaman ("SEGERA"). Path ABSOLUT (bukan
 // relatif) -- route anak WorkspaceLayout dideklarasikan sebagai path penuh
 // /workspaces/:wsId/... di AppRouter (lihat komentar lama, masih berlaku).
-function navItems(workspaceId: string): WorkspaceNavItemDef[] {
+function awNavItems(workspaceId: string): WorkspaceNavItemDef[] {
   return [
     // Performance Dashboard SENGAJA di posisi PALING AWAL (dipindah
     // 2026-09-22, dikonfirmasi user) -- sebelumnya urutan ketiga (setelah
@@ -135,6 +136,69 @@ function navItems(workspaceId: string): WorkspaceNavItemDef[] {
   ]
 }
 
+// pmNavItems -- master frame Project Manager (2026-09-22, sebelum Track
+// S5 dimulai, "seperti biasa" pola S4P/S4G/S4W: bangun shell+menu dulu,
+// sambungkan halaman satu-satu seiring track berjalan). 11 item PERSIS
+// `NAV['Project Manager']` di "Master UI User.dc.html" (dibaca langsung
+// via DesignSync, BUKAN ditebak) -- HAMPIR SEMUA project-scoped (butuh
+// activeProjectId dari switcher project baru di sidebar), KECUALI
+// Performance Dashboard yang tetap level workspace (halaman SAMA dengan
+// AW, `PerformanceDashboardPage` sudah menangani mode PM sendiri lewat
+// deteksi pm_user_id -- tidak perlu halaman/rute terpisah). activeProjectId
+// null (PM belum py project SAMA SEKALI, atau belum termuat) -> seluruh
+// item project-scoped jatuh ke "SEGERA" sampai ada project aktif.
+//
+// Status per 2026-09-22: cuma 'kinerja' (reuse AW) dan 'board' (Kanban
+// Phase 1, S4-05 dst/IG-46-49) yang py halaman sungguhan. 'pmmembers'
+// (ProjectMembersPage, S3-24/IG-17) BARU disambungkan sesi ini -- dulu
+// halaman berdiri sendiri di luar shell. 8 sisanya "SEGERA", masing-
+// masing dipetakan ke Track S5: sprint/status/picgroup -> S5A/S5B,
+// import -> S5C, board (List/Gantt/Riwayat) -> S5D, analytics -> S5E.
+// 'rule' (level PROJECT, beda dari Rule Automation AW yang level
+// workspace/IG-82) dan 'docs' (level PROJECT, beda dari AW Documents yang
+// workspace-wide) dan 'audit' (Audit Trail PM, beda dari Audit Trail
+// Workspace AW) BELUM py task Sprint 5 sama sekali -- gap baru ditemukan
+// saat membaca NAV['Project Manager'], TIDAK ada di sprint_backlog.md
+// Track S5A-E manapun, perlu dikonfirmasi cakupannya ke user sebelum
+// dikerjakan.
+function pmNavItems(workspaceId: string, activeProjectId: string | null): WorkspaceNavItemDef[] {
+  const p = activeProjectId
+  return [
+    {
+      key: 'kinerja',
+      icon: '◎',
+      label: 'Performance Dashboard',
+      to: `/workspaces/${workspaceId}/performance`,
+      tabs: ['Project Health', 'Member Performance', 'Flow Efficiency'],
+      cta: null,
+    },
+    { key: 'sprint', icon: '◧', label: 'Sprint', to: null, tabs: ['Semua', 'Aktif', 'Backlog', 'Selesai'], cta: '+ Sprint' },
+    {
+      key: 'pmmembers',
+      icon: '◉',
+      label: 'Member Project',
+      to: p ? `/workspaces/${workspaceId}/projects/${p}/members` : null,
+      tabs: null,
+      cta: '+ Member',
+    },
+    {
+      key: 'board',
+      icon: '▦',
+      label: 'Board',
+      to: p ? `/workspaces/${workspaceId}/projects/${p}/board` : null,
+      tabs: ['Kanban', 'Daftar', 'Gantt', 'Riwayat'],
+      cta: '+ Task',
+    },
+    { key: 'status', icon: '◫', label: 'Custom Status Project', to: null, tabs: ['Status Project'], cta: '+ Status' },
+    { key: 'picgroup', icon: '◈', label: 'PIC Group per Status', to: null, tabs: ['Konfigurasi'], cta: null },
+    { key: 'rule', icon: '⌗', label: 'Rule Automation', to: null, tabs: ['Rule Aktif', 'Template Library', 'Log Eksekusi'], cta: '+ Rule' },
+    { key: 'import', icon: '⇪', label: 'Import CSV', to: null, tabs: ['Unggah CSV', 'Riwayat'], cta: null },
+    { key: 'docs', icon: '▧', label: 'Dokumen & Lampiran', to: null, tabs: null, cta: null },
+    { key: 'analytics', icon: '◔', label: 'Timesheet & Analitik', to: null, tabs: ['Ringkasan', 'Per-Member'], cta: null },
+    { key: 'audit', icon: '☰', label: 'Audit Trail', to: null, tabs: null, cta: null },
+  ]
+}
+
 function WorkspaceNavItem({ icon, label, to }: { icon: string; label: string; to: string | null }) {
   if (!to) {
     return (
@@ -178,9 +242,45 @@ export default function WorkspaceLayout() {
   const registerCta = useCallback((handler: (() => void) | null) => setCtaHandler(() => handler), [])
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [wsMenuOpen, setWsMenuOpen] = useState(false)
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false)
   const [query, setQuery] = useState('')
 
-  const items = useMemo(() => navItems(workspaceId), [workspaceId])
+  // canSeeAdminItems (S4W-00): platform_admin/group_admin yang sedang
+  // context-switch ke workspace ini SELALU bypass (mereka bisa tidak
+  // punya baris workspace_members sama sekali di sini -- akses org-level,
+  // bukan keanggotaan langsung), sama seperti middleware.RequireRole
+  // backend yang tidak pernah menolak mereka. Default false selama
+  // context belum termuat -- item admin-only tersembunyi sesaat alih-alih
+  // sempat terlihat lalu hilang untuk viewer yang bukan admin.
+  const platformRole = myContext.data?.platform_role
+  const workspaceMemberships = myContext.data?.workspace_memberships ?? []
+  const myWorkspaceRole = workspaceMemberships.find((w) => w.workspace_id === workspaceId)?.role
+  const canSeeAdminItems =
+    platformRole === 'platform_admin' || platformRole === 'group_admin' || myWorkspaceRole === 'admin_workspace'
+  const gaConsoleEnabled = myContext.data?.ga_console_enabled ?? false
+
+  // isPM + activeProjectId (master frame PM, 2026-09-22): menu PM HAMPIR
+  // SEMUA project-scoped (lihat komentar pmNavItems) -- perlu tahu project
+  // mana yang "aktif" sekarang, mirip switcher workspace AW/switcher grup
+  // GA tapi levelnya project. Default ke project pertama tempat dia jadi
+  // PM begitu termuat, sama pola PerformanceDashboardPage.tsx (isPM/
+  // myProjects) -- SENGAJA disamakan logikanya, bukan kebetulan.
+  const currentUserId = useAuthStore((s) => s.user?.id)
+  const isPM = myWorkspaceRole === 'project_manager'
+  const allProjects = useProjects(isPM ? workspaceId : '')
+  const myProjects = useMemo(
+    () => (allProjects.data ?? []).filter((p) => p.pm_user_id === currentUserId && !p.is_archived),
+    [allProjects.data, currentUserId],
+  )
+  const [activeProjectId, setActiveProjectId] = useState('')
+  useEffect(() => {
+    if (isPM && !activeProjectId && myProjects.length > 0) setActiveProjectId(myProjects[0].id)
+  }, [isPM, myProjects, activeProjectId])
+
+  const items = useMemo(
+    () => (isPM ? pmNavItems(workspaceId, activeProjectId || null) : awNavItems(workspaceId)),
+    [isPM, workspaceId, activeProjectId],
+  )
   const activeNav = useMemo(() => items.find((n) => n.to && location.pathname.startsWith(n.to)) ?? null, [items, location.pathname])
 
   // query (IG-88, pola PERSIS GroupAdminLayout/ac25985): topbar
@@ -199,20 +299,6 @@ export default function WorkspaceLayout() {
   useEffect(() => {
     setQuery('')
   }, [location.pathname])
-
-  // canSeeAdminItems (S4W-00): platform_admin/group_admin yang sedang
-  // context-switch ke workspace ini SELALU bypass (mereka bisa tidak
-  // punya baris workspace_members sama sekali di sini -- akses org-level,
-  // bukan keanggotaan langsung), sama seperti middleware.RequireRole
-  // backend yang tidak pernah menolak mereka. Default false selama
-  // context belum termuat -- item admin-only tersembunyi sesaat alih-alih
-  // sempat terlihat lalu hilang untuk viewer yang bukan admin.
-  const platformRole = myContext.data?.platform_role
-  const workspaceMemberships = myContext.data?.workspace_memberships ?? []
-  const myWorkspaceRole = workspaceMemberships.find((w) => w.workspace_id === workspaceId)?.role
-  const canSeeAdminItems =
-    platformRole === 'platform_admin' || platformRole === 'group_admin' || myWorkspaceRole === 'admin_workspace'
-  const gaConsoleEnabled = myContext.data?.ga_console_enabled ?? false
   // Switcher sidebar cuma perlu tampil kalau ada tempat lain untuk pindah --
   // GA yang cuma context-switch ke SATU workspace ini via bypass (tidak
   // literally jadi anggota mana pun) tidak dapat apa-apa dari membukanya.
@@ -364,6 +450,61 @@ export default function WorkspaceLayout() {
                 </p>
               </div>
             </>
+          )}
+
+          {/* PROJECT SWITCHER (master frame PM, 2026-09-22) -- cuma tampil
+              untuk PM yang py >=1 project (0 project -> seluruh menu
+              project-scoped "SEGERA" tanpa switcher, tidak ada yang bisa
+              dipilih). Dropdown cuma dibuka kalau >1 project, sama pola
+              switcher workspace di atas (tombol tetap tampil tapi non-
+              interaktif kalau cuma 1 pilihan). */}
+          {isPM && myProjects.length > 0 && (
+            <div className="relative flex-shrink-0 border-b border-line">
+              <button
+                type="button"
+                onClick={() => myProjects.length > 1 && setProjectMenuOpen((v) => !v)}
+                className={cn(
+                  'flex h-[46px] w-full items-center gap-2.5 px-3.5 text-left',
+                  myProjects.length > 1 ? 'cursor-pointer' : 'cursor-default',
+                )}
+              >
+                <span className="flex h-[20px] w-[20px] flex-shrink-0 items-center justify-center bg-signal text-[10px] font-extrabold text-bg-deep">
+                  {(myProjects.find((p) => p.id === activeProjectId)?.name ?? '—').charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1 leading-tight">
+                  <div className="truncate font-mono text-[7.5px] tracking-[0.12em] text-text-muted">PROJECT AKTIF</div>
+                  <div className="truncate text-[12px] font-semibold">{myProjects.find((p) => p.id === activeProjectId)?.name ?? '...'}</div>
+                </div>
+                {myProjects.length > 1 && <span className="font-mono text-[9px] text-text-muted">{projectMenuOpen ? '▴' : '▾'}</span>}
+              </button>
+              {projectMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setProjectMenuOpen(false)} />
+                  <div className="absolute left-2 right-2 top-[50px] z-20 border border-line-strong bg-bg-deep">
+                    <div className="border-b border-line px-3 py-2 font-mono text-[8.5px] tracking-[0.14em] text-text-muted">
+                      PINDAH PROJECT · {myProjects.length} DIKELOLA
+                    </div>
+                    {myProjects.map((p) => {
+                      const active = p.id === activeProjectId
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveProjectId(p.id)
+                            setProjectMenuOpen(false)
+                          }}
+                          className={cn('flex w-full items-center gap-2.5 border-t border-line-subtle px-3 py-2.5 text-left', active && 'bg-raised-2')}
+                        >
+                          <span className="truncate text-[12.5px] text-text-bone">{p.name}</span>
+                          {active && <span className="ml-auto flex-shrink-0 font-mono text-[9px] text-mint">● AKTIF</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
           )}
 
           <div className="flex flex-1 flex-col gap-0.5 overflow-auto p-2">
