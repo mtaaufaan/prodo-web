@@ -101,6 +101,12 @@ export default function AppRouter() {
               Board.dc.html" disederhanakan -- lihat komentar
               ProjectBoardPage.tsx). */}
           <Route path="/workspaces/:wsId/projects/:projectId/board" element={<ProjectBoardPage />} />
+          {/* Master frame PM (2026-09-22, Track S5 prasyarat): menu "Member
+              Project" -- reuse ProjectMembersPage (S3-24/IG-17) apa adanya,
+              chrome halaman (judul/CTA) dirapikan mengikuti shell hari ini.
+              Rute lama /projects/:projectId/members (tanpa shell) TETAP ada
+              di bawah, tidak dihapus -- lihat komentar ProjectMembersPage.tsx. */}
+          <Route path="/workspaces/:wsId/projects/:projectId/members" element={<ProjectMembersPage />} />
           {/* S4W-05/06, US-020/021 ("AW Custom Status.dc.html"). */}
           <Route path="/workspaces/:wsId/statuses" element={<CustomStatusPage />} />
           {/* S4W-07/08, US-033 ("AW Cooldown Mention.dc.html"). */}
