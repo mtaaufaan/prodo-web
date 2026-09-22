@@ -125,6 +125,26 @@ export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): Au
       return { text: `Undangan workspace "${metaString(entry, 'email', targetOf(entry))}" dibatalkan`, scope: 'MEMBERS & ROLES' }
     case 'invitation.accepted':
       return { text: `Undangan workspace "${metaString(entry, 'email', targetOf(entry))}" diterima -- akun aktif`, scope: 'MEMBERS & ROLES' }
+    case 'project_member.added':
+      return { text: `Member "${targetOf(entry)}" ditambahkan ke project`, scope: 'MEMBER PROJECT' }
+    case 'project_member.role_changed':
+      return { text: `Role member project "${targetOf(entry)}" diubah`, scope: 'MEMBER PROJECT' }
+    case 'project_member.removed':
+      return { text: `Member "${targetOf(entry)}" dikeluarkan dari project`, scope: 'MEMBER PROJECT' }
+    case 'user.login':
+      return { text: 'Login berhasil', scope: 'AKSES & KEAMANAN' }
+    case 'user.backup_code_used':
+      return { text: 'Login menggunakan kode cadangan MFA', scope: 'AKSES & KEAMANAN' }
+    case 'account.profile_updated':
+      return { text: 'Profil akun sendiri diperbarui', scope: 'AKSES & KEAMANAN' }
+    case 'account.password_changed':
+      return { text: 'Password akun sendiri diganti', scope: 'AKSES & KEAMANAN' }
+    case 'account.mfa_device_reset':
+      return { text: 'MFA dipindahkan ke perangkat baru', scope: 'AKSES & KEAMANAN' }
+    case 'account.mfa_backup_codes_regenerated':
+      return { text: 'Kode pemulihan MFA dibuat ulang', scope: 'AKSES & KEAMANAN' }
+    case 'account.notification_preferences_updated':
+      return { text: 'Preferensi notifikasi akun sendiri diperbarui', scope: 'AKSES & KEAMANAN' }
     default:
       return { text: `${entry.action} pada ${entry.entity_type}`, scope: entry.entity_type.toUpperCase() }
   }
