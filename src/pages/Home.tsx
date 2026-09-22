@@ -26,7 +26,10 @@ export default function Home() {
 
   useEffect(() => {
     if (memberships.length === 1) {
-      navigate(`/workspaces/${memberships[0].workspace_id}/projects`, { replace: true })
+      const m = memberships[0]
+      // admin_workspace mendarat langsung ke Performance Dashboard (2026-09-22,
+      // dikonfirmasi user) -- role lain tetap ke Project seperti semula.
+      navigate(`/workspaces/${m.workspace_id}/${m.role === 'admin_workspace' ? 'performance' : 'projects'}`, { replace: true })
     }
   }, [memberships, navigate])
 
@@ -67,7 +70,7 @@ export default function Home() {
               <button
                 key={w.workspace_id}
                 type="button"
-                onClick={() => navigate(`/workspaces/${w.workspace_id}/projects`)}
+                onClick={() => navigate(`/workspaces/${w.workspace_id}/${w.role === 'admin_workspace' ? 'performance' : 'projects'}`)}
                 className="flex items-center justify-between border border-line px-3.5 py-2.5 text-left hover:border-line-strong"
               >
                 <div className="min-w-0">
