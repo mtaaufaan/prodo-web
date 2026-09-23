@@ -54,14 +54,28 @@ export function statusColorClasses(token: string | null) {
   return STATUS_COLOR_CLASSES[normalizeStatusColor(token)]
 }
 
+// SprintStatus 3-state (IG-92) -- MENGGANTIKAN `is_active` boolean lama
+// (IG-46) yang tidak bisa membedakan "belum pernah dimulai" dari "sudah
+// selesai" (keduanya is_active=false).
+export type SprintStatus = 'backlog' | 'active' | 'done'
+
 export interface Sprint {
   id: string
   project_id: string
   name: string
   start_date: string | null
   end_date: string | null
-  is_active: boolean
+  goal: string | null
+  status: SprintStatus
   created_at: string
+}
+
+export interface SprintSummary {
+  total_story_points: number
+  done_story_points: number
+  left_story_points: number
+  unestimated_count: number
+  task_count: number
 }
 
 export interface TaskAssignee {

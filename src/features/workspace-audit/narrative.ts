@@ -131,6 +131,20 @@ export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): Au
       return { text: `Role member project "${targetOf(entry)}" diubah`, scope: 'MEMBER PROJECT' }
     case 'project_member.removed':
       return { text: `Member "${targetOf(entry)}" dikeluarkan dari project`, scope: 'MEMBER PROJECT' }
+    case 'sprint.created':
+      return { text: `Sprint "${targetOf(entry)}" dibuat`, scope: 'SPRINT' }
+    case 'sprint.updated':
+      return { text: `Sprint "${targetOf(entry)}" diperbarui`, scope: 'SPRINT' }
+    case 'sprint.started':
+      return { text: `Sprint "${targetOf(entry)}" dimulai`, scope: 'SPRINT' }
+    case 'sprint.completed':
+      return { text: `Sprint "${targetOf(entry)}" ditutup`, scope: 'SPRINT' }
+    case 'sprint.reopened':
+      return { text: `Sprint "${targetOf(entry)}" dibuka kembali`, scope: 'SPRINT' }
+    case 'sprint.tasks_assigned':
+      return { text: `Task ditarik ke sprint "${targetOf(entry)}"`, scope: 'SPRINT' }
+    case 'sprint.deleted':
+      return { text: `Sprint "${targetOf(entry)}" dihapus`, scope: 'SPRINT' }
     case 'user.login':
       return { text: 'Login berhasil', scope: 'AKSES & KEAMANAN' }
     case 'user.backup_code_used':
