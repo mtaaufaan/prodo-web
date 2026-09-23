@@ -4,6 +4,7 @@ import {
   acknowledgePic,
   addTaskDependency,
   assignTasksToSprint,
+  bulkSetTaskStatus,
   completeSprint,
   createCustomStatus,
   createSprint,
@@ -19,6 +20,7 @@ import {
   getTaskStatusSessions,
   getWorkspaceStatuses,
   moveStatus,
+  reorderTask,
   removeTaskDependency,
   reopenSprint,
   restoreStatus,
@@ -238,6 +240,28 @@ export function useSetTaskStatus(projectId: string) {
       queryClient.invalidateQueries({ queryKey: taskKeys.picHistory(vars.taskId) })
       queryClient.invalidateQueries({ queryKey: taskKeys.statusSessions(vars.taskId) })
     },
+  })
+}
+
+// useReorderTask -- drag-geser kartu Kanban dalam satu kolom status
+// (Track S5, menu Board).
+export function useReorderTask(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskId, targetTaskId, placeBefore }: { taskId: string; targetTaskId: string; placeBefore: boolean }) =>
+      reorderTask(taskId, targetTaskId, placeBefore),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) }),
+  })
+}
+
+// useBulkSetTaskStatus -- "PINDAHKAN & TETAPKAN PIC" bulk action (Track
+// S5, menu Board).
+export function useBulkSetTaskStatus(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskIds, statusId, picIds }: { taskIds: string[]; statusId: string; picIds: string[] }) =>
+      bulkSetTaskStatus(projectId, taskIds, statusId, picIds),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) }),
   })
 }
 

@@ -110,6 +110,7 @@ export interface Task {
   completed_at: string | null
   is_blocked: boolean
   regression_count: number
+  position: number
   assignees: TaskAssignee[]
   active_pics: TaskPicPhase[]
 }

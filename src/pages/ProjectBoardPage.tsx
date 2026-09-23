@@ -1,74 +1,29 @@
-import { useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useOutletContext, useParams } from 'react-router-dom'
 
 import AddTaskModal from '@/components/tasks/AddTaskModal'
+import KanbanBoard from '@/components/tasks/KanbanBoard'
 import TaskDetailModal from '@/components/tasks/TaskDetailModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { Button } from '@/components/ui/button'
+import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { useProjects } from '@/features/projects/hooks'
 import { useProjectSprints, useProjectTasks, useWorkspaceStatuses } from '@/features/tasks/hooks'
-import type { Task, TaskPriority } from '@/features/tasks/types'
-import { cn } from '@/lib/utils'
 
-const PRIORITY_TONE: Record<TaskPriority, string> = {
-  low: 'border-text-muted text-text-muted',
-  medium: 'border-blue text-blue',
-  high: 'border-amber text-amber',
-  critical: 'border-destructive text-destructive',
-}
-
-function TaskCard({ task, onOpen }: { task: Task; onOpen: () => void }) {
-  const firstAssignee = task.assignees[0]
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="w-full border border-line bg-panel p-3 text-left hover:border-signal"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1 font-mono text-[8.5px] text-text-dim">
-          {task.is_blocked && <span title="Diblokir -- ada predecessor yang belum selesai">🔒</span>}
-          {task.task_code}
-        </span>
-        <span className={cn('border px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase', PRIORITY_TONE[task.priority])}>
-          {task.priority}
-        </span>
-      </div>
-      <div className="mt-1.5 text-[12.5px] text-text-bone">{task.title}</div>
-      <div className="mt-2 flex items-center justify-between font-mono text-[9px] text-text-muted">
-        <span className="truncate">{firstAssignee ? firstAssignee.display_name || firstAssignee.email : '—'}</span>
-        <span>{task.due_date ?? '—'}</span>
-      </div>
-      <div className="mt-1.5 flex items-center gap-1.5">
-        <span className="inline-block border border-line-strong px-1.5 py-0.5 font-mono text-[8.5px] text-text-dim">
-          SP {task.story_points ?? '?'}
-        </span>
-        {task.regression_count > 0 && (
-          <span
-            title={`Task mengalami ${task.regression_count} kali regresi`}
-            className="inline-block border border-amber px-1.5 py-0.5 font-mono text-[8.5px] text-amber"
-          >
-            ↩ {task.regression_count}×
-          </span>
-        )}
-      </div>
-    </button>
-  )
-}
-
-// ProjectBoardPage (Task Management Core Phase 1, desain "PM Board.dc.html"
-// disederhanakan). Kanban KOLOM=status, tanpa drag-drop -- pindah status
-// lewat TaskDetailModal (chip klik). View List/Gantt dari desain asli
-// BELUM dibangun (Phase 1 cuma Kanban) -- dicatat sebagai gap disengaja.
+// ProjectBoardPage (Task Management Core Phase 1, desain "PM Board.dc.html").
+// Kanban (Track S5, drag-drop+bulk+quick-move+filter -- lihat KanbanBoard.tsx)
+// sudah lengkap. Daftar/Gantt/Riwayat MENYUSUL fase berikutnya (dikonfirmasi
+// user: bangun berurutan dalam satu sesi, Kanban dulu) -- placeholder di
+// bawah ini SEMENTARA, bukan gap yang disengaja permanen.
 //
 // Panel Sprint inline (dulu di sini, S4-10) DIHAPUS 2026-09-23 (Track S5,
-// IG-92) -- digantikan halaman "Sprint" tersendiri (menu nav PM) yang
-// jauh lebih lengkap (status 3-state, kapasitas SP, goal, dsb). Label
+// IG-92) -- digantikan halaman "Sprint" tersendiri (menu nav PM). Label
 // "Sprint aktif" tetap dipertahankan di sini sebagai konteks cepat.
 function ProjectBoardPageContent() {
   const { wsId, projectId } = useParams<{ wsId: string; projectId: string }>()
   const workspaceId = wsId ?? ''
   const pid = projectId ?? ''
+  const { view } = useOutletContext<WorkspaceOutletContext>()
 
   const projects = useProjects(workspaceId)
   const project = projects.data?.find((p) => p.id === pid) ?? null
@@ -81,15 +36,10 @@ function ProjectBoardPageContent() {
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null)
 
   const activeSprint = sprints.data?.find((s) => s.status === 'active') ?? null
-
-  const columns = useMemo(() => {
-    const list = statuses.data ?? []
-    const taskList = tasks.data ?? []
-    return list.map((s) => ({ status: s, tasks: taskList.filter((t) => t.status_id === s.id) }))
-  }, [statuses.data, tasks.data])
+  const tab = view === 'Daftar' || view === 'Gantt' || view === 'Riwayat' ? view : 'Kanban'
 
   return (
-    <div className="space-y-3.5 p-6">
+    <div className="flex min-h-0 flex-1 flex-col space-y-3.5 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">
@@ -109,24 +59,12 @@ function ProjectBoardPageContent() {
       {(statuses.isLoading || tasks.isLoading) && <p className="text-sm text-text-muted">Memuat...</p>}
       {(statuses.isError || tasks.isError) && <p className="text-sm text-destructive">Gagal memuat papan task.</p>}
 
-      {statuses.data && (
-        <div className="grid grid-cols-1 gap-3 overflow-x-auto sm:grid-cols-3 lg:grid-cols-5">
-          {columns.map(({ status, tasks: colTasks }) => (
-            <div key={status.id} className="flex min-w-[220px] flex-col gap-2 border border-line bg-raised-2 p-2.5">
-              <div className="flex items-center justify-between px-1">
-                <span className="font-mono text-[9.5px] font-semibold uppercase text-text-bone">{status.name}</span>
-                <span className="font-mono text-[9px] text-text-dim">{colTasks.length}</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                {colTasks.map((t) => (
-                  <TaskCard key={t.id} task={t} onOpen={() => setDetailTaskId(t.id)} />
-                ))}
-                {colTasks.length === 0 && <p className="px-1 py-3 text-center font-mono text-[9px] text-text-dim">Tidak ada task.</p>}
-              </div>
-            </div>
-          ))}
-        </div>
+      {statuses.data && tasks.data && tab === 'Kanban' && (
+        <KanbanBoard projectId={pid} statuses={statuses.data} tasks={tasks.data} onOpenTask={setDetailTaskId} />
       )}
+      {tab === 'Daftar' && <p className="font-mono text-[10.5px] text-text-dim">Tampilan Daftar menyusul.</p>}
+      {tab === 'Gantt' && <p className="font-mono text-[10.5px] text-text-dim">Tampilan Gantt menyusul.</p>}
+      {tab === 'Riwayat' && <p className="font-mono text-[10.5px] text-text-dim">Riwayat pergerakan board menyusul.</p>}
 
       <AddTaskModal
         open={addTaskOpen}
