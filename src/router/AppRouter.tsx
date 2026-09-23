@@ -42,6 +42,7 @@ import PlatformLoginPage from '@/pages/PlatformLoginPage'
 import PlatformSecuritySettingsPage from '@/pages/PlatformSecuritySettingsPage'
 import PlatformTiersPage from '@/pages/PlatformTiersPage'
 import ProjectBoardPage from '@/pages/ProjectBoardPage'
+import SprintPage from '@/pages/SprintPage'
 import ProjectListPage from '@/pages/ProjectListPage'
 import ProjectMembersPage from '@/pages/ProjectMembersPage'
 import SessionsPage from '@/pages/SessionsPage'
@@ -107,6 +108,10 @@ export default function AppRouter() {
               Rute lama /projects/:projectId/members (tanpa shell) TETAP ada
               di bawah, tidak dihapus -- lihat komentar ProjectMembersPage.tsx. */}
           <Route path="/workspaces/:wsId/projects/:projectId/members" element={<ProjectMembersPage />} />
+          {/* Track S5, menu "Sprint" PM (implementation_gaps.md IG-92) --
+              status 3-state, kapasitas SP, dibangun mengikuti "PM
+              Sprint.dc.html"/"PM Add Sprint.dc.html". */}
+          <Route path="/workspaces/:wsId/projects/:projectId/sprints" element={<SprintPage />} />
           {/* S4W-05/06, US-020/021 ("AW Custom Status.dc.html"). */}
           <Route path="/workspaces/:wsId/statuses" element={<CustomStatusPage />} />
           {/* S4W-07/08, US-033 ("AW Cooldown Mention.dc.html"). */}

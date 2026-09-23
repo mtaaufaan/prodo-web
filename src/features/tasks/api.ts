@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api'
 
-import type { CustomStatus, Sprint, Task, TaskDependency, TaskFormValues, TaskPicPhase, TaskStatusSession } from './types'
+import type { CustomStatus, Sprint, SprintSummary, Task, TaskDependency, TaskFormValues, TaskPicPhase, TaskStatusSession } from './types'
 
 export function getWorkspaceStatuses(workspaceId: string) {
   return apiClient.get<CustomStatus[]>(`/api/v1/workspaces/${workspaceId}/statuses`)
@@ -38,16 +38,32 @@ export function getProjectSprints(projectId: string) {
   return apiClient.get<Sprint[]>(`/api/v1/projects/${projectId}/sprints`)
 }
 
-export function createSprint(projectId: string, values: { name: string; start_date?: string; end_date?: string }) {
+export function createSprint(projectId: string, values: { name: string; start_date?: string; end_date?: string; goal?: string }) {
   return apiClient.post<Sprint>(`/api/v1/projects/${projectId}/sprints`, values)
 }
 
+export function updateSprint(sprintId: string, values: { name: string; start_date?: string; end_date?: string; goal?: string }) {
+  return apiClient.put<{ id: string }>(`/api/v1/sprints/${sprintId}`, values)
+}
+
 export function startSprint(sprintId: string) {
-  return apiClient.post<{ id: string; is_active: boolean }>(`/api/v1/sprints/${sprintId}/start`)
+  return apiClient.post<{ id: string; status: string }>(`/api/v1/sprints/${sprintId}/start`)
 }
 
 export function completeSprint(sprintId: string) {
-  return apiClient.post<{ id: string; is_active: boolean }>(`/api/v1/sprints/${sprintId}/complete`)
+  return apiClient.post<{ id: string; status: string }>(`/api/v1/sprints/${sprintId}/complete`)
+}
+
+export function reopenSprint(sprintId: string) {
+  return apiClient.post<{ id: string; status: string }>(`/api/v1/sprints/${sprintId}/reopen`)
+}
+
+export function assignTasksToSprint(sprintId: string, taskIds: string[]) {
+  return apiClient.post<{ id: string; assigned_count: number }>(`/api/v1/sprints/${sprintId}/assign-tasks`, { task_ids: taskIds })
+}
+
+export function getSprintSummary(sprintId: string) {
+  return apiClient.get<SprintSummary>(`/api/v1/sprints/${sprintId}/summary`)
 }
 
 export function deleteSprint(sprintId: string) {

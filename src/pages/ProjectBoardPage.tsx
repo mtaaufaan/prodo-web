@@ -6,14 +6,7 @@ import TaskDetailModal from '@/components/tasks/TaskDetailModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { Button } from '@/components/ui/button'
 import { useProjects } from '@/features/projects/hooks'
-import {
-  useCompleteSprint,
-  useCreateSprint,
-  useProjectSprints,
-  useProjectTasks,
-  useStartSprint,
-  useWorkspaceStatuses,
-} from '@/features/tasks/hooks'
+import { useProjectSprints, useProjectTasks, useWorkspaceStatuses } from '@/features/tasks/hooks'
 import type { Task, TaskPriority } from '@/features/tasks/types'
 import { cn } from '@/lib/utils'
 
@@ -67,6 +60,11 @@ function TaskCard({ task, onOpen }: { task: Task; onOpen: () => void }) {
 // disederhanakan). Kanban KOLOM=status, tanpa drag-drop -- pindah status
 // lewat TaskDetailModal (chip klik). View List/Gantt dari desain asli
 // BELUM dibangun (Phase 1 cuma Kanban) -- dicatat sebagai gap disengaja.
+//
+// Panel Sprint inline (dulu di sini, S4-10) DIHAPUS 2026-09-23 (Track S5,
+// IG-92) -- digantikan halaman "Sprint" tersendiri (menu nav PM) yang
+// jauh lebih lengkap (status 3-state, kapasitas SP, goal, dsb). Label
+// "Sprint aktif" tetap dipertahankan di sini sebagai konteks cepat.
 function ProjectBoardPageContent() {
   const { wsId, projectId } = useParams<{ wsId: string; projectId: string }>()
   const workspaceId = wsId ?? ''
@@ -81,26 +79,14 @@ function ProjectBoardPageContent() {
 
   const [addTaskOpen, setAddTaskOpen] = useState(false)
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null)
-  const [newSprintName, setNewSprintName] = useState('')
-  const [sprintPanelOpen, setSprintPanelOpen] = useState(false)
 
-  const createSprint = useCreateSprint(pid)
-  const startSprint = useStartSprint(pid)
-  const completeSprint = useCompleteSprint(pid)
-
-  const activeSprint = sprints.data?.find((s) => s.is_active) ?? null
+  const activeSprint = sprints.data?.find((s) => s.status === 'active') ?? null
 
   const columns = useMemo(() => {
     const list = statuses.data ?? []
     const taskList = tasks.data ?? []
     return list.map((s) => ({ status: s, tasks: taskList.filter((t) => t.status_id === s.id) }))
   }, [statuses.data, tasks.data])
-
-  const onCreateSprint = () => {
-    const name = newSprintName.trim()
-    if (!name) return
-    createSprint.mutate({ name }, { onSuccess: () => setNewSprintName('') })
-  }
 
   return (
     <div className="space-y-3.5 p-6">
@@ -114,63 +100,11 @@ function ProjectBoardPageContent() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={() => setSprintPanelOpen((v) => !v)} className="font-mono text-[10px] uppercase tracking-[0.06em]">
-            Sprint
-          </Button>
           <Button type="button" onClick={() => setAddTaskOpen(true)} className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]">
             + Task
           </Button>
         </div>
       </div>
-
-      {sprintPanelOpen && (
-        <div className="border border-line bg-panel p-4">
-          <div className="mb-2.5 font-mono text-[9px] uppercase tracking-[0.14em] text-text-dim">Sprint</div>
-          <div className="flex flex-col gap-2">
-            {(sprints.data ?? []).map((s) => (
-              <div key={s.id} className="flex items-center justify-between gap-3 border border-line-strong px-3 py-2">
-                <div>
-                  <div className="text-[12px] text-text-bone">{s.name}</div>
-                  <div className="font-mono text-[9px] text-text-muted">
-                    {s.start_date ?? '—'} – {s.end_date ?? '—'}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={cn('font-mono text-[9px] font-semibold', s.is_active ? 'text-mint' : 'text-text-muted')}>
-                    {s.is_active ? '● AKTIF' : 'NONAKTIF'}
-                  </span>
-                  {!s.is_active && (
-                    <button type="button" onClick={() => startSprint.mutate(s.id)} className="font-mono text-[9.5px] text-signal">
-                      Mulai
-                    </button>
-                  )}
-                  {s.is_active && (
-                    <button type="button" onClick={() => completeSprint.mutate(s.id)} className="font-mono text-[9.5px] text-amber">
-                      Selesaikan
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-            <div className="flex gap-2">
-              <input
-                value={newSprintName}
-                onChange={(e) => setNewSprintName(e.target.value)}
-                placeholder="Nama sprint baru"
-                className="flex-1 border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[10.5px] text-text-bone outline-none focus-visible:border-signal"
-              />
-              <button
-                type="button"
-                onClick={onCreateSprint}
-                disabled={createSprint.isPending}
-                className="border border-signal px-3 py-2 font-mono text-[9.5px] font-bold uppercase text-signal"
-              >
-                + Sprint
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {(statuses.isLoading || tasks.isLoading) && <p className="text-sm text-text-muted">Memuat...</p>}
       {(statuses.isError || tasks.isError) && <p className="text-sm text-destructive">Gagal memuat papan task.</p>}

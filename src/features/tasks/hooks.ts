@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   acknowledgePic,
   addTaskDependency,
+  assignTasksToSprint,
   completeSprint,
   createCustomStatus,
   createSprint,
@@ -12,12 +13,14 @@ import {
   getPicHistory,
   getProjectSprints,
   getProjectTasks,
+  getSprintSummary,
   getTask,
   getTaskDependencies,
   getTaskStatusSessions,
   getWorkspaceStatuses,
   moveStatus,
   removeTaskDependency,
+  reopenSprint,
   restoreStatus,
   setStatusStartConfirmation,
   setTaskCompleteness,
@@ -25,6 +28,7 @@ import {
   startSprint,
   startWork,
   undefineStatus,
+  updateSprint,
   updateStatusAppearance,
   updateTask,
 } from './api'
@@ -34,6 +38,7 @@ export const taskKeys = {
   all: ['tasks'] as const,
   statuses: (workspaceId: string) => [...taskKeys.all, 'statuses', workspaceId] as const,
   sprints: (projectId: string) => [...taskKeys.all, 'sprints', projectId] as const,
+  sprintSummary: (sprintId: string) => [...taskKeys.all, 'sprint-summary', sprintId] as const,
   list: (projectId: string) => [...taskKeys.all, 'list', projectId] as const,
   detail: (taskId: string) => [...taskKeys.all, 'detail', taskId] as const,
   picHistory: (taskId: string) => [...taskKeys.all, 'pic-history', taskId] as const,
@@ -129,16 +134,31 @@ export function useTask(taskId: string | null) {
 export function useCreateSprint(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (values: { name: string; start_date?: string; end_date?: string }) => createSprint(projectId, values),
+    mutationFn: (values: { name: string; start_date?: string; end_date?: string; goal?: string }) => createSprint(projectId, values),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.sprints(projectId) }),
   })
 }
 
+export function useUpdateSprint(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ sprintId, values }: { sprintId: string; values: { name: string; start_date?: string; end_date?: string; goal?: string } }) =>
+      updateSprint(sprintId, values),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.sprints(projectId) }),
+  })
+}
+
+// useStartSprint invalidate DUA taskKeys.sprints (bukan cuma sprints) --
+// mulai sprint baru bisa auto-close sprint lain yang masih aktif di
+// project ini (IG-92), task belum-Done-nya ikut pindah ke backlog.
 export function useStartSprint(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (sprintId: string) => startSprint(sprintId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.sprints(projectId) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.sprints(projectId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+    },
   })
 }
 
@@ -150,6 +170,34 @@ export function useCompleteSprint(projectId: string) {
       queryClient.invalidateQueries({ queryKey: taskKeys.sprints(projectId) })
       queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
     },
+  })
+}
+
+// useReopenSprint ("↺ BUKA KEMBALI", IG-92 -- baru, tidak ada di S4
+// original).
+export function useReopenSprint(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (sprintId: string) => reopenSprint(sprintId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.sprints(projectId) }),
+  })
+}
+
+// useAssignTasksToSprint ("Tarik Task dari Backlog" saat buat sprint
+// baru, IG-92).
+export function useAssignTasksToSprint(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ sprintId, taskIds }: { sprintId: string; taskIds: string[] }) => assignTasksToSprint(sprintId, taskIds),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) }),
+  })
+}
+
+export function useSprintSummary(sprintId: string) {
+  return useQuery({
+    queryKey: taskKeys.sprintSummary(sprintId),
+    queryFn: () => getSprintSummary(sprintId),
+    enabled: sprintId !== '',
   })
 }
 
