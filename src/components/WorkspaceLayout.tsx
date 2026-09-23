@@ -148,18 +148,17 @@ function awNavItems(workspaceId: string): WorkspaceNavItemDef[] {
 // null (PM belum py project SAMA SEKALI, atau belum termuat) -> seluruh
 // item project-scoped jatuh ke "SEGERA" sampai ada project aktif.
 //
-// Status per 2026-09-22: cuma 'kinerja' (reuse AW) dan 'board' (Kanban
-// Phase 1, S4-05 dst/IG-46-49) yang py halaman sungguhan. 'pmmembers'
-// (ProjectMembersPage, S3-24/IG-17) BARU disambungkan sesi ini -- dulu
-// halaman berdiri sendiri di luar shell. 8 sisanya "SEGERA", masing-
-// masing dipetakan ke Track S5: sprint/status/picgroup -> S5A/S5B,
-// import -> S5C, board (List/Gantt/Riwayat) -> S5D, analytics -> S5E.
-// 'rule' (level PROJECT, beda dari Rule Automation AW yang level
-// workspace/IG-82) dan 'docs' (level PROJECT, beda dari AW Documents yang
-// workspace-wide) dan 'audit' (Audit Trail PM, beda dari Audit Trail
-// Workspace AW) BELUM py task Sprint 5 sama sekali -- gap baru ditemukan
-// saat membaca NAV['Project Manager'], TIDAK ada di sprint_backlog.md
-// Track S5A-E manapun, perlu dikonfirmasi cakupannya ke user sebelum
+// Status per 2026-09-23: 'kinerja' (reuse AW), 'board' (Kanban Phase 1,
+// S4-05 dst/IG-46-49), 'pmmembers' (ProjectMembersPage, S3-24/IG-17), dan
+// 'sprint' (dibangun lengkap Track S5, IG-92 -- status 3-state
+// backlog/aktif/selesai, kapasitas SP US-081, audit trail) sudah py
+// halaman sungguhan. 7 sisanya "SEGERA", dipetakan ke Track S5:
+// status/picgroup -> S5A/S5B, import -> S5C, board (List/Gantt/Riwayat)
+// -> S5D, analytics -> S5E. 'rule' (level PROJECT, beda dari Rule
+// Automation AW yang level workspace/IG-82) dan 'docs' (level PROJECT,
+// beda dari AW Documents yang workspace-wide) dan 'audit' (Audit Trail
+// PM, beda dari Audit Trail Workspace AW) BELUM py task Sprint 5 sama
+// sekali (IG-90), perlu dikonfirmasi cakupannya ke user sebelum
 // dikerjakan.
 function pmNavItems(workspaceId: string, activeProjectId: string | null): WorkspaceNavItemDef[] {
   const p = activeProjectId
@@ -172,7 +171,14 @@ function pmNavItems(workspaceId: string, activeProjectId: string | null): Worksp
       tabs: ['Project Health', 'Member Performance', 'Flow Efficiency'],
       cta: null,
     },
-    { key: 'sprint', icon: '◧', label: 'Sprint', to: null, tabs: ['Semua', 'Aktif', 'Backlog', 'Selesai'], cta: '+ Sprint' },
+    {
+      key: 'sprint',
+      icon: '◧',
+      label: 'Sprint',
+      to: p ? `/workspaces/${workspaceId}/projects/${p}/sprints` : null,
+      tabs: ['Semua', 'Aktif', 'Backlog', 'Selesai'],
+      cta: '+ Sprint',
+    },
     {
       key: 'pmmembers',
       icon: '◉',

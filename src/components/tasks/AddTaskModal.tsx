@@ -234,7 +234,7 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
                     className={cn('border px-2.5 py-1.5 font-mono text-[9.5px]', sprintId === s.id ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted')}
                   >
                     {s.name}
-                    {s.is_active ? ' · AKTIF' : ''}
+                    {s.status === 'active' ? ' · AKTIF' : ''}
                   </button>
                 ))}
               </div>
