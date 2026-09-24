@@ -33,7 +33,7 @@ interface KanbanBoardProps {
 
 export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask }: KanbanBoardProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
-  const members = useProjectMembers(projectId)
+  const members = useProjectMembers(projectId, true)
   const setStatus = useSetTaskStatus(projectId)
   const reorder = useReorderTask(projectId)
   const bulkSetStatus = useBulkSetTaskStatus(projectId)

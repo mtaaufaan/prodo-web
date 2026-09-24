@@ -29,6 +29,12 @@ function todayISO(offsetDays = 0) {
   return d.toISOString().slice(0, 10)
 }
 
+function addDaysISO(dateStr: string, days: number) {
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 export default function AddSprintModal({ projectId, open, onClose }: AddSprintModalProps) {
   const [name, setName] = useState('')
   const [start, setStart] = useState('')
@@ -56,8 +62,9 @@ export default function AddSprintModal({ projectId, open, onClose }: AddSprintMo
   }
 
   const applyPreset = (days: number) => {
-    setStart(todayISO())
-    setEnd(todayISO(days))
+    const base = start || todayISO()
+    setStart(base)
+    setEnd(addDaysISO(base, days))
   }
 
   const togglePicked = (taskId: string) => {

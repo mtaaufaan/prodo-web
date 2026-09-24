@@ -1,6 +1,19 @@
 import { apiClient } from '@/lib/api'
 
-import type { CustomStatus, Sprint, SprintSummary, Task, TaskDependency, TaskFormValues, TaskPicPhase, TaskStatusSession } from './types'
+import type {
+  ActiveTimer,
+  CustomStatus,
+  Sprint,
+  SprintSummary,
+  Task,
+  TaskActivityEntry,
+  TaskDependency,
+  TaskFormValues,
+  TaskPicPhase,
+  TaskStatusSession,
+  TaskVersionSnapshot,
+  TimeEntry,
+} from './types'
 
 export function getWorkspaceStatuses(workspaceId: string) {
   return apiClient.get<CustomStatus[]>(`/api/v1/workspaces/${workspaceId}/statuses`)
@@ -159,4 +172,50 @@ export function startWork(taskId: string) {
 
 export function getTaskStatusSessions(taskId: string) {
   return apiClient.get<TaskStatusSession[]>(`/api/v1/tasks/${taskId}/status-sessions`)
+}
+
+// getTaskVersions -- IG-97, tab RIWAYAT VERSI (task_version_snapshots).
+export function getTaskVersions(taskId: string) {
+  return apiClient.get<TaskVersionSnapshot[]>(`/api/v1/tasks/${taskId}/versions`)
+}
+
+// getTaskActivity -- IG-94/IG-97, tab AKTIVITAS (feed audit_logs task).
+export function getTaskActivity(taskId: string, page: number, perPage: number) {
+  return apiClient.get<{ items: TaskActivityEntry[]; total: number }>(`/api/v1/tasks/${taskId}/activity`, {
+    params: { page, per_page: perPage },
+  })
+}
+
+// Timesheet (IG-97/US-036/037, API_CONTRACT.md §15) -- start/stop timer +
+// entri manual + approval AW/PM.
+export function startTimer(taskId: string) {
+  return apiClient.post<{ timer_id: string; task_id: string; started_at: string }>(`/api/v1/tasks/${taskId}/time-entries/start`)
+}
+
+export function stopTimer(taskId: string) {
+  return apiClient.post<TimeEntry>(`/api/v1/tasks/${taskId}/time-entries/stop`)
+}
+
+export function getActiveTimer(taskId: string) {
+  return apiClient.get<ActiveTimer | null>(`/api/v1/tasks/${taskId}/time-entries/active`)
+}
+
+export function createManualTimeEntry(taskId: string, values: { started_at: string; ended_at: string; note?: string }) {
+  return apiClient.post<TimeEntry>(`/api/v1/tasks/${taskId}/time-entries`, values)
+}
+
+export function getTaskTimeEntries(taskId: string) {
+  return apiClient.get<{ items: TimeEntry[]; total: number }>(`/api/v1/tasks/${taskId}/time-entries`)
+}
+
+export function updateManualTimeEntry(entryId: string, values: { started_at: string; ended_at: string; note?: string }) {
+  return apiClient.patch<TimeEntry>(`/api/v1/time-entries/${entryId}`, values)
+}
+
+export function approveTimeEntry(entryId: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/time-entries/${entryId}/approve`)
+}
+
+export function rejectTimeEntry(entryId: string, rejectionNote: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/time-entries/${entryId}/reject`, { rejection_note: rejectionNote })
 }

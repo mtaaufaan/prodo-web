@@ -8,17 +8,26 @@ import { ALLOWED_EXTENSIONS, MAX_ATTACHMENT_SIZE_BYTES, fileExt, formatBytes } f
 import { useProjectMembers } from '@/features/project-members/hooks'
 import {
   useAcknowledgePic,
+  useActiveTimer,
   useAddDependency,
+  useApproveTimeEntry,
+  useCreateManualTimeEntry,
   useDeleteTask,
   usePicHistory,
   useProjectTasks,
+  useRejectTimeEntry,
   useRemoveDependency,
   useSetCompleteness,
   useSetTaskStatus,
+  useStartTimer,
   useStartWork,
+  useStopTimer,
   useTask,
+  useTaskActivity,
   useTaskDependencies,
   useTaskStatusSessions,
+  useTaskTimeEntries,
+  useTaskVersions,
   useUpdateTask,
 } from '@/features/tasks/hooks'
 import { FIBONACCI_STORY_POINTS, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
@@ -38,6 +47,53 @@ function formatDuration(ms: number): string {
   return hours > 0 ? `${hours}j ${minutes}m` : `${minutes}m`
 }
 
+// describeTaskAction -- IG-94/IG-97, narasi tab AKTIVITAS per action
+// (pola sama formatAuditNarrative Workspace/Group Audit Trail -- setiap
+// action baru butuh case sendiri di sini, fallback generik untuk yang
+// belum dipetakan).
+function describeTaskAction(action: string, before: Record<string, unknown> | null, after: Record<string, unknown> | null, metadata: Record<string, unknown> | null): string {
+  switch (action) {
+    case 'task.created':
+      return `Task dibuat: "${(after as { title?: string } | null)?.title ?? metadata?.title ?? ''}"`
+    case 'task.updated':
+      return `Field task diperbarui: "${(after as { title?: string } | null)?.title ?? ''}"`
+    case 'task.status_changed':
+      return `Status diubah dari ${(before as { status?: string } | null)?.status ?? '—'} ke ${(after as { status?: string } | null)?.status ?? '—'}`
+    case 'task.completeness_changed':
+      return `Kelengkapan diubah jadi "${(after as { completeness?: string } | null)?.completeness ?? '—'}"`
+    case 'task.deleted':
+      return 'Task dihapus'
+    case 'task.dependency_added':
+      return 'Dependency baru ditambahkan'
+    case 'task.dependency_removed':
+      return 'Dependency dihapus'
+    case 'task.pic_acknowledged':
+      return 'Serah terima PIC dikonfirmasi'
+    case 'attachment.uploaded':
+      return `Lampiran diunggah: "${(metadata as { name?: string } | null)?.name ?? ''}"`
+    case 'attachment.renamed':
+      return 'Lampiran diganti nama'
+    case 'attachment.deleted':
+      return 'Lampiran dihapus'
+    case 'attachment.restored':
+      return 'Lampiran dipulihkan'
+    default:
+      return action
+  }
+}
+
+type DetailTab = 'overview' | 'deps' | 'pic' | 'attach' | 'time' | 'versions' | 'activity'
+
+const TABS: { key: DetailTab; label: string }[] = [
+  { key: 'overview', label: 'RINGKASAN' },
+  { key: 'deps', label: 'DEPENDENCY' },
+  { key: 'pic', label: 'PIC FASE' },
+  { key: 'attach', label: 'LAMPIRAN' },
+  { key: 'time', label: 'WAKTU STATUS' },
+  { key: 'versions', label: 'RIWAYAT VERSI' },
+  { key: 'activity', label: 'AKTIVITAS' },
+]
+
 interface TaskDetailModalProps {
   taskId: string | null
   onClose: () => void
@@ -46,23 +102,39 @@ interface TaskDetailModalProps {
 }
 
 // TaskDetailModal (Task Management Core Phase 1/2/3/4, + LAMPIRAN H20
-// S4W-20/EPIC 10). Versi DISEDERHANAKAN dari desain "PM Task Detail.dc.html"
-// (panel raksasa dengan tab kiri) -- lihat+edit field dasar, ganti status
-// via chip + pilih PIC (Phase 2, S4-31/32) + riwayat PIC, toggle
-// kelengkapan (Phase 3, S4-44/45), dependency Finish-to-Start (Phase 3,
-// S4-51/52 -- "autocomplete" disederhanakan jadi <select> native atas
-// daftar task project yang sudah di-fetch), tombol "Mulai Pengerjaan" +
-// widget Status Time Tracking (Phase 4, S4-65/66 -- Queue/Active/Lead Time
-// dihitung di klien dari raw session rows, bukan agregat backend
-// terpisah). LAMPIRAN jadi SECTION baru (bukan tab terpisah -- modal ini
-// tidak pernah pakai pola tab sama sekali, beda dari desain aslinya) --
-// rename/hapus di FE cuma ditampilkan untuk pengunggah sendiri (server
-// tetap mengizinkan PM/AW lewat endpoint yang sama; PM/AW mengelola
-// lampiran user lain lewat halaman "AW Documents", bukan dari modal ini).
+// S4W-20/EPIC 10). Navigasi 7 tab mengikuti desain "PM Task Detail.dc.html"
+// (IG-97, gap-check diminta user, dikerjakan LENGKAP "sama seperti desain
+// aslinya" -- sebelumnya SEMUA section digabung satu scroll panjang).
+// RINGKASAN (+DESKRIPSI, susulan IG-97 -- sebelumnya field description task
+// TIDAK PERNAH ditampilkan/diedit sama sekali di modal ini meski ada di
+// AddTaskModal, onSave lama diam-diam MENGOSONGKAN deskripsi tiap simpan
+// karena tidak pernah ikut dikirim -- bug pre-existing, ditemukan sekalian
+// saat membangun RIWAYAT VERSI), DEPENDENCY, PIC FASE, LAMPIRAN: lihat+edit
+// field dasar, ganti status via chip + pilih PIC (Phase 2, S4-31/32) +
+// riwayat PIC, toggle kelengkapan (Phase 3, S4-44/45), dependency
+// Finish-to-Start (Phase 3, S4-51/52 -- "autocomplete" disederhanakan jadi
+// <select> native, LINGKARAN DEPENDENCY ditampilkan sebagai teks error
+// polos bukan panel khusus -- simplifikasi kecil diterima), tombol "Mulai
+// Pengerjaan". WAKTU STATUS lengkap: widget Queue/Active/Lead Time (Phase
+// 4, S4-65/66) + breakdown AKUMULASI PER STATUS + TIMELINE SESI
+// KRONOLOGIS (keduanya baru, dari raw session rows yang sama) + widget
+// Timesheet (start/stop timer + entri manual + approval AW/PM, IG-97/
+// US-036/037 -- DIMAJUKAN dari Sprint S8 asli, TIDAK ADA di desain
+// "PM Task Detail.dc.html" sendiri jadi ditaruh di sini sebagai section
+// tambahan, keputusan penempatan disengaja). RIWAYAT VERSI (snapshot
+// deskripsi tiap disimpan, IG-97) dan AKTIVITAS (feed audit_logs task,
+// menutup IG-94 -- audit_logs task sebelumnya kosong total sejak Phase 1)
+// KEDUANYA sudah lengkap. LAMPIRAN: rename/hapus di FE cuma ditampilkan
+// untuk pengunggah sendiri (server tetap mengizinkan PM/AW lewat endpoint
+// yang sama; PM/AW mengelola lampiran user lain lewat halaman "AW
+// Documents", bukan dari modal ini). PIC handoff TETAP picker checklist
+// polos (bukan alur 2-langkah "SERAHKAN DARI"→"SERAHKAN KE" desain saat
+// PIC aktif >1) -- simplifikasi kecil diterima, sama pola PicPickerModal
+// Kanban.
 export default function TaskDetailModal({ taskId, onClose, projectId, statuses }: TaskDetailModalProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const task = useTask(taskId)
-  const members = useProjectMembers(projectId)
+  const members = useProjectMembers(projectId, true)
   const projectTasks = useProjectTasks(projectId)
   const update = useUpdateTask(projectId)
   const setStatus = useSetTaskStatus(projectId)
@@ -80,14 +152,32 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const renameAttachment = useRenameAttachment(taskId ?? '')
   const deleteAttachmentMut = useDeleteAttachment(taskId ?? '')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const versions = useTaskVersions(taskId)
+  const activeTimer = useActiveTimer(taskId)
+  const timeEntries = useTaskTimeEntries(taskId)
+  const startTimer = useStartTimer(taskId ?? '')
+  const stopTimer = useStopTimer(taskId ?? '')
+  const createManualEntry = useCreateManualTimeEntry(taskId ?? '')
+  const approveEntry = useApproveTimeEntry(taskId ?? '')
+  const rejectEntry = useRejectTimeEntry(taskId ?? '')
 
+  const [activeTab, setActiveTab] = useState<DetailTab>('overview')
+  const [activityPage, setActivityPage] = useState(1)
+  const activity = useTaskActivity(taskId, activityPage)
   const [editing, setEditing] = useState(false)
   const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
   const [dueDate, setDueDate] = useState('')
   const [estimatedHours, setEstimatedHours] = useState('')
   const [storyPoints, setStoryPoints] = useState<number | null>(null)
   const [notice, setNotice] = useState('')
+  const [manualStart, setManualStart] = useState('')
+  const [manualEnd, setManualEnd] = useState('')
+  const [manualNote, setManualNote] = useState('')
+  const [timeError, setTimeError] = useState('')
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectNote, setRejectNote] = useState('')
   const [pendingStatusId, setPendingStatusId] = useState<string | null>(null)
   const [picSelection, setPicSelection] = useState<string[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -104,11 +194,14 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   useEffect(() => {
     if (task.data) {
       setTitle(task.data.title)
+      setDescription(typeof task.data.description === 'string' ? task.data.description : '')
       setPriority(task.data.priority)
       setDueDate(task.data.due_date ?? '')
       setEstimatedHours(task.data.estimated_hours != null ? String(task.data.estimated_hours) : '')
       setStoryPoints(task.data.story_points)
     }
+    setActiveTab('overview')
+    setActivityPage(1)
     setEditing(false)
     setNotice('')
     setPendingStatusId(null)
@@ -122,6 +215,12 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     setRenamingId(null)
     setRenameDraft('')
     setDeleteConfirmId(null)
+    setManualStart('')
+    setManualEnd('')
+    setManualNote('')
+    setTimeError('')
+    setRejectingId(null)
+    setRejectNote('')
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sinkron SEKALI saat task berganti (by id), bukan tiap refetch
   }, [task.data?.id, taskId])
 
@@ -133,6 +232,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     editing &&
     !!task.data &&
     (title.trim() !== task.data.title ||
+      description !== (typeof task.data.description === 'string' ? task.data.description : '') ||
       priority !== task.data.priority ||
       dueDate !== (task.data.due_date ?? '') ||
       estimatedHours !== (task.data.estimated_hours != null ? String(task.data.estimated_hours) : '') ||
@@ -146,6 +246,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const handleCancelEdit = () => {
     if (task.data) {
       setTitle(task.data.title)
+      setDescription(typeof task.data.description === 'string' ? task.data.description : '')
       setPriority(task.data.priority)
       setDueDate(task.data.due_date ?? '')
       setEstimatedHours(task.data.estimated_hours != null ? String(task.data.estimated_hours) : '')
@@ -163,6 +264,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
         taskId,
         values: {
           title: title.trim(),
+          description: description.trim() || undefined,
           priority,
           due_date: dueDate,
           estimated_hours: estimatedHours ? parseFloat(estimatedHours) : null,
@@ -297,6 +399,35 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     URL.revokeObjectURL(url)
   }
 
+  // onCreateManualEntry -- Timesheet entri manual (US-037), butuh approval
+  // AW/PM sebelum dihitung ke jam tercatat.
+  const onCreateManualEntry = () => {
+    setTimeError('')
+    if (!manualStart || !manualEnd) {
+      setTimeError('Tanggal/jam mulai dan selesai wajib diisi.')
+      return
+    }
+    createManualEntry.mutate(
+      { started_at: new Date(manualStart).toISOString(), ended_at: new Date(manualEnd).toISOString(), note: manualNote.trim() || undefined },
+      {
+        onSuccess: () => { setManualStart(''); setManualEnd(''); setManualNote('') },
+        onError: (err: unknown) => {
+          const apiErr = err as { code?: string }
+          setTimeError(
+            apiErr.code === 'TIME_ENTRY_OVERLAP'
+              ? 'Rentang waktu ini overlap dengan entri yang sudah ada.'
+              : 'Gagal menambah entri waktu.',
+          )
+        },
+      },
+    )
+  }
+
+  const onConfirmReject = () => {
+    if (!rejectingId || !rejectNote.trim()) return
+    rejectEntry.mutate({ entryId: rejectingId, note: rejectNote.trim() }, { onSuccess: () => { setRejectingId(null); setRejectNote('') } })
+  }
+
   const activePics = task.data?.active_pics ?? []
   const myPendingAck = activePics.find((p) => p.user_id === currentUserId && p.acknowledged_at === null)
   const isCreatorOrActivePic = task.data != null && (task.data.created_by === currentUserId || activePics.some((p) => p.user_id === currentUserId))
@@ -323,6 +454,29 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   }
   const leadMs = sessions.length > 0 ? (sessions[sessions.length - 1].exited_at ? new Date(sessions[sessions.length - 1].exited_at!).getTime() : Date.now()) - new Date(sessions[0].entered_at).getTime() : 0
 
+  // statusTotals (IG-97, WAKTU STATUS "AKUMULASI PER STATUS") -- sesi
+  // digabung per status_name, TIDAK direset saat mundur (sama catatan
+  // desain "sesi baru diakumulasi ke total").
+  const statusTotals = new Map<string, { queueMs: number; activeMs: number; sessionCount: number }>()
+  for (const s of sessions) {
+    const entered = new Date(s.entered_at).getTime()
+    const started = s.work_started_at ? new Date(s.work_started_at).getTime() : null
+    const exited = s.exited_at ? new Date(s.exited_at).getTime() : null
+    const entry = statusTotals.get(s.status_name) ?? { queueMs: 0, activeMs: 0, sessionCount: 0 }
+    entry.sessionCount += 1
+    if (started != null) {
+      entry.queueMs += started - entered
+      entry.activeMs += (exited ?? Date.now()) - started
+    }
+    statusTotals.set(s.status_name, entry)
+  }
+
+  // myActiveEntry -- entri time_entries pending milik user sendiri (untuk
+  // gate tombol approve/reject: bukan approver tetap bisa lihat, backend
+  // yang menolak kalau bukan AW/PM, sama pola "tampilkan semua, backend
+  // yang menegakkan" di seluruh modal ini).
+  const timerRunningHere = activeTimer.data != null
+
   return (
     <Dialog open={taskId !== null} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-[680px]">
@@ -336,476 +490,727 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
         {task.isLoading && <p className="px-5 py-5 text-sm text-text-muted">Memuat...</p>}
 
         {task.data && (
-          <div className="flex max-h-[calc(100vh-300px)] flex-col gap-4 overflow-y-auto px-5 py-5">
-            <div>
-              <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">STATUS</label>
-              <div className="flex flex-wrap gap-1.5">
-                {statuses.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    disabled={s.is_undefined}
-                    onClick={() => openPicPicker(s.id)}
-                    className={cn(
-                      'border px-2.5 py-1.5 font-mono text-[9.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-40',
-                      s.id === task.data.status_id ? 'border-signal bg-signal text-bg-deep' : 'border-line-strong text-text-muted hover:text-text-bone',
-                    )}
-                  >
-                    {s.name}
-                  </button>
-                ))}
-              </div>
-
-              {showStartWorkButton && (
-                <Button
+          <>
+            <div className="flex gap-1 overflow-x-auto border-b border-line px-5">
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
                   type="button"
-                  onClick={() => startWork.mutate()}
-                  disabled={startWork.isPending}
-                  className="mt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.06em]"
+                  onClick={() => setActiveTab(t.key)}
+                  className={cn(
+                    'whitespace-nowrap border-b-2 px-2.5 py-2.5 font-mono text-[9.5px] tracking-[0.1em]',
+                    activeTab === t.key ? 'border-signal text-text-bone' : 'border-transparent text-text-dim hover:text-text-muted',
+                  )}
                 >
-                  ▶ Mulai Pengerjaan
-                </Button>
-              )}
-
-              {pendingStatusId && (
-                <div className="mt-3 border border-amber bg-amber/5 p-3">
-                  <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-amber">PILIH PIC FASE</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(members.data ?? []).map((m) => {
-                      const on = picSelection.includes(m.user_id)
-                      return (
-                        <button
-                          key={m.user_id}
-                          type="button"
-                          onClick={() => togglePic(m.user_id)}
-                          className={cn(
-                            'border px-2.5 py-1.5 font-mono text-[9.5px]',
-                            on ? 'border-mint bg-mint/10 text-mint' : 'border-line-strong text-text-muted',
-                          )}
-                        >
-                          {on ? '● ' : ''}
-                          {m.display_name || m.email}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {picError && <p className="mt-2 text-[10px] text-destructive">⚠ {picError}</p>}
-                  <div className="mt-2.5 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={onConfirmMove}
-                      disabled={setStatus.isPending}
-                      className="border border-amber px-3 py-1.5 font-mono text-[9.5px] font-bold uppercase text-amber"
-                    >
-                      Pindahkan &amp; Tetapkan PIC
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPendingStatusId(null)}
-                      className="border border-line-strong px-3 py-1.5 font-mono text-[9.5px] uppercase text-text-muted"
-                    >
-                      Batal
-                    </button>
-                  </div>
-                </div>
-              )}
+                  {t.label}
+                </button>
+              ))}
             </div>
 
-            {editing ? (
-              <>
-                <div>
-                  <label className="mb-1.5 block font-mono text-[9px] tracking-[0.14em] text-text-dim">JUDUL</label>
-                  <input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full border border-line-strong bg-input-bg px-3 py-2.5 text-[13px] text-text-bone outline-none focus-visible:border-signal"
-                  />
-                </div>
-                <div className="flex flex-wrap gap-3.5">
-                  <div className="min-w-[180px] flex-1">
-                    <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">PRIORITY</label>
+            <div className="flex max-h-[calc(100vh-340px)] flex-col gap-4 overflow-y-auto px-5 py-5">
+              {activeTab === 'overview' && (
+                <>
+                  <div>
+                    <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">STATUS</label>
                     <div className="flex flex-wrap gap-1.5">
-                      {PRIORITIES.map((p) => (
+                      {statuses.map((s) => (
                         <button
-                          key={p}
+                          key={s.id}
                           type="button"
-                          onClick={() => setPriority(p)}
+                          disabled={s.is_undefined}
+                          onClick={() => openPicPicker(s.id)}
                           className={cn(
-                            'border px-2.5 py-1.5 font-mono text-[9.5px] font-semibold uppercase',
-                            priority === p ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
+                            'border px-2.5 py-1.5 font-mono text-[9.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-40',
+                            s.id === task.data.status_id ? 'border-signal bg-signal text-bg-deep' : 'border-line-strong text-text-muted hover:text-text-bone',
                           )}
                         >
-                          {p}
+                          {s.name}
                         </button>
                       ))}
                     </div>
-                  </div>
-                  <div className="w-[160px]">
-                    <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">DUE DATE</label>
-                    <input
-                      type="date"
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      className="w-full border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[11px] text-text-bone outline-none focus-visible:border-signal"
-                    />
-                  </div>
-                  <div className="w-[130px]">
-                    <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">ESTIMASI (JAM)</label>
-                    <input
-                      value={estimatedHours}
-                      onChange={(e) => setEstimatedHours(e.target.value.replace(/[^0-9.]/g, ''))}
-                      className="w-full border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[11px] text-text-bone outline-none focus-visible:border-signal"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">STORY POINT</label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[null, ...FIBONACCI_STORY_POINTS].map((v) => (
-                      <button
-                        key={v ?? 'unset'}
+
+                    {showStartWorkButton && (
+                      <Button
                         type="button"
-                        onClick={() => setStoryPoints(v)}
-                        className={cn(
-                          'min-w-[32px] border px-2 py-1.5 text-center font-mono text-[10.5px] font-semibold',
-                          storyPoints === v ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
-                        )}
+                        onClick={() => startWork.mutate()}
+                        disabled={startWork.isPending}
+                        className="mt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.06em]"
                       >
-                        {v ?? '?'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="grid grid-cols-2 gap-3.5 font-mono text-[11px]">
-                <div>
-                  <div className="text-[9px] tracking-[0.1em] text-text-dim">PRIORITY</div>
-                  <div className="mt-1 uppercase text-text-bone">{task.data.priority}</div>
-                </div>
-                <div>
-                  <div className="text-[9px] tracking-[0.1em] text-text-dim">DUE DATE</div>
-                  <div className="mt-1 text-text-bone">{task.data.due_date ?? '—'}</div>
-                </div>
-                <div>
-                  <div className="text-[9px] tracking-[0.1em] text-text-dim">ESTIMASI</div>
-                  <div className="mt-1 text-text-bone">{task.data.estimated_hours ?? '—'} jam</div>
-                </div>
-                <div>
-                  <div className="text-[9px] tracking-[0.1em] text-text-dim">STORY POINT</div>
-                  <div className="mt-1 text-text-bone">{task.data.story_points ?? '?'}</div>
-                </div>
-                <div>
-                  <div className="text-[9px] tracking-[0.1em] text-text-dim">SPRINT</div>
-                  <div className="mt-1 text-text-bone">{task.data.sprint_name ?? 'Backlog'}</div>
-                </div>
-                <div>
-                  <div className="text-[9px] tracking-[0.1em] text-text-dim">KELENGKAPAN</div>
-                  {showCompletenessToggle ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setCompleteness.mutate({
-                          taskId,
-                          completeness: task.data!.completeness === 'complete' ? 'incomplete' : 'complete',
-                        })
-                      }
-                      disabled={setCompleteness.isPending}
-                      className={cn(
-                        'mt-1 border px-2 py-1 font-mono text-[10.5px] font-semibold',
-                        task.data.completeness === 'complete' ? 'border-mint text-mint' : 'border-amber text-amber',
-                      )}
-                    >
-                      {task.data.completeness === 'complete' ? '✓ Lengkap' : '○ Belum Lengkap'}
-                    </button>
-                  ) : (
-                    <div className="mt-1 text-text-bone">{task.data.completeness === 'complete' ? 'Lengkap' : 'Belum Lengkap'}</div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">ASSIGNEE</div>
-              <div className="flex flex-wrap gap-1.5">
-                {task.data.assignees.map((a) => (
-                  <span key={a.user_id} className="border border-line-strong px-2.5 py-1.5 font-mono text-[9.5px] text-text-muted">
-                    {a.display_name || a.email} <span className="text-text-dim">· {a.role}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <span className="font-mono text-[9px] tracking-[0.14em] text-text-dim">PIC AKTIF</span>
-                <button type="button" onClick={() => setHistoryOpen((v) => !v)} className="font-mono text-[9px] text-text-muted hover:text-signal">
-                  {historyOpen ? '▴ Tutup riwayat' : '▾ Riwayat PIC'}
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {activePics.map((p) => (
-                  <span
-                    key={p.id}
-                    className={cn(
-                      'border px-2.5 py-1.5 font-mono text-[9.5px]',
-                      p.acknowledged_at ? 'border-mint text-mint' : 'border-amber text-amber',
+                        ▶ Mulai Pengerjaan
+                      </Button>
                     )}
-                  >
-                    {p.user_name || p.user_email} · {p.acknowledged_at ? 'AKTIF' : 'PENDING'}
-                  </span>
-                ))}
-                {activePics.length === 0 && <span className="font-mono text-[9.5px] text-text-dim">Tidak ada PIC aktif.</span>}
-              </div>
-              {myPendingAck && (
-                <Button
-                  type="button"
-                  onClick={() => acknowledge.mutate(undefined, { onSuccess: () => setNotice('Serah terima PIC dikonfirmasi.') })}
-                  disabled={acknowledge.isPending}
-                  className="mt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.06em]"
-                >
-                  ✓ Konfirmasi Serah Terima PIC
-                </Button>
-              )}
-              {historyOpen && (
-                <div className="mt-2.5 flex flex-col gap-1.5 border-t border-line pt-2.5">
-                  {(picHistory.data ?? []).map((p) => (
-                    <div key={p.id} className="flex items-center justify-between font-mono text-[9px] text-text-muted">
-                      <span>{p.status_name} · {p.user_name || p.user_email}</span>
-                      <span className={p.is_active ? 'text-mint' : 'text-text-dim'}>
-                        {p.acknowledged_at ? 'Acknowledged' : p.is_active ? 'Pending' : 'Non-aktif'}
-                      </span>
-                    </div>
-                  ))}
-                  {(picHistory.data ?? []).length === 0 && <p className="font-mono text-[9px] text-text-dim">Belum ada riwayat.</p>}
-                </div>
-              )}
-            </div>
 
-            <div>
-              <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">DEPENDENCY (FINISH-TO-START)</div>
-              <div className="flex flex-col gap-2">
-                <div>
-                  <div className="mb-1 font-mono text-[8.5px] text-text-dim">MENUNGGU SELESAI (PREDECESSOR)</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {predecessors.map((p) => (
-                      <span key={p.task_id} className={cn('flex items-center gap-1.5 border px-2 py-1 font-mono text-[9px]', p.status === 'DONE' ? 'border-mint text-mint' : 'border-amber text-amber')}>
-                        {p.task_code ?? p.title} · {p.status}
-                        <button type="button" onClick={() => removeDependency.mutate({ taskId, predecessorTaskId: p.task_id })} className="text-text-dim hover:text-destructive">
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                    {predecessors.length === 0 && <span className="font-mono text-[9px] text-text-dim">Tidak ada predecessor.</span>}
-                  </div>
-                </div>
-                <div>
-                  <div className="mb-1 font-mono text-[8.5px] text-text-dim">MEMBLOKIR (SUCCESSOR)</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {successors.map((s) => (
-                      <span key={s.task_id} className="border border-line-strong px-2 py-1 font-mono text-[9px] text-text-muted">
-                        {s.task_code ?? s.title} · {s.status}
-                      </span>
-                    ))}
-                    {successors.length === 0 && <span className="font-mono text-[9px] text-text-dim">Tidak memblokir task lain.</span>}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <select
-                    value={depCandidateId}
-                    onChange={(e) => { setDepCandidateId(e.target.value); setDepError('') }}
-                    className="flex-1 border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[10.5px] text-text-bone outline-none focus-visible:border-signal"
-                  >
-                    <option value="">Pilih task predecessor...</option>
-                    {dependencyCandidates.map((t) => (
-                      <option key={t.id} value={t.id}>{t.task_code ?? t.title} · {t.title}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={onAddDependency}
-                    disabled={!depCandidateId || addDependency.isPending}
-                    className="border border-signal px-3 py-2 font-mono text-[9.5px] font-bold uppercase text-signal disabled:opacity-40"
-                  >
-                    + Dependency
-                  </button>
-                </div>
-                {depError && <p className="text-[10px] text-destructive">⚠ {depError}</p>}
-              </div>
-            </div>
-
-            <div>
-              <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">STATUS TIME TRACKING</div>
-              <div className="grid grid-cols-3 gap-2 font-mono text-[10px]">
-                <div className="border border-line-strong p-2 text-center">
-                  <div className="text-[8px] text-text-dim">QUEUE TIME</div>
-                  <div className="mt-1 text-text-bone">{formatDuration(queueMs)}</div>
-                </div>
-                <div className="border border-line-strong p-2 text-center">
-                  <div className="text-[8px] text-text-dim">ACTIVE TIME</div>
-                  <div className="mt-1 text-text-bone">{formatDuration(activeMs)}</div>
-                </div>
-                <div className="border border-line-strong p-2 text-center">
-                  <div className="text-[8px] text-text-dim">LEAD TIME</div>
-                  <div className="mt-1 text-text-bone">{formatDuration(leadMs)}</div>
-                </div>
-              </div>
-              {sessions.length > 0 && (
-                <div className="mt-2.5 flex flex-col gap-1 border-t border-line pt-2.5">
-                  {sessions.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between font-mono text-[9px] text-text-muted">
-                      <span>
-                        {s.status_name} #{s.session_no}
-                        {s.is_regression && <span className="ml-1 text-amber">↩ regresi</span>}
-                        {s.is_auto_start && <span className="ml-1 text-text-dim" title="Mulai pengerjaan diisi otomatis (tidak diklik manual)">⏱ auto</span>}
-                      </span>
-                      <span className="text-text-dim">{s.exited_at ? 'Selesai' : 'Aktif'}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">LAMPIRAN</div>
-              <div
-                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  setDragOver(false)
-                  handleUpload(e.dataTransfer.files[0])
-                }}
-                onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  'cursor-pointer border border-dashed p-4 text-center font-mono text-[10px] text-text-muted',
-                  dragOver ? 'border-signal bg-signal/5' : 'border-line-strong',
-                )}
-              >
-                Seret &amp; lepas file, atau <span className="text-signal">pilih file</span>
-                <div className="mt-1.5 text-[8.5px] leading-relaxed text-text-dim">
-                  Maks 50 MB per file. Diizinkan: jpg png gif webp svg · pdf doc docx xls xlsx ppt pptx txt md csv · zip rar 7z · json xml
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={(e) => {
-                    handleUpload(e.target.files?.[0])
-                    e.target.value = ''
-                  }}
-                />
-              </div>
-              {uploadAttachment.isPending && <p className="mt-1.5 font-mono text-[9.5px] text-text-muted">Mengunggah...</p>}
-              {attachError && <p className="mt-1.5 font-mono text-[10px] text-destructive">⚠ {attachError}</p>}
-
-              <div className="mt-2.5 flex flex-col gap-1.5">
-                {(attachments.data ?? []).map((a) => {
-                  const isOwner = a.uploader_id === currentUserId
-                  const isRenaming = renamingId === a.id
-                  const isConfirmingDelete = deleteConfirmId === a.id
-                  return (
-                    <div key={a.id} className="border border-line-strong p-2.5">
-                      {isRenaming ? (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            value={renameDraft}
-                            onChange={(e) => setRenameDraft(e.target.value)}
-                            className="flex-1 border border-line-strong bg-input-bg px-2 py-1 text-[11px] text-text-bone outline-none focus-visible:border-signal"
-                          />
+                    {pendingStatusId && (
+                      <div className="mt-3 border border-amber bg-amber/5 p-3">
+                        <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-amber">PILIH PIC FASE</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(members.data ?? []).map((m) => {
+                            const on = picSelection.includes(m.user_id)
+                            return (
+                              <button
+                                key={m.user_id}
+                                type="button"
+                                onClick={() => togglePic(m.user_id)}
+                                className={cn(
+                                  'border px-2.5 py-1.5 font-mono text-[9.5px]',
+                                  on ? 'border-mint bg-mint/10 text-mint' : 'border-line-strong text-text-muted',
+                                )}
+                              >
+                                {on ? '● ' : ''}
+                                {m.display_name || m.email}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {picError && <p className="mt-2 text-[10px] text-destructive">⚠ {picError}</p>}
+                        <div className="mt-2.5 flex gap-2">
                           <button
                             type="button"
-                            onClick={() =>
-                              renameAttachment.mutate(
-                                { id: a.id, displayName: renameDraft },
-                                { onSuccess: () => setRenamingId(null) },
-                              )
-                            }
-                            disabled={renameAttachment.isPending || renameDraft.trim() === ''}
-                            className="border border-signal px-2 py-1 font-mono text-[9px] font-bold uppercase text-signal disabled:opacity-40"
+                            onClick={onConfirmMove}
+                            disabled={setStatus.isPending}
+                            className="border border-amber px-3 py-1.5 font-mono text-[9.5px] font-bold uppercase text-amber"
                           >
-                            Simpan
+                            Pindahkan &amp; Tetapkan PIC
                           </button>
                           <button
                             type="button"
-                            onClick={() => setRenamingId(null)}
-                            className="border border-line-strong px-2 py-1 font-mono text-[9px] uppercase text-text-muted"
+                            onClick={() => setPendingStatusId(null)}
+                            className="border border-line-strong px-3 py-1.5 font-mono text-[9.5px] uppercase text-text-muted"
                           >
                             Batal
                           </button>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-2.5">
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-[12px] text-text-bone">{a.display_name}</div>
-                            <div className="font-mono text-[9px] text-text-dim">
-                              {formatBytes(a.size_bytes)} · {a.uploader_name || a.uploader_email} · {new Date(a.created_at).toLocaleDateString('id-ID')}
-                            </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {editing ? (
+                    <>
+                      <div>
+                        <label className="mb-1.5 block font-mono text-[9px] tracking-[0.14em] text-text-dim">JUDUL</label>
+                        <input
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          className="w-full border border-line-strong bg-input-bg px-3 py-2.5 text-[13px] text-text-bone outline-none focus-visible:border-signal"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block font-mono text-[9px] tracking-[0.14em] text-text-dim">DESKRIPSI</label>
+                        <textarea
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="Cakupan, langkah verifikasi, tautan dokumen…"
+                          className="h-24 w-full resize-y border border-line-strong bg-input-bg px-3 py-2.5 text-[12.5px] leading-relaxed text-text-bone outline-none focus-visible:border-signal"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-3.5">
+                        <div className="min-w-[180px] flex-1">
+                          <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">PRIORITY</label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {PRIORITIES.map((p) => (
+                              <button
+                                key={p}
+                                type="button"
+                                onClick={() => setPriority(p)}
+                                className={cn(
+                                  'border px-2.5 py-1.5 font-mono text-[9.5px] font-semibold uppercase',
+                                  priority === p ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
+                                )}
+                              >
+                                {p}
+                              </button>
+                            ))}
                           </div>
-                          <div className="flex flex-shrink-0 items-center gap-2.5">
+                        </div>
+                        <div className="w-[160px]">
+                          <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">DUE DATE</label>
+                          <input
+                            type="date"
+                            value={dueDate}
+                            onChange={(e) => setDueDate(e.target.value)}
+                            className="w-full border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[11px] text-text-bone outline-none focus-visible:border-signal"
+                          />
+                        </div>
+                        <div className="w-[130px]">
+                          <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">ESTIMASI (JAM)</label>
+                          <input
+                            value={estimatedHours}
+                            onChange={(e) => setEstimatedHours(e.target.value.replace(/[^0-9.]/g, ''))}
+                            className="w-full border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[11px] text-text-bone outline-none focus-visible:border-signal"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">STORY POINT</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[null, ...FIBONACCI_STORY_POINTS].map((v) => (
+                            <button
+                              key={v ?? 'unset'}
+                              type="button"
+                              onClick={() => setStoryPoints(v)}
+                              className={cn(
+                                'min-w-[32px] border px-2 py-1.5 text-center font-mono text-[10.5px] font-semibold',
+                                storyPoints === v ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
+                              )}
+                            >
+                              {v ?? '?'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <div className="font-mono text-[9px] tracking-[0.1em] text-text-dim">DESKRIPSI</div>
+                        <div className="mt-1.5 whitespace-pre-wrap border border-line-strong bg-input-bg p-3 text-[12.5px] leading-relaxed text-text-bone">
+                          {description || <span className="text-text-dim">Belum ada deskripsi.</span>}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3.5 font-mono text-[11px]">
+                        <div>
+                          <div className="text-[9px] tracking-[0.1em] text-text-dim">PRIORITY</div>
+                          <div className="mt-1 uppercase text-text-bone">{task.data.priority}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] tracking-[0.1em] text-text-dim">DUE DATE</div>
+                          <div className="mt-1 text-text-bone">{task.data.due_date ?? '—'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] tracking-[0.1em] text-text-dim">ESTIMASI</div>
+                          <div className="mt-1 text-text-bone">{task.data.estimated_hours ?? '—'} jam</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] tracking-[0.1em] text-text-dim">JAM TERCATAT</div>
+                          <div className={cn('mt-1', task.data.estimated_hours && task.data.logged_minutes / 60 > task.data.estimated_hours ? 'text-destructive' : 'text-text-bone')}>
+                            {(task.data.logged_minutes / 60).toFixed(1)} dari {task.data.estimated_hours ?? '—'} jam
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] tracking-[0.1em] text-text-dim">STORY POINT</div>
+                          <div className="mt-1 text-text-bone">{task.data.story_points ?? '?'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] tracking-[0.1em] text-text-dim">SPRINT</div>
+                          <div className="mt-1 text-text-bone">{task.data.sprint_name ?? 'Backlog'}</div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] tracking-[0.1em] text-text-dim">KELENGKAPAN</div>
+                          {showCompletenessToggle ? (
                             <button
                               type="button"
-                              onClick={() => onDownloadAttachment(a.id, a.display_name)}
-                              className="font-mono text-[9.5px] text-signal hover:underline"
+                              onClick={() =>
+                                setCompleteness.mutate({
+                                  taskId,
+                                  completeness: task.data!.completeness === 'complete' ? 'incomplete' : 'complete',
+                                })
+                              }
+                              disabled={setCompleteness.isPending}
+                              className={cn(
+                                'mt-1 border px-2 py-1 font-mono text-[10.5px] font-semibold',
+                                task.data.completeness === 'complete' ? 'border-mint text-mint' : 'border-amber text-amber',
+                              )}
                             >
-                              Unduh
+                              {task.data.completeness === 'complete' ? '✓ Lengkap' : '○ Belum Lengkap'}
                             </button>
-                            {isOwner && (
-                              <button
-                                type="button"
-                                onClick={() => { setRenamingId(a.id); setRenameDraft(a.display_name) }}
-                                className="font-mono text-[9.5px] text-text-muted hover:text-signal"
-                              >
-                                Rename
-                              </button>
-                            )}
-                            {isOwner && (
-                              <button
-                                type="button"
-                                onClick={() => setDeleteConfirmId(a.id)}
-                                className="font-mono text-[9.5px] text-destructive hover:underline"
-                              >
-                                Hapus
-                              </button>
-                            )}
+                          ) : (
+                            <div className="mt-1 text-text-bone">{task.data.completeness === 'complete' ? 'Lengkap' : 'Belum Lengkap'}</div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+
+              {activeTab === 'deps' && (
+                <div>
+                  <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">DEPENDENCY (FINISH-TO-START)</div>
+                  <div className="flex flex-col gap-2">
+                    <div>
+                      <div className="mb-1 font-mono text-[8.5px] text-text-dim">MENUNGGU SELESAI (PREDECESSOR)</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {predecessors.map((p) => (
+                          <span key={p.task_id} className={cn('flex items-center gap-1.5 border px-2 py-1 font-mono text-[9px]', p.status === 'DONE' ? 'border-mint text-mint' : 'border-amber text-amber')}>
+                            {p.task_code ?? p.title} · {p.status}
+                            <button type="button" onClick={() => removeDependency.mutate({ taskId, predecessorTaskId: p.task_id })} className="text-text-dim hover:text-destructive">
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                        {predecessors.length === 0 && <span className="font-mono text-[9px] text-text-dim">Tidak ada predecessor.</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-1 font-mono text-[8.5px] text-text-dim">MEMBLOKIR (SUCCESSOR)</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {successors.map((s) => (
+                          <span key={s.task_id} className="border border-line-strong px-2 py-1 font-mono text-[9px] text-text-muted">
+                            {s.task_code ?? s.title} · {s.status}
+                          </span>
+                        ))}
+                        {successors.length === 0 && <span className="font-mono text-[9px] text-text-dim">Tidak memblokir task lain.</span>}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <select
+                        value={depCandidateId}
+                        onChange={(e) => { setDepCandidateId(e.target.value); setDepError('') }}
+                        className="flex-1 border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[10.5px] text-text-bone outline-none focus-visible:border-signal"
+                      >
+                        <option value="">Pilih task predecessor...</option>
+                        {dependencyCandidates.map((t) => (
+                          <option key={t.id} value={t.id}>{t.task_code ?? t.title} · {t.title}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={onAddDependency}
+                        disabled={!depCandidateId || addDependency.isPending}
+                        className="border border-signal px-3 py-2 font-mono text-[9.5px] font-bold uppercase text-signal disabled:opacity-40"
+                      >
+                        + Dependency
+                      </button>
+                    </div>
+                    {depError && <p className="text-[10px] text-destructive">⚠ {depError}</p>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'pic' && (
+                <>
+                  <div>
+                    <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">ASSIGNEE</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {task.data.assignees.map((a) => (
+                        <span key={a.user_id} className="border border-line-strong px-2.5 py-1.5 font-mono text-[9.5px] text-text-muted">
+                          {a.display_name || a.email} <span className="text-text-dim">· {a.role}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="font-mono text-[9px] tracking-[0.14em] text-text-dim">PIC AKTIF</span>
+                      <button type="button" onClick={() => setHistoryOpen((v) => !v)} className="font-mono text-[9px] text-text-muted hover:text-signal">
+                        {historyOpen ? '▴ Tutup riwayat' : '▾ Riwayat PIC'}
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {activePics.map((p) => (
+                        <span
+                          key={p.id}
+                          className={cn(
+                            'border px-2.5 py-1.5 font-mono text-[9.5px]',
+                            p.acknowledged_at ? 'border-mint text-mint' : 'border-amber text-amber',
+                          )}
+                        >
+                          {p.user_name || p.user_email} · {p.acknowledged_at ? 'AKTIF' : 'PENDING'}
+                        </span>
+                      ))}
+                      {activePics.length === 0 && <span className="font-mono text-[9.5px] text-text-dim">Tidak ada PIC aktif.</span>}
+                    </div>
+                    {myPendingAck && (
+                      <Button
+                        type="button"
+                        onClick={() => acknowledge.mutate(undefined, { onSuccess: () => setNotice('Serah terima PIC dikonfirmasi.') })}
+                        disabled={acknowledge.isPending}
+                        className="mt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.06em]"
+                      >
+                        ✓ Konfirmasi Serah Terima PIC
+                      </Button>
+                    )}
+                    {historyOpen && (
+                      <div className="mt-2.5 flex flex-col gap-1.5 border-t border-line pt-2.5">
+                        {(picHistory.data ?? []).map((p) => (
+                          <div key={p.id} className="flex items-center justify-between font-mono text-[9px] text-text-muted">
+                            <span>{p.status_name} · {p.user_name || p.user_email}</span>
+                            <span className={p.is_active ? 'text-mint' : 'text-text-dim'}>
+                              {p.acknowledged_at ? 'Acknowledged' : p.is_active ? 'Pending' : 'Non-aktif'}
+                            </span>
                           </div>
+                        ))}
+                        {(picHistory.data ?? []).length === 0 && <p className="font-mono text-[9px] text-text-dim">Belum ada riwayat.</p>}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {activeTab === 'attach' && (
+                <div>
+                  <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">LAMPIRAN</div>
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      setDragOver(false)
+                      handleUpload(e.dataTransfer.files[0])
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      'cursor-pointer border border-dashed p-4 text-center font-mono text-[10px] text-text-muted',
+                      dragOver ? 'border-signal bg-signal/5' : 'border-line-strong',
+                    )}
+                  >
+                    Seret &amp; lepas file, atau <span className="text-signal">pilih file</span>
+                    <div className="mt-1.5 text-[8.5px] leading-relaxed text-text-dim">
+                      Maks 50 MB per file. Diizinkan: jpg png gif webp svg · pdf doc docx xls xlsx ppt pptx txt md csv · zip rar 7z · json xml
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        handleUpload(e.target.files?.[0])
+                        e.target.value = ''
+                      }}
+                    />
+                  </div>
+                  {uploadAttachment.isPending && <p className="mt-1.5 font-mono text-[9.5px] text-text-muted">Mengunggah...</p>}
+                  {attachError && <p className="mt-1.5 font-mono text-[10px] text-destructive">⚠ {attachError}</p>}
+
+                  <div className="mt-2.5 flex flex-col gap-1.5">
+                    {(attachments.data ?? []).map((a) => {
+                      const isOwner = a.uploader_id === currentUserId
+                      const isRenaming = renamingId === a.id
+                      const isConfirmingDelete = deleteConfirmId === a.id
+                      return (
+                        <div key={a.id} className="border border-line-strong p-2.5">
+                          {isRenaming ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                value={renameDraft}
+                                onChange={(e) => setRenameDraft(e.target.value)}
+                                className="flex-1 border border-line-strong bg-input-bg px-2 py-1 text-[11px] text-text-bone outline-none focus-visible:border-signal"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  renameAttachment.mutate(
+                                    { id: a.id, displayName: renameDraft },
+                                    { onSuccess: () => setRenamingId(null) },
+                                  )
+                                }
+                                disabled={renameAttachment.isPending || renameDraft.trim() === ''}
+                                className="border border-signal px-2 py-1 font-mono text-[9px] font-bold uppercase text-signal disabled:opacity-40"
+                              >
+                                Simpan
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setRenamingId(null)}
+                                className="border border-line-strong px-2 py-1 font-mono text-[9px] uppercase text-text-muted"
+                              >
+                                Batal
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2.5">
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-[12px] text-text-bone">{a.display_name}</div>
+                                <div className="font-mono text-[9px] text-text-dim">
+                                  {formatBytes(a.size_bytes)} · {a.uploader_name || a.uploader_email} · {new Date(a.created_at).toLocaleDateString('id-ID')}
+                                </div>
+                              </div>
+                              <div className="flex flex-shrink-0 items-center gap-2.5">
+                                <button
+                                  type="button"
+                                  onClick={() => onDownloadAttachment(a.id, a.display_name)}
+                                  className="font-mono text-[9.5px] text-signal hover:underline"
+                                >
+                                  Unduh
+                                </button>
+                                {isOwner && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setRenamingId(a.id); setRenameDraft(a.display_name) }}
+                                    className="font-mono text-[9.5px] text-text-muted hover:text-signal"
+                                  >
+                                    Rename
+                                  </button>
+                                )}
+                                {isOwner && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteConfirmId(a.id)}
+                                    className="font-mono text-[9.5px] text-destructive hover:underline"
+                                  >
+                                    Hapus
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {isConfirmingDelete && (
+                            <div className="mt-2 flex items-center gap-2 border-t border-line pt-2">
+                              <span className="font-mono text-[9.5px] text-amber">Hapus lampiran ini?</span>
+                              <button
+                                type="button"
+                                onClick={() => deleteAttachmentMut.mutate(a.id, { onSuccess: () => setDeleteConfirmId(null) })}
+                                disabled={deleteAttachmentMut.isPending}
+                                className="border border-destructive px-2 py-1 font-mono text-[9px] font-bold uppercase text-destructive"
+                              >
+                                Ya, Hapus
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="border border-line-strong px-2 py-1 font-mono text-[9px] uppercase text-text-muted"
+                              >
+                                Batal
+                              </button>
+                            </div>
+                          )}
                         </div>
+                      )
+                    })}
+                    {(attachments.data ?? []).length === 0 && <p className="font-mono text-[9.5px] text-text-dim">Belum ada lampiran.</p>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'time' && (
+                <div className="flex flex-col gap-5">
+                  <div>
+                    <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">STATUS TIME TRACKING</div>
+                    <div className="grid grid-cols-3 gap-2 font-mono text-[10px]">
+                      <div className="border border-line-strong p-2 text-center">
+                        <div className="text-[8px] text-text-dim">QUEUE TIME</div>
+                        <div className="mt-1 text-text-bone">{formatDuration(queueMs)}</div>
+                      </div>
+                      <div className="border border-line-strong p-2 text-center">
+                        <div className="text-[8px] text-text-dim">ACTIVE TIME</div>
+                        <div className="mt-1 text-text-bone">{formatDuration(activeMs)}</div>
+                      </div>
+                      <div className="border border-line-strong p-2 text-center">
+                        <div className="text-[8px] text-text-dim">LEAD TIME</div>
+                        <div className="mt-1 text-text-bone">{formatDuration(leadMs)}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-text-dim">AKUMULASI PER STATUS · SESI DIGABUNG, TIDAK DIRESET SAAT MUNDUR</div>
+                    <div className="flex flex-col gap-1.5">
+                      {Array.from(statusTotals.entries()).map(([statusName, t]) => (
+                        <div key={statusName} className="flex flex-wrap items-center gap-2.5 border border-line-strong p-2 font-mono text-[9px]">
+                          <span className="border border-line-strong px-2 py-0.5 font-semibold text-text-bone">{statusName}</span>
+                          <span className="text-text-dim">{t.sessionCount} sesi</span>
+                          <span className="ml-auto text-amber">QUEUE {formatDuration(t.queueMs)}</span>
+                          <span className="text-mint">ACTIVE {formatDuration(t.activeMs)}</span>
+                        </div>
+                      ))}
+                      {statusTotals.size === 0 && <p className="font-mono text-[9px] text-text-dim">Belum ada sesi status.</p>}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-text-dim">TIMELINE SESI · KRONOLOGIS</div>
+                    <div className="flex flex-col gap-1">
+                      {sessions.map((s) => (
+                        <div key={s.id} className="flex items-center justify-between font-mono text-[9px] text-text-muted">
+                          <span>
+                            {s.status_name} #{s.session_no}
+                            {s.is_regression && <span className="ml-1 text-amber">↩ regresi</span>}
+                            {s.is_auto_start && <span className="ml-1 text-text-dim" title="Mulai pengerjaan diisi otomatis (tidak diklik manual)">⏱ auto</span>}
+                          </span>
+                          <span className="text-text-dim">{s.exited_at ? 'Selesai' : 'Aktif'}</span>
+                        </div>
+                      ))}
+                      {sessions.length === 0 && <p className="font-mono text-[9px] text-text-dim">Belum ada sesi.</p>}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-line pt-4">
+                    <div className="mb-1 font-mono text-[8.5px] tracking-[0.14em] text-text-dim">CATATAN WAKTU (TIMESHEET)</div>
+                    <p className="mb-2.5 font-mono text-[9px] leading-relaxed text-text-dim">
+                      Jam kerja yang dicatat manusia (start/stop timer atau entri manual) -- beda dari Status Time Tracking di atas yang murni mengukur berapa lama task duduk di tiap status. Entri manual butuh approval AW/PM.
+                    </p>
+                    <div className="flex items-center gap-2.5">
+                      {timerRunningHere ? (
+                        <Button
+                          type="button"
+                          onClick={() => stopTimer.mutate()}
+                          disabled={stopTimer.isPending}
+                          className="border-destructive bg-transparent font-mono text-[9.5px] font-bold uppercase tracking-[0.06em] text-destructive hover:bg-destructive/10"
+                        >
+                          ■ Hentikan Timer
+                        </Button>
+                      ) : (
+                        <Button
+                          type="button"
+                          onClick={() => startTimer.mutate()}
+                          disabled={startTimer.isPending}
+                          className="font-mono text-[9.5px] font-bold uppercase tracking-[0.06em]"
+                        >
+                          ▶ Mulai Timer
+                        </Button>
                       )}
-                      {isConfirmingDelete && (
-                        <div className="mt-2 flex items-center gap-2 border-t border-line pt-2">
-                          <span className="font-mono text-[9.5px] text-amber">Hapus lampiran ini?</span>
-                          <button
-                            type="button"
-                            onClick={() => deleteAttachmentMut.mutate(a.id, { onSuccess: () => setDeleteConfirmId(null) })}
-                            disabled={deleteAttachmentMut.isPending}
-                            className="border border-destructive px-2 py-1 font-mono text-[9px] font-bold uppercase text-destructive"
-                          >
-                            Ya, Hapus
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirmId(null)}
-                            className="border border-line-strong px-2 py-1 font-mono text-[9px] uppercase text-text-muted"
-                          >
-                            Batal
-                          </button>
-                        </div>
+                      {timerRunningHere && activeTimer.data && (
+                        <span className="font-mono text-[10px] text-mint">{formatDuration(activeTimer.data.elapsed_seconds * 1000)} berjalan</span>
                       )}
                     </div>
-                  )
-                })}
-                {(attachments.data ?? []).length === 0 && <p className="font-mono text-[9.5px] text-text-dim">Belum ada lampiran.</p>}
-              </div>
-            </div>
 
-            {dirty && (
-              <p className="border border-amber p-2.5 font-mono text-[10px] leading-relaxed text-amber">
-                Ada perubahan yang belum disimpan. Tekan &quot;Simpan Perubahan&quot; untuk menerapkan.
-              </p>
-            )}
-            {!dirty && notice && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {notice}</p>}
-            {saveError && <p className="text-[11px] text-destructive">⚠ {saveError}</p>}
-          </div>
+                    <div className="mt-3 flex flex-wrap items-end gap-2">
+                      <div>
+                        <label className="mb-1 block font-mono text-[8.5px] text-text-dim">MULAI</label>
+                        <input
+                          type="datetime-local"
+                          value={manualStart}
+                          onChange={(e) => setManualStart(e.target.value)}
+                          className="border border-line-strong bg-input-bg px-2 py-1.5 font-mono text-[10px] text-text-bone outline-none focus-visible:border-signal"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block font-mono text-[8.5px] text-text-dim">SELESAI</label>
+                        <input
+                          type="datetime-local"
+                          value={manualEnd}
+                          onChange={(e) => setManualEnd(e.target.value)}
+                          className="border border-line-strong bg-input-bg px-2 py-1.5 font-mono text-[10px] text-text-bone outline-none focus-visible:border-signal"
+                        />
+                      </div>
+                      <input
+                        value={manualNote}
+                        onChange={(e) => setManualNote(e.target.value)}
+                        placeholder="Catatan (opsional)"
+                        className="min-w-[160px] flex-1 border border-line-strong bg-input-bg px-2 py-1.5 text-[11px] text-text-bone outline-none focus-visible:border-signal"
+                      />
+                      <button
+                        type="button"
+                        onClick={onCreateManualEntry}
+                        disabled={createManualEntry.isPending}
+                        className="border border-signal px-3 py-1.5 font-mono text-[9.5px] font-bold uppercase text-signal disabled:opacity-40"
+                      >
+                        + Entri Manual
+                      </button>
+                    </div>
+                    {timeError && <p className="mt-1.5 font-mono text-[9.5px] text-destructive">⚠ {timeError}</p>}
+
+                    <div className="mt-3 flex flex-col gap-1.5">
+                      {(timeEntries.data?.items ?? []).map((e) => (
+                        <div key={e.id} className="flex flex-wrap items-center gap-2 border border-line-strong p-2 font-mono text-[9.5px]">
+                          <span className="text-text-bone">{e.user.display_name || e.user.email}</span>
+                          <span className="text-text-dim">
+                            {new Date(e.started_at).toLocaleString('id-ID')} · {e.duration_minutes != null ? (e.duration_minutes / 60).toFixed(1) : '—'} jam
+                          </span>
+                          <span className={cn('border px-1.5 py-0.5 text-[8.5px] uppercase', e.approval_status === 'approved' ? 'border-mint text-mint' : e.approval_status === 'rejected' ? 'border-destructive text-destructive' : 'border-amber text-amber')}>
+                            {e.approval_status}
+                          </span>
+                          {e.approval_status === 'pending' && (
+                            <div className="ml-auto flex gap-1.5">
+                              <button type="button" onClick={() => approveEntry.mutate(e.id)} className="text-mint hover:underline">✓ Approve</button>
+                              <button type="button" onClick={() => { setRejectingId(e.id); setRejectNote('') }} className="text-destructive hover:underline">✕ Tolak</button>
+                            </div>
+                          )}
+                          {rejectingId === e.id && (
+                            <div className="mt-2 flex w-full items-center gap-1.5">
+                              <input
+                                value={rejectNote}
+                                onChange={(ev) => setRejectNote(ev.target.value)}
+                                placeholder="Alasan penolakan..."
+                                className="flex-1 border border-line-strong bg-input-bg px-2 py-1 text-[10.5px] text-text-bone outline-none focus-visible:border-signal"
+                              />
+                              <button type="button" onClick={onConfirmReject} disabled={!rejectNote.trim() || rejectEntry.isPending} className="border border-destructive px-2 py-1 text-[9px] uppercase text-destructive disabled:opacity-40">
+                                Kirim
+                              </button>
+                              <button type="button" onClick={() => setRejectingId(null)} className="border border-line-strong px-2 py-1 text-[9px] uppercase text-text-muted">
+                                Batal
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {(timeEntries.data?.items ?? []).length === 0 && <p className="font-mono text-[9px] text-text-dim">Belum ada entri waktu.</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'versions' && (
+                <div>
+                  <p className="mb-3 font-mono text-[9.5px] leading-relaxed text-text-dim">
+                    Setiap perubahan judul/deskripsi membuat snapshot baru. Versi lama tetap tersimpan (baca-saja, tidak bisa dipulihkan).
+                  </p>
+                  <div className="flex flex-col gap-2.5">
+                    {(versions.data ?? []).map((v, i) => (
+                      <div key={v.id} className="border border-line-strong bg-input-bg p-3">
+                        <div className="flex flex-wrap items-baseline gap-2.5">
+                          <span className="font-mono text-[9.5px] font-semibold text-signal">v{(versions.data?.length ?? 0) - i}</span>
+                          <span className="font-mono text-[9px] text-text-dim">
+                            {v.changed_by_name || v.changed_by_email} · {new Date(v.snapshot_at).toLocaleString('id-ID')}
+                          </span>
+                          <span className="ml-auto font-mono text-[9px] text-text-muted">{v.trigger}</span>
+                        </div>
+                        <div className="mt-2 text-[12px] font-semibold text-text-bone">{v.title}</div>
+                        {typeof v.description === 'string' && v.description && (
+                          <div className="mt-1 whitespace-pre-wrap text-[12px] leading-relaxed text-text-muted">{v.description}</div>
+                        )}
+                      </div>
+                    ))}
+                    {(versions.data ?? []).length === 0 && <p className="font-mono text-[9.5px] text-text-dim">Belum ada riwayat versi -- versi baru dibuat saat judul/deskripsi diedit.</p>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'activity' && (
+                <div>
+                  <div className="flex flex-col gap-2">
+                    {(activity.data?.items ?? []).map((a) => (
+                      <div key={a.id} className="flex gap-2.5 border border-line-strong bg-input-bg p-3">
+                        <span className="h-fit flex-shrink-0 border border-line-strong px-2 py-0.5 font-mono text-[8.5px] uppercase text-text-muted">
+                          {a.action.split('.')[1]?.replace(/_/g, ' ') ?? a.action}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[12.5px] text-text-bone">{describeTaskAction(a.action, a.state_before, a.state_after, a.metadata)}</div>
+                          <div className="mt-1 font-mono text-[9px] text-text-dim">
+                            {a.actor_name || a.actor_email || 'Sistem'} {a.actor_role ? `· ${a.actor_role}` : ''} · {new Date(a.logged_at).toLocaleString('id-ID')}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {(activity.data?.items ?? []).length === 0 && (
+                      <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
+                        Belum ada aktivitas tercatat untuk task ini. Perubahan status, role, lampiran, dan dependency akan muncul di sini.
+                      </p>
+                    )}
+                  </div>
+                  {(activity.data?.total ?? 0) > 10 && (
+                    <div className="mt-3 flex items-center gap-2 border-t border-line pt-3 font-mono text-[9.5px]">
+                      <span className="text-text-dim">Halaman {activityPage} dari {Math.ceil((activity.data?.total ?? 0) / 10)}</span>
+                      <button
+                        type="button"
+                        onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                        disabled={activityPage <= 1}
+                        className="ml-auto border border-line-strong px-2.5 py-1 uppercase text-text-muted disabled:opacity-30"
+                      >
+                        ◄ Sblm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActivityPage((p) => (p * 10 < (activity.data?.total ?? 0) ? p + 1 : p))}
+                        disabled={activityPage * 10 >= (activity.data?.total ?? 0)}
+                        className="border border-line-strong px-2.5 py-1 uppercase text-text-muted disabled:opacity-30"
+                      >
+                        Brkt ►
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {dirty && (
+                <p className="border border-amber p-2.5 font-mono text-[10px] leading-relaxed text-amber">
+                  Ada perubahan yang belum disimpan. Tekan &quot;Simpan Perubahan&quot; untuk menerapkan.
+                </p>
+              )}
+              {!dirty && notice && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {notice}</p>}
+              {saveError && <p className="text-[11px] text-destructive">⚠ {saveError}</p>}
+            </div>
+          </>
         )}
 
         <DialogFooter>
