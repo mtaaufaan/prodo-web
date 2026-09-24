@@ -7,6 +7,7 @@ import type {
   SprintSummary,
   Task,
   TaskActivityEntry,
+  TaskChecklistItem,
   TaskDependency,
   TaskFormValues,
   TaskPicPhase,
@@ -218,4 +219,21 @@ export function approveTimeEntry(entryId: string) {
 
 export function rejectTimeEntry(entryId: string, rejectionNote: string) {
   return apiClient.post<{ id: string }>(`/api/v1/time-entries/${entryId}/reject`, { rejection_note: rejectionNote })
+}
+
+// SUB-TASK / checklist item (IG-97 susulan).
+export function getTaskChecklistItems(taskId: string) {
+  return apiClient.get<TaskChecklistItem[]>(`/api/v1/tasks/${taskId}/checklist-items`)
+}
+
+export function createChecklistItem(taskId: string, title: string) {
+  return apiClient.post<TaskChecklistItem>(`/api/v1/tasks/${taskId}/checklist-items`, { title })
+}
+
+export function updateChecklistItem(itemId: string, values: { title?: string; is_done?: boolean }) {
+  return apiClient.patch<{ id: string }>(`/api/v1/tasks/checklist-items/${itemId}`, values)
+}
+
+export function deleteChecklistItem(itemId: string) {
+  return apiClient.delete<void>(`/api/v1/tasks/checklist-items/${itemId}`)
 }

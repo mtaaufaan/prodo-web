@@ -226,3 +226,12 @@ export interface TaskFormValues {
 }
 
 export const FIBONACCI_STORY_POINTS = [1, 2, 3, 5, 8, 13] as const
+
+// TaskChecklistItem (SUB-TASK, "PM Task Detail.dc.html", IG-97 susulan).
+export interface TaskChecklistItem {
+  id: string
+  task_id: string
+  title: string
+  is_done: boolean
+  position: number
+}

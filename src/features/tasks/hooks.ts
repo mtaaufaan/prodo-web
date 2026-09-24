@@ -7,10 +7,12 @@ import {
   assignTasksToSprint,
   bulkSetTaskStatus,
   completeSprint,
+  createChecklistItem,
   createCustomStatus,
   createManualTimeEntry,
   createSprint,
   createTask,
+  deleteChecklistItem,
   deleteSprint,
   deleteTask,
   getActiveTimer,
@@ -20,6 +22,7 @@ import {
   getSprintSummary,
   getTask,
   getTaskActivity,
+  getTaskChecklistItems,
   getTaskDependencies,
   getTaskStatusSessions,
   getTaskTimeEntries,
@@ -39,6 +42,7 @@ import {
   startWork,
   stopTimer,
   undefineStatus,
+  updateChecklistItem,
   updateManualTimeEntry,
   updateSprint,
   updateStatusAppearance,
@@ -60,6 +64,7 @@ export const taskKeys = {
   activity: (taskId: string, page: number) => [...taskKeys.all, 'activity', taskId, page] as const,
   timeEntries: (taskId: string) => [...taskKeys.all, 'time-entries', taskId] as const,
   activeTimer: (taskId: string) => [...taskKeys.all, 'active-timer', taskId] as const,
+  checklistItems: (taskId: string) => [...taskKeys.all, 'checklist-items', taskId] as const,
 }
 
 export function useWorkspaceStatuses(workspaceId: string) {
@@ -462,5 +467,38 @@ export function useRejectTimeEntry(taskId: string) {
   return useMutation({
     mutationFn: ({ entryId, note }: { entryId: string; note: string }) => rejectTimeEntry(entryId, note),
     onSuccess: () => invalidateTimesheet(queryClient, taskId),
+  })
+}
+
+// SUB-TASK / checklist item (IG-97 susulan).
+export function useTaskChecklistItems(taskId: string | null) {
+  return useQuery({
+    queryKey: taskKeys.checklistItems(taskId ?? ''),
+    queryFn: () => getTaskChecklistItems(taskId ?? ''),
+    enabled: taskId !== null,
+  })
+}
+
+export function useCreateChecklistItem(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (title: string) => createChecklistItem(taskId, title),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.checklistItems(taskId) }),
+  })
+}
+
+export function useUpdateChecklistItem(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ itemId, values }: { itemId: string; values: { title?: string; is_done?: boolean } }) => updateChecklistItem(itemId, values),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.checklistItems(taskId) }),
+  })
+}
+
+export function useDeleteChecklistItem(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (itemId: string) => deleteChecklistItem(itemId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.checklistItems(taskId) }),
   })
 }
