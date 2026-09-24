@@ -592,6 +592,20 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
             <div className="flex max-h-[calc(100vh-340px)] flex-col gap-4 overflow-y-auto px-5 py-5">
               {activeTab === 'overview' && (
                 <>
+                  {/* JUDUL TASK + DESKRIPSI -- baris info konten di paling
+                      atas RINGKASAN (susulan 2026-09-24, diminta user).
+                      Satu-satunya tempat deskripsi ditampilkan baca-saja
+                      sekarang -- blok DESKRIPSI terpisah yang dulu ada di
+                      antara FIELD TASK dan SUB-TASK dihapus (redundan). */}
+                  <div>
+                    <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">JUDUL TASK</div>
+                    <div className="mt-1.5 text-[13px] font-semibold text-text-bone">{task.data.title}</div>
+                    <div className="mt-2.5 font-mono text-[8.5px] tracking-[0.14em] text-text-dim">DESKRIPSI</div>
+                    <div className="mt-1.5 whitespace-pre-wrap border border-line-strong bg-input-bg p-3 text-[13px] leading-relaxed text-text-bone">
+                      {description || <span className="text-text-dim">Belum ada deskripsi.</span>}
+                    </div>
+                  </div>
+
                   {/* fields -- ringkasan cepat baca-saja (desain: ASSIGNEE/
                       PIC FASE/STORY POINT/SPRINT/JAM TERCATAT). Status/
                       priority/due/SP SUDAH ada di badge header, tidak
@@ -741,18 +755,6 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                       </div>
                     )}
                   </div>
-
-                  {/* DESKRIPSI baca-saja -- ditampilkan saat FIELD TASK
-                      TIDAK sedang diedit (textarea editable-nya sudah
-                      pindah ke dalam kotak FIELD TASK di atas). */}
-                  {!fieldEditing && (
-                    <div>
-                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">DESKRIPSI</div>
-                      <div className="mt-1.5 whitespace-pre-wrap border border-line-strong bg-input-bg p-3 text-[13px] leading-relaxed text-text-bone">
-                        {description || <span className="text-text-dim">Belum ada deskripsi.</span>}
-                      </div>
-                    </div>
-                  )}
 
                   {/* SUB-TASK -- checklist ringan (IG-97 susulan, diminta
                       user "kenapa sub-task belum ada?"). Tabel baru RINGAN
