@@ -601,7 +601,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                     <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">JUDUL TASK</div>
                     <div className="mt-1.5 text-[13px] font-semibold text-text-bone">{task.data.title}</div>
                     <div className="mt-2.5 font-mono text-[8.5px] tracking-[0.14em] text-text-dim">DESKRIPSI</div>
-                    <div className="mt-1.5 whitespace-pre-wrap border border-line-strong bg-input-bg p-3 text-[13px] leading-relaxed text-text-bone">
+                    <div className="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-text-bone">
                       {description || <span className="text-text-dim">Belum ada deskripsi.</span>}
                     </div>
                   </div>
