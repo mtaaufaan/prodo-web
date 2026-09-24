@@ -213,6 +213,19 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
 
+  // notice -- auto-hilang setelah 15 detik (pola sama AwRuleAutomationPage
+  // exportNotice), DAN langsung hilang begitu pindah tab (susulan
+  // 2026-09-24, diminta user -- notice dari tab A jangan terbawa ke tab B).
+  useEffect(() => {
+    if (!notice) return
+    const t = setTimeout(() => setNotice(''), 15000)
+    return () => clearTimeout(t)
+  }, [notice])
+
+  useEffect(() => {
+    setNotice('')
+  }, [activeTab])
+
   useEffect(() => {
     if (task.data) {
       setTitle(task.data.title)
