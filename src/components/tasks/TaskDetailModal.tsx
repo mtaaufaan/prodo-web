@@ -204,7 +204,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const [picSelection, setPicSelection] = useState<string[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
   const [picError, setPicError] = useState('')
-  const [depCandidateId, setDepCandidateId] = useState('')
+  const [depSearch, setDepSearch] = useState('')
   const [depError, setDepError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [attachError, setAttachError] = useState('')
@@ -243,7 +243,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     setPicSelection([])
     setPicError('')
     setHistoryOpen(false)
-    setDepCandidateId('')
+    setDepSearch('')
     setDepError('')
     setSaveError('')
     setAttachError('')
@@ -380,13 +380,14 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
 
   // onAddDependency -- S4-47/51/52: backend deteksi circular (409
   // CIRCULAR_DEPENDENCY dengan cycle_path) -- FE TIDAK menghitung ulang
-  // graph di client, cukup tampilkan pesan dari server.
-  const onAddDependency = () => {
-    if (!depCandidateId) return
+  // graph di client, cukup tampilkan pesan dari server. candidateId
+  // diklik langsung dari baris kandidat (desain: tombol "MENUNGGU INI"
+  // per baris, bukan dropdown+tombol terpisah).
+  const onAddDependency = (candidateId: string) => {
     addDependency.mutate(
-      { taskId, predecessorTaskId: depCandidateId },
+      { taskId, predecessorTaskId: candidateId },
       {
-        onSuccess: () => setDepCandidateId(''),
+        onSuccess: () => setDepSearch(''),
         onError: (err: unknown) => {
           const apiErr = err as { code?: string; details?: { cycle_path?: string[] } }
           if (apiErr.code === 'CIRCULAR_DEPENDENCY') {
@@ -476,8 +477,16 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const showCompletenessToggle = task.data?.status_name === 'BACKLOG' && isCreatorOrActivePic
   const predecessors = dependencies.data?.predecessors ?? []
   const successors = dependencies.data?.successors ?? []
-  const linkedTaskIds = new Set([taskId, ...predecessors.map((p) => p.task_id)])
-  const dependencyCandidates = (projectTasks.data ?? []).filter((t) => !linkedTaskIds.has(t.id))
+  const linkedTaskIds = new Set([taskId, ...predecessors.map((p) => p.task_id), ...successors.map((s) => s.task_id)])
+  const depSearchLower = depSearch.trim().toLowerCase()
+  const dependencyCandidates = (projectTasks.data ?? [])
+    .filter((t) => !linkedTaskIds.has(t.id))
+    .filter((t) => !depSearchLower || t.title.toLowerCase().includes(depSearchLower) || (t.task_code ?? '').toLowerCase().includes(depSearchLower))
+  const activeBlockers = predecessors.filter((p) => p.status !== 'DONE')
+  const depEffectNote =
+    activeBlockers.length > 0
+      ? `Efek saat ini: task ini ditahan dan hanya boleh berada di BACKLOG atau BLOCKED sampai ${activeBlockers.map((b) => b.task_code ?? b.title).join(', ')} berstatus DONE. Percobaan memindahkan status ditolak dan tercatat di Audit Trail.`
+      : 'Efek saat ini: tidak ada pemblokir aktif -- task ini bebas berpindah status.'
 
   // Status Time Tracking (Phase 4, US-018b) -- sesi aktif = exited_at NULL.
   const sessions = statusSessions.data ?? []
@@ -602,7 +611,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
               ))}
             </div>
 
-            <div className="flex max-h-[calc(100vh-340px)] flex-col gap-4 overflow-y-auto px-5 py-5">
+            <div className="flex h-[560px] max-h-[calc(100vh-340px)] flex-col gap-4 overflow-y-auto px-5 py-5">
               {activeTab === 'overview' && (
                 <>
                   {/* JUDUL TASK + DESKRIPSI -- baris info konten di paling
@@ -970,57 +979,71 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
               )}
 
               {activeTab === 'deps' && (
-                <div className="flex flex-col gap-3.5">
+                <div className="flex flex-col gap-4">
                   <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
                     Dependency Finish-to-Start: task yang memblokir harus DONE sebelum task ini boleh masuk status berjalan. Rule automation dan Gantt memakai keterkaitan yang sama. Keterkaitan yang membentuk lingkaran ditolak sistem dan dicatat di Audit Trail.
                   </p>
+
                   <div className="flex flex-col gap-2">
-                    <div>
-                      <div className="mb-1 font-mono text-[8.5px] text-text-dim">MENUNGGU SELESAI (PREDECESSOR)</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {predecessors.map((p) => (
-                          <span key={p.task_id} className={cn('flex items-center gap-1.5 border px-2 py-1 font-mono text-[9px]', p.status === 'DONE' ? 'border-mint text-mint' : 'border-amber text-amber')}>
-                            {p.task_code ?? p.title} · {p.status}
-                            <button type="button" onClick={() => removeDependency.mutate({ taskId, predecessorTaskId: p.task_id })} className="text-text-dim hover:text-destructive">
-                              ✕
-                            </button>
-                          </span>
-                        ))}
-                        {predecessors.length === 0 && <span className="font-mono text-[9px] text-text-dim">Tidak ada predecessor.</span>}
+                    {predecessors.map((p) => (
+                      <div key={p.task_id} className="flex items-center gap-3 border border-line-strong bg-input-bg p-2.5">
+                        <span className={cn('flex-shrink-0 whitespace-nowrap border px-2 py-0.5 font-mono text-[9px] tracking-[0.06em]', p.status === 'DONE' ? 'border-mint text-mint' : 'border-destructive text-destructive')}>
+                          {p.status === 'DONE' ? 'SUDAH DONE' : 'MENAHAN'}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[12.5px] text-text-bone">{p.task_code ?? '—'} · {p.title}</div>
+                          <div className="font-mono text-[9px] text-text-dim">Finish-to-Start · status {p.status}</div>
+                        </div>
+                        <button type="button" onClick={() => removeDependency.mutate({ taskId, predecessorTaskId: p.task_id })} className="flex-shrink-0 font-mono text-[9px] uppercase tracking-[0.06em] text-destructive hover:underline">
+                          ✕ Hapus
+                        </button>
                       </div>
-                    </div>
-                    <div>
-                      <div className="mb-1 font-mono text-[8.5px] text-text-dim">MEMBLOKIR (SUCCESSOR)</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {successors.map((s) => (
-                          <span key={s.task_id} className="border border-line-strong px-2 py-1 font-mono text-[9px] text-text-muted">
-                            {s.task_code ?? s.title} · {s.status}
-                          </span>
-                        ))}
-                        {successors.length === 0 && <span className="font-mono text-[9px] text-text-dim">Tidak memblokir task lain.</span>}
+                    ))}
+                    {successors.map((s) => (
+                      <div key={s.task_id} className="flex items-center gap-3 border border-line-strong bg-input-bg p-2.5">
+                        <span className="flex-shrink-0 whitespace-nowrap border border-blue px-2 py-0.5 font-mono text-[9px] tracking-[0.06em] text-blue">MEMBLOKIR</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[12.5px] text-text-bone">{s.task_code ?? '—'} · {s.title}</div>
+                          <div className="font-mono text-[9px] text-text-dim">Finish-to-Start · status {s.status} · task ini harus DONE sebelum {s.task_code ?? s.title} berjalan</div>
+                        </div>
+                        <span className="flex-shrink-0 font-mono text-[9px] text-text-dim">—</span>
                       </div>
+                    ))}
+                    {predecessors.length === 0 && successors.length === 0 && <p className="font-mono text-[9.5px] text-text-dim">Belum ada dependency pada task ini.</p>}
+                  </div>
+
+                  <div className="border border-line-strong bg-input-bg p-3 font-mono text-[9.5px] leading-relaxed text-text-muted">{depEffectNote}</div>
+
+                  <div className="border-t border-line pt-4">
+                    <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">TAMBAH DEPENDENCY</label>
+                    <input
+                      value={depSearch}
+                      onChange={(e) => { setDepSearch(e.target.value); setDepError('') }}
+                      placeholder="Cari task lain di project ini"
+                      className="w-full border border-line-strong bg-input-bg px-3 py-2 text-[12.5px] text-text-bone outline-none focus-visible:border-signal"
+                    />
+                    {depError && <p className="mt-2 text-[10px] text-destructive">⚠ {depError}</p>}
+                    <div className="mt-2.5 flex max-h-[160px] flex-col gap-1.5 overflow-y-auto">
+                      {dependencyCandidates.map((t) => (
+                        <div key={t.id} className="flex items-center gap-2.5 border border-line-strong p-2.5">
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[12px] text-text-bone">{t.task_code ?? '—'} · {t.title}</div>
+                            <div className="font-mono text-[9px] text-text-dim">{t.status_name} · {t.priority}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onAddDependency(t.id)}
+                            disabled={addDependency.isPending}
+                            className="flex-shrink-0 whitespace-nowrap border border-amber px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.06em] text-amber disabled:opacity-40"
+                          >
+                            Menunggu Ini
+                          </button>
+                        </div>
+                      ))}
+                      {dependencyCandidates.length === 0 && (
+                        <p className="font-mono text-[9.5px] text-text-dim">{depSearch ? 'Tidak ada task yang cocok.' : 'Tidak ada task lain yang tersedia di project ini.'}</p>
+                      )}
                     </div>
-                    <div className="flex gap-2">
-                      <select
-                        value={depCandidateId}
-                        onChange={(e) => { setDepCandidateId(e.target.value); setDepError('') }}
-                        className="flex-1 border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[10.5px] text-text-bone outline-none focus-visible:border-signal"
-                      >
-                        <option value="">Pilih task predecessor...</option>
-                        {dependencyCandidates.map((t) => (
-                          <option key={t.id} value={t.id}>{t.task_code ?? t.title} · {t.title}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={onAddDependency}
-                        disabled={!depCandidateId || addDependency.isPending}
-                        className="border border-signal px-3 py-2 font-mono text-[9.5px] font-bold uppercase text-signal disabled:opacity-40"
-                      >
-                        + Dependency
-                      </button>
-                    </div>
-                    {depError && <p className="text-[10px] text-destructive">⚠ {depError}</p>}
                   </div>
                 </div>
               )}
