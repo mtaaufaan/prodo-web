@@ -35,6 +35,12 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
 const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high', 'critical']
+const PRIORITY_BADGE_TONE: Record<TaskPriority, string> = {
+  low: 'border-line-strong text-text-muted',
+  medium: 'border-blue text-blue',
+  high: 'border-amber text-amber',
+  critical: 'border-destructive text-destructive',
+}
 
 // formatDuration -- Phase 4 (US-018b/S4-66): "2j 15m", dipakai StatusTimeline.
 // Queue/Active/Lead Time dihitung di klien dari raw session rows (bukan
@@ -164,7 +170,15 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const [activeTab, setActiveTab] = useState<DetailTab>('overview')
   const [activityPage, setActivityPage] = useState(1)
   const activity = useTaskActivity(taskId, activityPage)
-  const [editing, setEditing] = useState(false)
+  // fieldEditing -- kotak "FIELD TASK" (judul/priority/due/estimasi/SP)
+  // dan DESKRIPSI adalah DUA area edit TERPISAH mengikuti desain (masing-
+  // masing tombol Simpan sendiri) -- DESKRIPSI selalu bisa diedit langsung
+  // (tidak digerbangi toggle), FIELD TASK digerbangi "EDIT FIELD"/"TUTUP
+  // EDITOR". Keduanya tetap mengirim SATU payload PUT /tasks/:id yang sama
+  // (backend tidak punya PATCH parsial) -- kalau user mengetik di FIELD
+  // TASK lalu simpan lewat DESKRIPSI tanpa menutup editor dulu, field yang
+  // sedang diketik ikut tersimpan juga (rough edge kecil, diterima).
+  const [fieldEditing, setFieldEditing] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
@@ -202,7 +216,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     }
     setActiveTab('overview')
     setActivityPage(1)
-    setEditing(false)
+    setFieldEditing(false)
     setNotice('')
     setPendingStatusId(null)
     setPicSelection([])
@@ -226,37 +240,44 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
 
   if (!taskId) return null
 
-  // dirty (susulan 2026-09-15, "jadikan ini standar") -- cuma berarti
-  // saat editing (field draft cuma dirender/bisa diketik saat itu).
-  const dirty =
-    editing &&
+  // fieldDirty/descDirty -- dua indikator TERPISAH (sama alasan komentar
+  // fieldEditing di atas).
+  const fieldDirty =
+    fieldEditing &&
     !!task.data &&
     (title.trim() !== task.data.title ||
-      description !== (typeof task.data.description === 'string' ? task.data.description : '') ||
       priority !== task.data.priority ||
       dueDate !== (task.data.due_date ?? '') ||
       estimatedHours !== (task.data.estimated_hours != null ? String(task.data.estimated_hours) : '') ||
       storyPoints !== task.data.story_points)
+  const descDirty = !!task.data && description !== (typeof task.data.description === 'string' ? task.data.description : '')
 
-  // handleCancelEdit -- "Batal" sebelumnya cuma setEditing(false), TIDAK
-  // mengembalikan draft ke nilai task.data (ditemukan sekalian lewat audit
-  // "jadikan ini standar": draft yang diketik lalu Batal tetap nyangkut
-  // sampai sesi Edit berikutnya, bikin dirty salah nyala walau belum
-  // benar-benar mengetik apa pun di sesi itu).
-  const handleCancelEdit = () => {
+  // handleCancelField -- "Batal" mengembalikan draft FIELD TASK ke nilai
+  // task.data (susulan 2026-09-15 "jadikan ini standar" -- draft yang
+  // diketik lalu Batal tidak boleh nyangkut sampai sesi Edit berikutnya).
+  // TIDAK menyentuh description (area edit terpisah).
+  const handleCancelField = () => {
     if (task.data) {
       setTitle(task.data.title)
-      setDescription(typeof task.data.description === 'string' ? task.data.description : '')
       setPriority(task.data.priority)
       setDueDate(task.data.due_date ?? '')
       setEstimatedHours(task.data.estimated_hours != null ? String(task.data.estimated_hours) : '')
       setStoryPoints(task.data.story_points)
     }
-    setEditing(false)
+    setFieldEditing(false)
     setSaveError('')
   }
 
-  const onSave = () => {
+  const onResetDescription = () => {
+    if (task.data) setDescription(typeof task.data.description === 'string' ? task.data.description : '')
+    setSaveError('')
+  }
+
+  // saveTask -- SATU chokepoint PUT /tasks/:id (backend tidak punya PATCH
+  // parsial) dipakai KEDUA tombol "SIMPAN PERUBAHAN" (FIELD TASK) dan
+  // "SIMPAN DESKRIPSI" -- onSuccessExtra cuma beda urusan UI (tutup
+  // editor FIELD TASK atau tidak).
+  const saveTask = (onSuccessExtra?: () => void) => {
     if (!task.data) return
     setSaveError('')
     update.mutate(
@@ -274,7 +295,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
         },
       },
       {
-        onSuccess: () => { setEditing(false); setNotice('Task diperbarui.') },
+        onSuccess: () => { setNotice('Task diperbarui.'); onSuccessExtra?.() },
         onError: (err: unknown) => {
           const apiErr = err as { code?: string }
           setSaveError(
@@ -286,6 +307,8 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
       },
     )
   }
+  const onSaveField = () => saveTask(() => setFieldEditing(false))
+  const onSaveDescription = () => saveTask()
 
   // openPicPicker -- klik chip status membuka panel pilih PIC (S4-31/32:
   // ganti status SELALU butuh PIC baru), bukan langsung berpindah seperti
@@ -477,14 +500,67 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   // yang menegakkan" di seluruh modal ini).
   const timerRunningHere = activeTimer.data != null
 
+  const isOverdue = Boolean(task.data?.due_date && task.data.due_date < new Date().toISOString().slice(0, 10) && task.data.status_name !== 'DONE')
+  const loggedHours = (task.data?.logged_minutes ?? 0) / 60
+  const isOverEstimate = Boolean(task.data?.estimated_hours && loggedHours > task.data.estimated_hours)
+
   return (
     <Dialog open={taskId !== null} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-w-[680px]">
+      {/* max-w-[760px] -- IG-97 susulan, ditemukan user membandingkan
+          langsung dengan desain: dialog sebelumnya (680px, header cuma
+          judul polos) terasa jauh lebih sempit/gepeng dibanding kanvas
+          desain (~720px, header breadcrumb+badge kaya). Header di bawah
+          ini menggantikan DialogTitle judul polos dengan breadcrumb
+          (sprint · dibuat) + baris badge (status/priority/due/jam/SP/
+          regresi) sesuai desain -- data project name TIDAK tersedia di
+          modal ini (cuma projectId), jadi breadcrumb dipakai sprint+
+          tanggal dibuat sebagai pengganti yang wajar dari data yang
+          benar-benar ada, bukan menebak/hardcode. */}
+      <DialogContent className="max-w-[760px]">
         <DialogHeader>
-          <DialogTitle>
-            {task.data?.is_blocked && <span title="Diblokir -- ada predecessor yang belum selesai">🔒 </span>}
-            {task.data?.task_code ?? '...'} · {task.data?.title ?? ''}
-          </DialogTitle>
+          {task.data ? (
+            <div className="flex flex-col gap-2.5">
+              <div>
+                <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-signal">
+                  DETAIL TASK · {task.data.task_code ?? '...'}
+                </div>
+                <DialogTitle className="mt-1.5">
+                  {task.data.is_blocked && <span title="Diblokir -- ada predecessor yang belum selesai">🔒 </span>}
+                  {task.data.title}
+                </DialogTitle>
+                <div className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.06em] text-text-dim">
+                  {task.data.sprint_name ?? 'Backlog'} · Dibuat {new Date(task.data.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <span
+                  className="border px-2 py-1 font-mono text-[9px] font-semibold"
+                  style={task.data.status_color ? { color: task.data.status_color, borderColor: task.data.status_color } : undefined}
+                >
+                  {task.data.status_name}
+                </span>
+                <span className={cn('border px-2 py-1 font-mono text-[9px] font-semibold uppercase', PRIORITY_BADGE_TONE[task.data.priority])}>
+                  {task.data.priority}
+                </span>
+                <span className={cn('border px-2 py-1 font-mono text-[9px]', isOverdue ? 'border-destructive text-destructive' : 'border-line-strong text-text-muted')}>
+                  DUE {task.data.due_date ?? '—'}
+                </span>
+                <span className={cn('border px-2 py-1 font-mono text-[9px]', isOverEstimate ? 'border-destructive text-destructive' : 'border-line-strong text-text-muted')}>
+                  {loggedHours.toFixed(1)}/{task.data.estimated_hours ?? '—'} JAM
+                </span>
+                <span className="border border-violet px-2 py-1 font-mono text-[9px] font-semibold text-violet">
+                  SP {task.data.story_points ?? '?'}
+                </span>
+                {task.data.regression_count > 0 && (
+                  <span className="border border-destructive bg-destructive/10 px-2 py-1 font-mono text-[9px] font-semibold text-destructive">
+                    ↩ {task.data.regression_count}× REGRESI
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <DialogTitle>Detail Task</DialogTitle>
+          )}
         </DialogHeader>
 
         {task.isLoading && <p className="px-5 py-5 text-sm text-text-muted">Memuat...</p>}
@@ -510,8 +586,214 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
             <div className="flex max-h-[calc(100vh-340px)] flex-col gap-4 overflow-y-auto px-5 py-5">
               {activeTab === 'overview' && (
                 <>
+                  {/* fields -- ringkasan cepat baca-saja (desain: ASSIGNEE/
+                      PIC FASE/STORY POINT/SPRINT/JAM TERCATAT). Status/
+                      priority/due/SP SUDAH ada di badge header, tidak
+                      diulang di sini. */}
+                  <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3">
+                    <div>
+                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">ASSIGNEE</div>
+                      <div className="mt-1.5 text-[12.5px] text-text-bone">
+                        {task.data.assignees.length ? task.data.assignees.map((a) => a.display_name || a.email).join(', ') : <span className="text-text-dim">Belum ada assignee</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">PIC FASE</div>
+                      <div className="mt-1.5 text-[12.5px] text-text-bone">
+                        {activePics.length ? activePics.map((p) => p.user_name || p.user_email).join(', ') : <span className="text-text-dim">Belum ada PIC</span>}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">STORY POINT</div>
+                      <div className="mt-1.5 text-[12.5px] text-text-bone">{task.data.story_points == null ? '? · belum diestimasi' : `${task.data.story_points} SP`}</div>
+                    </div>
+                    <div>
+                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">SPRINT</div>
+                      <div className="mt-1.5 text-[12.5px] text-text-bone">{task.data.sprint_name ?? 'Backlog'}</div>
+                    </div>
+                    <div>
+                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">JAM TERCATAT</div>
+                      <div className={cn('mt-1.5 text-[12.5px]', isOverEstimate ? 'text-destructive' : 'text-text-bone')}>
+                        {loggedHours.toFixed(1)} dari {task.data.estimated_hours ?? '—'} jam{isOverEstimate ? ' · melebihi estimasi' : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* FIELD TASK -- kotak edit collapsible (desain: header
+                      "FIELD TASK" + toggle "EDIT FIELD"/"TUTUP EDITOR",
+                      kosong saat tidak sedang diedit). Sprint TIDAK
+                      diedit di sini (belum ada picker sprint di form ini
+                      sebelumnya) -- simplifikasi diterima. */}
+                  <div className="border border-line-strong bg-input-bg p-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-mono text-[8.5px] tracking-[0.14em] text-signal">FIELD TASK</span>
+                      <button
+                        type="button"
+                        onClick={() => (fieldEditing ? handleCancelField() : setFieldEditing(true))}
+                        className="ml-auto font-mono text-[9px] uppercase tracking-[0.06em] text-signal hover:underline"
+                      >
+                        {fieldEditing ? '✕ Tutup Editor' : '✎ Edit Field'}
+                      </button>
+                    </div>
+                    {fieldEditing && (
+                      <div className="mt-3.5 flex flex-col gap-3.5">
+                        <div>
+                          <label className="mb-1.5 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">JUDUL TASK</label>
+                          <input
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            className="w-full border border-line-strong bg-panel px-3 py-2.5 text-[13px] text-text-bone outline-none focus-visible:border-signal"
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-3.5">
+                          <div className="min-w-[180px] flex-1">
+                            <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">PRIORITY</label>
+                            <div className="flex flex-wrap gap-1.5">
+                              {PRIORITIES.map((p) => (
+                                <button
+                                  key={p}
+                                  type="button"
+                                  onClick={() => setPriority(p)}
+                                  className={cn(
+                                    'border px-2.5 py-1.5 font-mono text-[9.5px] font-semibold uppercase',
+                                    priority === p ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
+                                  )}
+                                >
+                                  {p}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="w-[160px]">
+                            <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">DUE DATE</label>
+                            <input
+                              type="date"
+                              value={dueDate}
+                              onChange={(e) => setDueDate(e.target.value)}
+                              className="w-full border border-line-strong bg-panel px-2.5 py-2 font-mono text-[11px] text-text-bone outline-none focus-visible:border-signal"
+                            />
+                          </div>
+                          <div className="w-[130px]">
+                            <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">ESTIMASI (JAM)</label>
+                            <input
+                              value={estimatedHours}
+                              onChange={(e) => setEstimatedHours(e.target.value.replace(/[^0-9.]/g, ''))}
+                              className="w-full border border-line-strong bg-panel px-2.5 py-2 font-mono text-[11px] text-text-bone outline-none focus-visible:border-signal"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">STORY POINT · SKALA FIBONACCI</label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {[null, ...FIBONACCI_STORY_POINTS].map((v) => (
+                              <button
+                                key={v ?? 'unset'}
+                                type="button"
+                                onClick={() => setStoryPoints(v)}
+                                className={cn(
+                                  'min-w-[32px] border px-2 py-1.5 text-center font-mono text-[10.5px] font-semibold',
+                                  storyPoints === v ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
+                                )}
+                              >
+                                {v ?? '?'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={onSaveField}
+                            disabled={update.isPending}
+                            className="border border-signal bg-signal px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-bg-deep disabled:opacity-40"
+                          >
+                            {update.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
+                          </button>
+                          <button type="button" onClick={handleCancelField} className="border border-line-strong px-4 py-2 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted">
+                            Batal
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* DESKRIPSI -- selalu bisa diedit langsung, tombol
+                      simpan SENDIRI (bukan bagian FIELD TASK). */}
                   <div>
-                    <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">STATUS</label>
+                    <div className="mb-1.5 flex items-baseline gap-2.5">
+                      <span className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">DESKRIPSI</span>
+                      {versions.data && versions.data.length > 0 && (
+                        <span className="ml-auto font-mono text-[9px] text-text-dim">
+                          versi terakhir v{versions.data.length} · {versions.data[0].changed_by_name || versions.data[0].changed_by_email}
+                        </span>
+                      )}
+                    </div>
+                    <textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Cakupan, langkah verifikasi, tautan dokumen…"
+                      className="h-[120px] w-full resize-y border border-line-strong bg-input-bg px-3 py-2.5 text-[13px] leading-relaxed text-text-bone outline-none focus-visible:border-signal"
+                    />
+                    <div className="mt-2.5 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={onSaveDescription}
+                        disabled={!descDirty || update.isPending}
+                        className="border border-signal bg-signal px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-bg-deep disabled:opacity-40"
+                      >
+                        {update.isPending ? 'Menyimpan...' : 'Simpan Deskripsi'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onResetDescription}
+                        disabled={!descDirty}
+                        className="border border-line-strong px-4 py-2 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
+                      >
+                        Kembalikan
+                      </button>
+                    </div>
+                  </div>
+
+                  {showStartWorkButton && (
+                    <Button
+                      type="button"
+                      onClick={() => startWork.mutate()}
+                      disabled={startWork.isPending}
+                      className="w-fit font-mono text-[9.5px] font-bold uppercase tracking-[0.06em]"
+                    >
+                      ▶ Mulai Pengerjaan
+                    </Button>
+                  )}
+
+                  <div>
+                    <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">KELENGKAPAN</div>
+                    {showCompletenessToggle ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCompleteness.mutate({
+                            taskId,
+                            completeness: task.data!.completeness === 'complete' ? 'incomplete' : 'complete',
+                          })
+                        }
+                        disabled={setCompleteness.isPending}
+                        className={cn(
+                          'mt-1.5 border px-2.5 py-1.5 font-mono text-[10.5px] font-semibold',
+                          task.data.completeness === 'complete' ? 'border-mint text-mint' : 'border-amber text-amber',
+                        )}
+                      >
+                        {task.data.completeness === 'complete' ? '✓ Lengkap' : '○ Belum Lengkap'}
+                      </button>
+                    ) : (
+                      <div className="mt-1.5 text-[12.5px] text-text-bone">{task.data.completeness === 'complete' ? 'Lengkap' : 'Belum Lengkap'}</div>
+                    )}
+                  </div>
+
+                  {/* PINDAHKAN STATUS -- di desain letaknya di paling
+                      bawah tab RINGKASAN (setelah field/deskripsi/sub-task),
+                      bukan di atas. */}
+                  <div className="border-t border-line pt-4">
+                    <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">PINDAHKAN STATUS</label>
                     <div className="flex flex-wrap gap-1.5">
                       {statuses.map((s) => (
                         <button
@@ -528,17 +810,6 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                         </button>
                       ))}
                     </div>
-
-                    {showStartWorkButton && (
-                      <Button
-                        type="button"
-                        onClick={() => startWork.mutate()}
-                        disabled={startWork.isPending}
-                        className="mt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.06em]"
-                      >
-                        ▶ Mulai Pengerjaan
-                      </Button>
-                    )}
 
                     {pendingStatusId && (
                       <div className="mt-3 border border-amber bg-amber/5 p-3">
@@ -583,149 +854,14 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                       </div>
                     )}
                   </div>
-
-                  {editing ? (
-                    <>
-                      <div>
-                        <label className="mb-1.5 block font-mono text-[9px] tracking-[0.14em] text-text-dim">JUDUL</label>
-                        <input
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                          className="w-full border border-line-strong bg-input-bg px-3 py-2.5 text-[13px] text-text-bone outline-none focus-visible:border-signal"
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1.5 block font-mono text-[9px] tracking-[0.14em] text-text-dim">DESKRIPSI</label>
-                        <textarea
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="Cakupan, langkah verifikasi, tautan dokumen…"
-                          className="h-24 w-full resize-y border border-line-strong bg-input-bg px-3 py-2.5 text-[12.5px] leading-relaxed text-text-bone outline-none focus-visible:border-signal"
-                        />
-                      </div>
-                      <div className="flex flex-wrap gap-3.5">
-                        <div className="min-w-[180px] flex-1">
-                          <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">PRIORITY</label>
-                          <div className="flex flex-wrap gap-1.5">
-                            {PRIORITIES.map((p) => (
-                              <button
-                                key={p}
-                                type="button"
-                                onClick={() => setPriority(p)}
-                                className={cn(
-                                  'border px-2.5 py-1.5 font-mono text-[9.5px] font-semibold uppercase',
-                                  priority === p ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
-                                )}
-                              >
-                                {p}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="w-[160px]">
-                          <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">DUE DATE</label>
-                          <input
-                            type="date"
-                            value={dueDate}
-                            onChange={(e) => setDueDate(e.target.value)}
-                            className="w-full border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[11px] text-text-bone outline-none focus-visible:border-signal"
-                          />
-                        </div>
-                        <div className="w-[130px]">
-                          <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">ESTIMASI (JAM)</label>
-                          <input
-                            value={estimatedHours}
-                            onChange={(e) => setEstimatedHours(e.target.value.replace(/[^0-9.]/g, ''))}
-                            className="w-full border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[11px] text-text-bone outline-none focus-visible:border-signal"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">STORY POINT</label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {[null, ...FIBONACCI_STORY_POINTS].map((v) => (
-                            <button
-                              key={v ?? 'unset'}
-                              type="button"
-                              onClick={() => setStoryPoints(v)}
-                              className={cn(
-                                'min-w-[32px] border px-2 py-1.5 text-center font-mono text-[10.5px] font-semibold',
-                                storyPoints === v ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
-                              )}
-                            >
-                              {v ?? '?'}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <div className="font-mono text-[9px] tracking-[0.1em] text-text-dim">DESKRIPSI</div>
-                        <div className="mt-1.5 whitespace-pre-wrap border border-line-strong bg-input-bg p-3 text-[12.5px] leading-relaxed text-text-bone">
-                          {description || <span className="text-text-dim">Belum ada deskripsi.</span>}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3.5 font-mono text-[11px]">
-                        <div>
-                          <div className="text-[9px] tracking-[0.1em] text-text-dim">PRIORITY</div>
-                          <div className="mt-1 uppercase text-text-bone">{task.data.priority}</div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] tracking-[0.1em] text-text-dim">DUE DATE</div>
-                          <div className="mt-1 text-text-bone">{task.data.due_date ?? '—'}</div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] tracking-[0.1em] text-text-dim">ESTIMASI</div>
-                          <div className="mt-1 text-text-bone">{task.data.estimated_hours ?? '—'} jam</div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] tracking-[0.1em] text-text-dim">JAM TERCATAT</div>
-                          <div className={cn('mt-1', task.data.estimated_hours && task.data.logged_minutes / 60 > task.data.estimated_hours ? 'text-destructive' : 'text-text-bone')}>
-                            {(task.data.logged_minutes / 60).toFixed(1)} dari {task.data.estimated_hours ?? '—'} jam
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] tracking-[0.1em] text-text-dim">STORY POINT</div>
-                          <div className="mt-1 text-text-bone">{task.data.story_points ?? '?'}</div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] tracking-[0.1em] text-text-dim">SPRINT</div>
-                          <div className="mt-1 text-text-bone">{task.data.sprint_name ?? 'Backlog'}</div>
-                        </div>
-                        <div>
-                          <div className="text-[9px] tracking-[0.1em] text-text-dim">KELENGKAPAN</div>
-                          {showCompletenessToggle ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setCompleteness.mutate({
-                                  taskId,
-                                  completeness: task.data!.completeness === 'complete' ? 'incomplete' : 'complete',
-                                })
-                              }
-                              disabled={setCompleteness.isPending}
-                              className={cn(
-                                'mt-1 border px-2 py-1 font-mono text-[10.5px] font-semibold',
-                                task.data.completeness === 'complete' ? 'border-mint text-mint' : 'border-amber text-amber',
-                              )}
-                            >
-                              {task.data.completeness === 'complete' ? '✓ Lengkap' : '○ Belum Lengkap'}
-                            </button>
-                          ) : (
-                            <div className="mt-1 text-text-bone">{task.data.completeness === 'complete' ? 'Lengkap' : 'Belum Lengkap'}</div>
-                          )}
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </>
               )}
 
               {activeTab === 'deps' && (
-                <div>
-                  <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">DEPENDENCY (FINISH-TO-START)</div>
+                <div className="flex flex-col gap-3.5">
+                  <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
+                    Dependency Finish-to-Start: task yang memblokir harus DONE sebelum task ini boleh masuk status berjalan. Rule automation dan Gantt memakai keterkaitan yang sama. Keterkaitan yang membentuk lingkaran ditolak sistem dan dicatat di Audit Trail.
+                  </p>
                   <div className="flex flex-col gap-2">
                     <div>
                       <div className="mb-1 font-mono text-[8.5px] text-text-dim">MENUNGGU SELESAI (PREDECESSOR)</div>
@@ -1202,40 +1338,24 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                 </div>
               )}
 
-              {dirty && (
+              {(fieldDirty || descDirty) && (
                 <p className="border border-amber p-2.5 font-mono text-[10px] leading-relaxed text-amber">
-                  Ada perubahan yang belum disimpan. Tekan &quot;Simpan Perubahan&quot; untuk menerapkan.
+                  Ada perubahan yang belum disimpan di tab RINGKASAN.
                 </p>
               )}
-              {!dirty && notice && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {notice}</p>}
+              {!fieldDirty && !descDirty && notice && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {notice}</p>}
               {saveError && <p className="text-[11px] text-destructive">⚠ {saveError}</p>}
             </div>
           </>
         )}
 
         <DialogFooter>
-          {editing ? (
-            <>
-              <Button type="button" disabled={update.isPending} onClick={onSave} className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]">
-                {update.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
-              </Button>
-              <Button type="button" variant="outline" onClick={handleCancelEdit} className="font-mono text-[10px] uppercase tracking-[0.06em]">
-                Batal
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button type="button" onClick={() => setEditing(true)} className="font-mono text-[10px] font-bold uppercase tracking-[0.06em]">
-                ✎ Edit Task
-              </Button>
-              <Button type="button" variant="outline" onClick={onDelete} disabled={remove.isPending} className="border-destructive font-mono text-[10px] uppercase tracking-[0.06em] text-destructive">
-                Hapus
-              </Button>
-              <Button type="button" variant="outline" onClick={onClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
-                Tutup
-              </Button>
-            </>
-          )}
+          <Button type="button" variant="outline" onClick={onDelete} disabled={remove.isPending} className="border-destructive font-mono text-[10px] uppercase tracking-[0.06em] text-destructive">
+            Hapus
+          </Button>
+          <Button type="button" variant="outline" onClick={onClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
+            Tutup
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
