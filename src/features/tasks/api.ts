@@ -96,6 +96,28 @@ export function deleteTask(taskId: string) {
   return apiClient.delete<{ id: string }>(`/api/v1/tasks/${taskId}`)
 }
 
+// reorderTask -- drag-geser kartu Kanban DALAM satu kolom status (Track
+// S5, IG-9x menu Board). Pindah kolom tetap lewat setTaskStatus di atas.
+export function reorderTask(taskId: string, targetTaskId: string, placeBefore: boolean) {
+  return apiClient.put<{ id: string }>(`/api/v1/tasks/${taskId}/reorder`, { target_task_id: targetTaskId, place_before: placeBefore })
+}
+
+export interface BulkStatusResultItem {
+  task_id: string
+  ok: boolean
+  error?: string
+}
+
+// bulkSetTaskStatus -- "PINDAHKAN & TETAPKAN PIC" saat banyak kartu
+// dipilih sekaligus (Track S5, menu Board). Per-task hasil dikembalikan,
+// bukan all-or-nothing.
+export function bulkSetTaskStatus(projectId: string, taskIds: string[], statusId: string, picIds: string[]) {
+  return apiClient.post<{ results: BulkStatusResultItem[]; success_count: number; total: number }>(
+    `/api/v1/projects/${projectId}/tasks/bulk-status`,
+    { task_ids: taskIds, status_id: statusId, pic_ids: picIds },
+  )
+}
+
 export function acknowledgePic(taskId: string) {
   return apiClient.post<{ id: string }>(`/api/v1/tasks/${taskId}/pic/acknowledge`)
 }
