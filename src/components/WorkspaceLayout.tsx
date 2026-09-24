@@ -295,12 +295,17 @@ export default function WorkspaceLayout() {
   // cukup" -- tapi 17 menit setelahnya di commit yang sama harinya, input
   // topbar GroupAdminLayout yang sama-sama disabled itu JUSTRU dibangun
   // jadi filter page-local sungguhan (nama/email), bukan dihapus. AW tidak
-  // pernah dapat susulan yang sama. Cuma nav 'project'/'members' yang
-  // disambungkan (sama pola GA: 'workspace'/'members', BUKAN 'Organisasi'
-  // di sana / BUKAN item admin-only lain di sini yang sudah py filter
-  // dropdown sendiri).
-  const searchableNav = activeNav?.key === 'project' || activeNav?.key === 'members'
-  const searchPlaceholder = activeNav?.key === 'project' ? 'Cari nama project…' : 'Cari nama atau email member…'
+  // pernah dapat susulan yang sama. Awalnya cuma nav 'project'/'members'
+  // yang disambungkan (sama pola GA: 'workspace'/'members', BUKAN
+  // 'Organisasi' di sana / BUKAN item admin-only lain di sini yang sudah
+  // py filter dropdown sendiri) -- 'board' ditambah susulan (IG-96,
+  // ditemukan user: desain `Master UI User.dc.html` selalu menampilkan
+  // input topbar di SEMUA halaman dengan placeholder generik "Cari task,
+  // project, member…", filter task judul dikerjakan client-side di
+  // `ProjectBoardPage.tsx` sama pola `ProjectListPage`/`WorkspaceMembersPage`).
+  const searchableNav = activeNav?.key === 'project' || activeNav?.key === 'members' || activeNav?.key === 'board'
+  const searchPlaceholder =
+    activeNav?.key === 'project' ? 'Cari nama project…' : activeNav?.key === 'board' ? 'Cari judul task…' : 'Cari nama atau email member…'
 
   useEffect(() => {
     setQuery('')

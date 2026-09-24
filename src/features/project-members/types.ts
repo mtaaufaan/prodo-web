@@ -7,6 +7,7 @@ export interface ProjectMember {
   role: string
   is_scoped: boolean
   added_at: string
+  is_pm?: boolean
 }
 
 export interface GroupAccount {

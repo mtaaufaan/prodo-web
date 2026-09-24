@@ -113,6 +113,7 @@ export interface Task {
   position: number
   assignees: TaskAssignee[]
   active_pics: TaskPicPhase[]
+  logged_minutes: number
 }
 
 // TaskPicPhase (Phase 2, US-017 Phase PIC Handoff) -- satu baris per PIC
@@ -157,6 +158,60 @@ export interface TaskStatusSession {
   exited_at: string | null
   is_regression: boolean
   triggered_by: string | null
+}
+
+// TaskVersionSnapshot (IG-97, tab RIWAYAT VERSI) -- snapshot judul+deskripsi
+// SEBELUM tiap perubahan tersimpan, terurut terbaru dulu. `trigger` field
+// tambahan (di luar DATABASE_SCHEMA.md §5.19 asli) -- alasan singkat versi
+// ini dibuat.
+export interface TaskVersionSnapshot {
+  id: string
+  task_id: string
+  title: string
+  description: unknown
+  changed_by: string | null
+  changed_by_name: string
+  changed_by_email: string
+  trigger: string
+  snapshot_at: string
+}
+
+// TaskActivityEntry (IG-94/IG-97, tab AKTIVITAS) -- satu baris audit_logs
+// (entity_type='task' ATAU 'task_attachment' milik task ini).
+export interface TaskActivityEntry {
+  id: string
+  action: string
+  actor_id: string | null
+  actor_name: string
+  actor_email: string
+  actor_role: string
+  state_before: Record<string, unknown> | null
+  state_after: Record<string, unknown> | null
+  metadata: Record<string, unknown> | null
+  logged_at: string
+}
+
+// TimeEntry/ActiveTimer (Timesheet, IG-97/US-036/037).
+export interface TimeEntry {
+  id: string
+  task_id: string
+  user: { user_id: string; display_name: string; email: string }
+  entry_type: 'timer' | 'manual'
+  started_at: string
+  ended_at: string | null
+  duration_minutes: number | null
+  note: string | null
+  approval_status: 'pending' | 'approved' | 'rejected'
+  rejection_note: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ActiveTimer {
+  timer_id: string
+  task_id: string
+  started_at: string
+  elapsed_seconds: number
 }
 
 export interface TaskFormValues {

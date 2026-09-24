@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -27,6 +27,9 @@ interface AddTaskModalProps {
 // Status AWAL selalu BACKLOG di Phase 1 (S4-13 AC) -- pemilihan status
 // custom saat create BELUM dibangun (butuh daftar status per-project, di
 // luar scope Phase 1 yang cuma status sistem level workspace).
+// Deviasi disengaja dari urutan field desain (atas permintaan user): field
+// SPRINT dipindah ke paling atas (sebelum Judul Task) -- desain aslinya
+// menaruh Sprint paling akhir setelah Assignee.
 export default function AddTaskModal({ open, onClose, projectId, projectName, defaultSprintId }: AddTaskModalProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -38,10 +41,20 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
   const [assigneeIds, setAssigneeIds] = useState<string[]>([])
   const [titleError, setTitleError] = useState(false)
   const [formError, setFormError] = useState('')
+  const titleFieldRef = useRef<HTMLDivElement>(null)
+  const formErrorRef = useRef<HTMLParagraphElement>(null)
 
-  const members = useProjectMembers(projectId)
+  const members = useProjectMembers(projectId, true)
   const sprints = useProjectSprints(projectId)
   const create = useCreateTask(projectId)
+
+  useEffect(() => {
+    if (titleError) titleFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [titleError])
+
+  useEffect(() => {
+    if (formError) formErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [formError])
 
   useEffect(() => {
     if (!open) return
@@ -100,7 +113,33 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
         </DialogHeader>
 
         <div className="flex max-h-[calc(100vh-300px)] flex-col gap-4 overflow-y-auto px-5 py-5">
-          <div>
+          {activeSprints.length > 0 && (
+            <div>
+              <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">SPRINT</label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSprintId(null)}
+                  className={cn('border px-2.5 py-1.5 font-mono text-[9.5px]', sprintId === null ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted')}
+                >
+                  Backlog (tanpa sprint)
+                </button>
+                {activeSprints.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setSprintId(s.id)}
+                    className={cn('border px-2.5 py-1.5 font-mono text-[9.5px]', sprintId === s.id ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted')}
+                  >
+                    {s.name}
+                    {s.status === 'active' ? ' · AKTIF' : ''}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div ref={titleFieldRef}>
             <label className="mb-1.5 block font-mono text-[9px] tracking-[0.14em] text-text-dim">JUDUL TASK · WAJIB</label>
             <input
               value={title}
@@ -189,7 +228,7 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
           <div>
             <label className="mb-1 block font-mono text-[9px] tracking-[0.14em] text-text-dim">ASSIGNEE · MINIMAL SATU</label>
             <p className="mb-2 font-mono text-[9px] leading-relaxed text-text-dim">
-              Pembuat task otomatis menjadi PIC fase awal (Phase 2).
+              Viewer tidak dapat ditugaskan. Pembuat task otomatis menjadi PIC fase awal; assignee dapat menerima serah terima setelahnya.
             </p>
             <div className="flex flex-wrap gap-1.5">
               {(members.data ?? []).map((m) => {
@@ -215,33 +254,11 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
             </div>
           </div>
 
-          {activeSprints.length > 0 && (
-            <div>
-              <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">SPRINT</label>
-              <div className="flex flex-wrap gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setSprintId(null)}
-                  className={cn('border px-2.5 py-1.5 font-mono text-[9.5px]', sprintId === null ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted')}
-                >
-                  Backlog (tanpa sprint)
-                </button>
-                {activeSprints.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setSprintId(s.id)}
-                    className={cn('border px-2.5 py-1.5 font-mono text-[9.5px]', sprintId === s.id ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted')}
-                  >
-                    {s.name}
-                    {s.status === 'active' ? ' · AKTIF' : ''}
-                  </button>
-                ))}
-              </div>
-            </div>
+          {formError && (
+            <p ref={formErrorRef} className="border border-destructive p-2.5 font-mono text-[10px] leading-relaxed text-destructive">
+              ⚠ {formError}
+            </p>
           )}
-
-          {formError && <p className="border border-destructive p-2.5 font-mono text-[10px] leading-relaxed text-destructive">⚠ {formError}</p>}
           {create.isError && <p className="text-[11px] text-destructive">Gagal membuat task.</p>}
         </div>
 
