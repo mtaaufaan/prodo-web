@@ -11,7 +11,9 @@ import {
   useActiveTimer,
   useAddDependency,
   useApproveTimeEntry,
+  useCreateChecklistItem,
   useCreateManualTimeEntry,
+  useDeleteChecklistItem,
   useDeleteTask,
   usePicHistory,
   useProjectTasks,
@@ -24,10 +26,12 @@ import {
   useStopTimer,
   useTask,
   useTaskActivity,
+  useTaskChecklistItems,
   useTaskDependencies,
   useTaskStatusSessions,
   useTaskTimeEntries,
   useTaskVersions,
+  useUpdateChecklistItem,
   useUpdateTask,
 } from '@/features/tasks/hooks'
 import { FIBONACCI_STORY_POINTS, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
@@ -166,18 +170,19 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const createManualEntry = useCreateManualTimeEntry(taskId ?? '')
   const approveEntry = useApproveTimeEntry(taskId ?? '')
   const rejectEntry = useRejectTimeEntry(taskId ?? '')
+  const checklistItems = useTaskChecklistItems(taskId)
+  const createChecklistItem = useCreateChecklistItem(taskId ?? '')
+  const updateChecklistItem = useUpdateChecklistItem(taskId ?? '')
+  const deleteChecklistItem = useDeleteChecklistItem(taskId ?? '')
 
   const [activeTab, setActiveTab] = useState<DetailTab>('overview')
   const [activityPage, setActivityPage] = useState(1)
   const activity = useTaskActivity(taskId, activityPage)
-  // fieldEditing -- kotak "FIELD TASK" (judul/priority/due/estimasi/SP)
-  // dan DESKRIPSI adalah DUA area edit TERPISAH mengikuti desain (masing-
-  // masing tombol Simpan sendiri) -- DESKRIPSI selalu bisa diedit langsung
-  // (tidak digerbangi toggle), FIELD TASK digerbangi "EDIT FIELD"/"TUTUP
-  // EDITOR". Keduanya tetap mengirim SATU payload PUT /tasks/:id yang sama
-  // (backend tidak punya PATCH parsial) -- kalau user mengetik di FIELD
-  // TASK lalu simpan lewat DESKRIPSI tanpa menutup editor dulu, field yang
-  // sedang diketik ikut tersimpan juga (rough edge kecil, diterima).
+  // fieldEditing -- kotak "FIELD TASK" (judul+deskripsi+priority/due/
+  // estimasi/SP) DISATUKAN jadi satu area edit dengan satu tombol Simpan
+  // (susulan 2026-09-24, diminta user "supaya tidak terlalu banyak
+  // tombol simpan" -- desain aslinya memisah DESKRIPSI jadi tombol
+  // sendiri, sengaja disederhanakan).
   const [fieldEditing, setFieldEditing] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -192,6 +197,9 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const [timeError, setTimeError] = useState('')
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectNote, setRejectNote] = useState('')
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('')
+  const [editingSubtaskId, setEditingSubtaskId] = useState<string | null>(null)
+  const [subtaskDraft, setSubtaskDraft] = useState('')
   const [pendingStatusId, setPendingStatusId] = useState<string | null>(null)
   const [picSelection, setPicSelection] = useState<string[]>([])
   const [historyOpen, setHistoryOpen] = useState(false)
@@ -235,30 +243,36 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     setTimeError('')
     setRejectingId(null)
     setRejectNote('')
+    setNewSubtaskTitle('')
+    setEditingSubtaskId(null)
+    setSubtaskDraft('')
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sinkron SEKALI saat task berganti (by id), bukan tiap refetch
   }, [task.data?.id, taskId])
 
   if (!taskId) return null
 
-  // fieldDirty/descDirty -- dua indikator TERPISAH (sama alasan komentar
-  // fieldEditing di atas).
+  // fieldDirty -- judul/deskripsi/priority/due/estimasi/SP SEKARANG satu
+  // area edit ("FIELD TASK") (susulan 2026-09-24, diminta user "supaya
+  // tidak terlalu banyak tombol simpan" -- desain aslinya memisah
+  // DESKRIPSI jadi tombol simpan sendiri, sengaja disatukan di sini).
   const fieldDirty =
     fieldEditing &&
     !!task.data &&
     (title.trim() !== task.data.title ||
+      description !== (typeof task.data.description === 'string' ? task.data.description : '') ||
       priority !== task.data.priority ||
       dueDate !== (task.data.due_date ?? '') ||
       estimatedHours !== (task.data.estimated_hours != null ? String(task.data.estimated_hours) : '') ||
       storyPoints !== task.data.story_points)
-  const descDirty = !!task.data && description !== (typeof task.data.description === 'string' ? task.data.description : '')
 
-  // handleCancelField -- "Batal" mengembalikan draft FIELD TASK ke nilai
-  // task.data (susulan 2026-09-15 "jadikan ini standar" -- draft yang
-  // diketik lalu Batal tidak boleh nyangkut sampai sesi Edit berikutnya).
-  // TIDAK menyentuh description (area edit terpisah).
+  // handleCancelField -- "Batal" mengembalikan SEMUA draft (termasuk
+  // deskripsi) ke nilai task.data (susulan 2026-09-15 "jadikan ini
+  // standar" -- draft yang diketik lalu Batal tidak boleh nyangkut
+  // sampai sesi Edit berikutnya).
   const handleCancelField = () => {
     if (task.data) {
       setTitle(task.data.title)
+      setDescription(typeof task.data.description === 'string' ? task.data.description : '')
       setPriority(task.data.priority)
       setDueDate(task.data.due_date ?? '')
       setEstimatedHours(task.data.estimated_hours != null ? String(task.data.estimated_hours) : '')
@@ -268,16 +282,10 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     setSaveError('')
   }
 
-  const onResetDescription = () => {
-    if (task.data) setDescription(typeof task.data.description === 'string' ? task.data.description : '')
-    setSaveError('')
-  }
-
-  // saveTask -- SATU chokepoint PUT /tasks/:id (backend tidak punya PATCH
-  // parsial) dipakai KEDUA tombol "SIMPAN PERUBAHAN" (FIELD TASK) dan
-  // "SIMPAN DESKRIPSI" -- onSuccessExtra cuma beda urusan UI (tutup
-  // editor FIELD TASK atau tidak).
-  const saveTask = (onSuccessExtra?: () => void) => {
+  // onSaveField -- SATU chokepoint PUT /tasks/:id, SATU tombol Simpan
+  // Perubahan untuk seluruh FIELD TASK (judul+deskripsi+priority+due+
+  // estimasi+SP sekaligus).
+  const onSaveField = () => {
     if (!task.data) return
     setSaveError('')
     update.mutate(
@@ -295,7 +303,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
         },
       },
       {
-        onSuccess: () => { setNotice('Task diperbarui.'); onSuccessExtra?.() },
+        onSuccess: () => { setNotice('Task diperbarui.'); setFieldEditing(false) },
         onError: (err: unknown) => {
           const apiErr = err as { code?: string }
           setSaveError(
@@ -307,8 +315,6 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
       },
     )
   }
-  const onSaveField = () => saveTask(() => setFieldEditing(false))
-  const onSaveDescription = () => saveTask()
 
   // openPicPicker -- klik chip status membuka panel pilih PIC (S4-31/32:
   // ganti status SELALU butuh PIC baru), bukan langsung berpindah seperti
@@ -621,9 +627,12 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
 
                   {/* FIELD TASK -- kotak edit collapsible (desain: header
                       "FIELD TASK" + toggle "EDIT FIELD"/"TUTUP EDITOR",
-                      kosong saat tidak sedang diedit). Sprint TIDAK
-                      diedit di sini (belum ada picker sprint di form ini
-                      sebelumnya) -- simplifikasi diterima. */}
+                      kosong saat tidak sedang diedit). DESKRIPSI DISATUKAN
+                      di sini (susulan 2026-09-24, diminta user "supaya
+                      tidak terlalu banyak tombol simpan" -- desain aslinya
+                      memisah DESKRIPSI jadi tombol simpan sendiri). Sprint
+                      TIDAK diedit di sini (belum ada picker sprint di form
+                      ini sebelumnya) -- simplifikasi diterima. */}
                   <div className="border border-line-strong bg-input-bg p-3.5">
                     <div className="flex items-center gap-2.5">
                       <span className="font-mono text-[8.5px] tracking-[0.14em] text-signal">FIELD TASK</span>
@@ -643,6 +652,22 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             className="w-full border border-line-strong bg-panel px-3 py-2.5 text-[13px] text-text-bone outline-none focus-visible:border-signal"
+                          />
+                        </div>
+                        <div>
+                          <div className="mb-1.5 flex items-baseline gap-2.5">
+                            <label className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">DESKRIPSI</label>
+                            {versions.data && versions.data.length > 0 && (
+                              <span className="ml-auto font-mono text-[9px] text-text-dim">
+                                versi terakhir v{versions.data.length} · {versions.data[0].changed_by_name || versions.data[0].changed_by_email}
+                              </span>
+                            )}
+                          </div>
+                          <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Cakupan, langkah verifikasi, tautan dokumen…"
+                            className="h-[100px] w-full resize-y border border-line-strong bg-panel px-3 py-2.5 text-[13px] leading-relaxed text-text-bone outline-none focus-visible:border-signal"
                           />
                         </div>
                         <div className="flex flex-wrap gap-3.5">
@@ -717,39 +742,111 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                     )}
                   </div>
 
-                  {/* DESKRIPSI -- selalu bisa diedit langsung, tombol
-                      simpan SENDIRI (bukan bagian FIELD TASK). */}
-                  <div>
-                    <div className="mb-1.5 flex items-baseline gap-2.5">
-                      <span className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">DESKRIPSI</span>
-                      {versions.data && versions.data.length > 0 && (
-                        <span className="ml-auto font-mono text-[9px] text-text-dim">
-                          versi terakhir v{versions.data.length} · {versions.data[0].changed_by_name || versions.data[0].changed_by_email}
-                        </span>
-                      )}
+                  {/* DESKRIPSI baca-saja -- ditampilkan saat FIELD TASK
+                      TIDAK sedang diedit (textarea editable-nya sudah
+                      pindah ke dalam kotak FIELD TASK di atas). */}
+                  {!fieldEditing && (
+                    <div>
+                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">DESKRIPSI</div>
+                      <div className="mt-1.5 whitespace-pre-wrap border border-line-strong bg-input-bg p-3 text-[13px] leading-relaxed text-text-bone">
+                        {description || <span className="text-text-dim">Belum ada deskripsi.</span>}
+                      </div>
                     </div>
-                    <textarea
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Cakupan, langkah verifikasi, tautan dokumen…"
-                      className="h-[120px] w-full resize-y border border-line-strong bg-input-bg px-3 py-2.5 text-[13px] leading-relaxed text-text-bone outline-none focus-visible:border-signal"
-                    />
-                    <div className="mt-2.5 flex gap-2">
+                  )}
+
+                  {/* SUB-TASK -- checklist ringan (IG-97 susulan, diminta
+                      user "kenapa sub-task belum ada?"). Tabel baru RINGAN
+                      task_checklist_items -- BUKAN reuse tasks.parent_task_id,
+                      supaya tidak memaksa checklist item lewat mesin Task
+                      penuh (assignee wajib, PIC per pindah status). */}
+                  <div>
+                    <div className="mb-2 flex items-baseline gap-2.5">
+                      <span className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">SUB-TASK</span>
+                      <span className="ml-auto font-mono text-[9px] text-text-muted">
+                        {(checklistItems.data ?? []).filter((i) => i.is_done).length} dari {(checklistItems.data ?? []).length} selesai
+                      </span>
+                    </div>
+                    {(checklistItems.data ?? []).length > 0 && (
+                      <div className="mb-3 h-2 bg-input-bg">
+                        <div
+                          className="h-full bg-mint"
+                          style={{
+                            width: `${((checklistItems.data ?? []).filter((i) => i.is_done).length / Math.max(1, (checklistItems.data ?? []).length)) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-1.5">
+                      {(checklistItems.data ?? []).map((item) => (
+                        <div key={item.id} className="flex items-center gap-2.5 border border-line-strong bg-input-bg p-2.5">
+                          <button
+                            type="button"
+                            onClick={() => updateChecklistItem.mutate({ itemId: item.id, values: { is_done: !item.is_done } })}
+                            className={cn(
+                              'flex h-4 w-4 flex-shrink-0 items-center justify-center border font-mono text-[10px]',
+                              item.is_done ? 'border-mint bg-mint text-bg-deep' : 'border-line-strong text-transparent',
+                            )}
+                          >
+                            ✓
+                          </button>
+                          {editingSubtaskId === item.id ? (
+                            <>
+                              <input
+                                value={subtaskDraft}
+                                onChange={(e) => setSubtaskDraft(e.target.value)}
+                                className="min-w-0 flex-1 border border-line-strong bg-panel px-2 py-1 text-[12.5px] text-text-bone outline-none focus-visible:border-signal"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const trimmed = subtaskDraft.trim()
+                                  if (!trimmed) return
+                                  updateChecklistItem.mutate({ itemId: item.id, values: { title: trimmed } }, { onSuccess: () => setEditingSubtaskId(null) })
+                                }}
+                                className="font-mono text-[9px] uppercase text-signal hover:underline"
+                              >
+                                Simpan
+                              </button>
+                              <button type="button" onClick={() => setEditingSubtaskId(null)} className="font-mono text-[9px] uppercase text-text-muted hover:underline">
+                                Batal
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className={cn('min-w-0 flex-1 text-[12.5px]', item.is_done ? 'text-text-dim line-through' : 'text-text-bone')}>{item.title}</span>
+                              <button
+                                type="button"
+                                onClick={() => { setEditingSubtaskId(item.id); setSubtaskDraft(item.title) }}
+                                className="font-mono text-[9px] uppercase text-text-muted hover:text-signal"
+                              >
+                                ✎ Ubah
+                              </button>
+                              <button type="button" onClick={() => deleteChecklistItem.mutate(item.id)} className="font-mono text-[9px] text-destructive hover:underline">
+                                ✕
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2.5 flex flex-wrap gap-2">
+                      <input
+                        value={newSubtaskTitle}
+                        onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                        placeholder="Tambah sub-task baru"
+                        className="min-w-[220px] flex-1 border border-line-strong bg-input-bg px-3 py-2 text-[12.5px] text-text-bone outline-none focus-visible:border-signal"
+                      />
                       <button
                         type="button"
-                        onClick={onSaveDescription}
-                        disabled={!descDirty || update.isPending}
-                        className="border border-signal bg-signal px-4 py-2 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-bg-deep disabled:opacity-40"
+                        onClick={() => {
+                          const trimmed = newSubtaskTitle.trim()
+                          if (!trimmed) return
+                          createChecklistItem.mutate(trimmed, { onSuccess: () => setNewSubtaskTitle('') })
+                        }}
+                        disabled={!newSubtaskTitle.trim() || createChecklistItem.isPending}
+                        className="border border-signal px-4 py-2 font-mono text-[10px] uppercase tracking-[0.06em] text-signal disabled:opacity-40"
                       >
-                        {update.isPending ? 'Menyimpan...' : 'Simpan Deskripsi'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onResetDescription}
-                        disabled={!descDirty}
-                        className="border border-line-strong px-4 py-2 font-mono text-[10px] uppercase tracking-[0.06em] text-text-muted disabled:opacity-40"
-                      >
-                        Kembalikan
+                        + Sub-task
                       </button>
                     </div>
                   </div>
@@ -1338,12 +1435,12 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                 </div>
               )}
 
-              {(fieldDirty || descDirty) && (
+              {fieldDirty && (
                 <p className="border border-amber p-2.5 font-mono text-[10px] leading-relaxed text-amber">
                   Ada perubahan yang belum disimpan di tab RINGKASAN.
                 </p>
               )}
-              {!fieldDirty && !descDirty && notice && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {notice}</p>}
+              {!fieldDirty && notice && <p className="border border-mint p-2.5 font-mono text-[10px] text-mint">✓ {notice}</p>}
               {saveError && <p className="text-[11px] text-destructive">⚠ {saveError}</p>}
             </div>
           </>
