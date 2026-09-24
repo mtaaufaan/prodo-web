@@ -6,18 +6,23 @@ import { addProjectMember, listProjectMembers, removeProjectMember, searchGroupA
 
 export const projectMemberKeys = {
   all: ['project-members'] as const,
-  list: (projectId: string) => [...projectMemberKeys.all, 'list', projectId] as const,
+  list: (projectId: string, assignable = false) => [...projectMemberKeys.all, 'list', projectId, assignable] as const,
 }
 
-const projectMembersQuery = (projectId: string) =>
+const projectMembersQuery = (projectId: string, assignable = false) =>
   queryOptions({
-    queryKey: projectMemberKeys.list(projectId),
-    queryFn: () => listProjectMembers(projectId),
+    queryKey: projectMemberKeys.list(projectId, assignable),
+    queryFn: () => listProjectMembers(projectId, assignable),
     enabled: projectId !== '',
   })
 
-export function useProjectMembers(projectId: string) {
-  return useQuery(projectMembersQuery(projectId))
+// assignable=true ikut sertakan PM penanggung jawab project sebagai kandidat
+// (lihat ProjectMemberRepository.ListAssignableMembers backend) -- dipakai
+// picker assignee/PIC (AddTaskModal/TaskDetailModal/KanbanBoard), BUKAN
+// halaman kelola member (ProjectMembersPage/WorkspaceMembersPage tetap
+// default false -- entri PM sintetis tidak punya role yang bisa diedit).
+export function useProjectMembers(projectId: string, assignable = false) {
+  return useQuery(projectMembersQuery(projectId, assignable))
 }
 
 export function useAddProjectMember(projectId: string) {

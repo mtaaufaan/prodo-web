@@ -3,23 +3,30 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   acknowledgePic,
   addTaskDependency,
+  approveTimeEntry,
   assignTasksToSprint,
   bulkSetTaskStatus,
   completeSprint,
   createCustomStatus,
+  createManualTimeEntry,
   createSprint,
   createTask,
   deleteSprint,
   deleteTask,
+  getActiveTimer,
   getPicHistory,
   getProjectSprints,
   getProjectTasks,
   getSprintSummary,
   getTask,
+  getTaskActivity,
   getTaskDependencies,
   getTaskStatusSessions,
+  getTaskTimeEntries,
+  getTaskVersions,
   getWorkspaceStatuses,
   moveStatus,
+  rejectTimeEntry,
   reorderTask,
   removeTaskDependency,
   reopenSprint,
@@ -28,8 +35,11 @@ import {
   setTaskCompleteness,
   setTaskStatus,
   startSprint,
+  startTimer,
   startWork,
+  stopTimer,
   undefineStatus,
+  updateManualTimeEntry,
   updateSprint,
   updateStatusAppearance,
   updateTask,
@@ -46,6 +56,10 @@ export const taskKeys = {
   picHistory: (taskId: string) => [...taskKeys.all, 'pic-history', taskId] as const,
   dependencies: (taskId: string) => [...taskKeys.all, 'dependencies', taskId] as const,
   statusSessions: (taskId: string) => [...taskKeys.all, 'status-sessions', taskId] as const,
+  versions: (taskId: string) => [...taskKeys.all, 'versions', taskId] as const,
+  activity: (taskId: string, page: number) => [...taskKeys.all, 'activity', taskId, page] as const,
+  timeEntries: (taskId: string) => [...taskKeys.all, 'time-entries', taskId] as const,
+  activeTimer: (taskId: string) => [...taskKeys.all, 'active-timer', taskId] as const,
 }
 
 export function useWorkspaceStatuses(workspaceId: string) {
@@ -354,5 +368,99 @@ export function useTaskStatusSessions(taskId: string | null) {
     queryKey: taskKeys.statusSessions(taskId ?? ''),
     queryFn: () => getTaskStatusSessions(taskId ?? ''),
     enabled: taskId !== null,
+  })
+}
+
+// useTaskVersions -- IG-97, tab RIWAYAT VERSI.
+export function useTaskVersions(taskId: string | null) {
+  return useQuery({
+    queryKey: taskKeys.versions(taskId ?? ''),
+    queryFn: () => getTaskVersions(taskId ?? ''),
+    enabled: taskId !== null,
+  })
+}
+
+// useTaskActivity -- IG-94/IG-97, tab AKTIVITAS, paginasi "Grid 1"
+// (default 10/halaman sama pola halaman lain).
+export function useTaskActivity(taskId: string | null, page: number, perPage = 10) {
+  return useQuery({
+    queryKey: taskKeys.activity(taskId ?? '', page),
+    queryFn: () => getTaskActivity(taskId ?? '', page, perPage),
+    enabled: taskId !== null,
+  })
+}
+
+// Timesheet (IG-97/US-036/037) -- start/stop timer + entri manual +
+// approval. Semua invalidate timeEntries+activeTimer+detail (logged_minutes
+// di header ikut berubah).
+function invalidateTimesheet(queryClient: ReturnType<typeof useQueryClient>, taskId: string) {
+  queryClient.invalidateQueries({ queryKey: taskKeys.timeEntries(taskId) })
+  queryClient.invalidateQueries({ queryKey: taskKeys.activeTimer(taskId) })
+  queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) })
+}
+
+export function useActiveTimer(taskId: string | null) {
+  return useQuery({
+    queryKey: taskKeys.activeTimer(taskId ?? ''),
+    queryFn: () => getActiveTimer(taskId ?? ''),
+    enabled: taskId !== null,
+    refetchInterval: 30000,
+  })
+}
+
+export function useTaskTimeEntries(taskId: string | null) {
+  return useQuery({
+    queryKey: taskKeys.timeEntries(taskId ?? ''),
+    queryFn: () => getTaskTimeEntries(taskId ?? ''),
+    enabled: taskId !== null,
+  })
+}
+
+export function useStartTimer(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => startTimer(taskId),
+    onSuccess: () => invalidateTimesheet(queryClient, taskId),
+  })
+}
+
+export function useStopTimer(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => stopTimer(taskId),
+    onSuccess: () => invalidateTimesheet(queryClient, taskId),
+  })
+}
+
+export function useCreateManualTimeEntry(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (values: { started_at: string; ended_at: string; note?: string }) => createManualTimeEntry(taskId, values),
+    onSuccess: () => invalidateTimesheet(queryClient, taskId),
+  })
+}
+
+export function useUpdateManualTimeEntry(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ entryId, values }: { entryId: string; values: { started_at: string; ended_at: string; note?: string } }) =>
+      updateManualTimeEntry(entryId, values),
+    onSuccess: () => invalidateTimesheet(queryClient, taskId),
+  })
+}
+
+export function useApproveTimeEntry(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (entryId: string) => approveTimeEntry(entryId),
+    onSuccess: () => invalidateTimesheet(queryClient, taskId),
+  })
+}
+
+export function useRejectTimeEntry(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ entryId, note }: { entryId: string; note: string }) => rejectTimeEntry(entryId, note),
+    onSuccess: () => invalidateTimesheet(queryClient, taskId),
   })
 }

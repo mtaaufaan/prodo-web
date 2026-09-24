@@ -2,8 +2,8 @@ import { apiClient } from '@/lib/api'
 
 import type { GroupAccount, ProjectMember } from './types'
 
-export function listProjectMembers(projectId: string) {
-  return apiClient.get<ProjectMember[]>(`/api/v1/projects/${projectId}/members`)
+export function listProjectMembers(projectId: string, assignable = false) {
+  return apiClient.get<ProjectMember[]>(`/api/v1/projects/${projectId}/members`, assignable ? { params: { assignable: 'true' } } : undefined)
 }
 
 export function addProjectMember(projectId: string, userId: string, role: string) {
