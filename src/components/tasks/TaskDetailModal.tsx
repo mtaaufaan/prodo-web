@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { downloadAttachment } from '@/features/attachments/api'
-import { useDeleteAttachment, useRenameAttachment, useTaskAttachments, useUploadAttachment } from '@/features/attachments/hooks'
+import { useDeleteAttachment, useDocumentsQuota, useRenameAttachment, useTaskAttachments, useUploadAttachment } from '@/features/attachments/hooks'
 import { ALLOWED_EXTENSIONS, MAX_ATTACHMENT_SIZE_BYTES, fileExt, formatBytes } from '@/features/attachments/types'
 import { useProjectMembers } from '@/features/project-members/hooks'
 import {
@@ -16,6 +16,7 @@ import {
   useDeleteChecklistItem,
   useDeleteTask,
   usePicHistory,
+  useProjectSprints,
   useProjectTasks,
   useRejectTimeEntry,
   useRemoveDependency,
@@ -108,6 +109,10 @@ interface TaskDetailModalProps {
   taskId: string | null
   onClose: () => void
   projectId: string
+  // workspaceId (IG-97 susulan, tab LAMPIRAN "KUOTA ORGANISASI") -- modal
+  // ini sebelumnya cuma tahu projectId, ditambah supaya bisa reuse
+  // useDocumentsQuota existing (AW Documents) tanpa endpoint baru.
+  workspaceId: string
   statuses: CustomStatus[]
 }
 
@@ -134,17 +139,27 @@ interface TaskDetailModalProps {
 // tambahan, keputusan penempatan disengaja). RIWAYAT VERSI (snapshot
 // deskripsi tiap disimpan, IG-97) dan AKTIVITAS (feed audit_logs task,
 // menutup IG-94 -- audit_logs task sebelumnya kosong total sejak Phase 1)
-// KEDUANYA sudah lengkap. LAMPIRAN: rename/hapus di FE cuma ditampilkan
-// untuk pengunggah sendiri (server tetap mengizinkan PM/AW lewat endpoint
-// yang sama; PM/AW mengelola lampiran user lain lewat halaman "AW
-// Documents", bukan dari modal ini). PIC handoff TETAP picker checklist
+// KEDUANYA sudah lengkap. LAMPIRAN (susulan 2026-09-25 disamakan penuh
+// dengan desain): box "KUOTA ORGANISASI" (reuse useDocumentsQuota existing
+// AW Documents, threshold 80%/95% SAMA PERSIS -- workspaceId baru jadi
+// prop modal ini khusus untuk ini) + gate upload diblokir total saat
+// 100%, dan paste screenshot dari clipboard (Ctrl+V) sebagai jalur upload
+// tambahan (validasi sama persis handleUpload biasa, bukan jalur
+// terpisah). Section desain "LAMPIRAN DARI KOMENTAR" SENGAJA tidak
+// dibangun -- task_comments belum ada sama sekali di codebase ini (lihat
+// features/attachments/types.ts), bukan simplifikasi tapi memang belum
+// ada data sumbernya. rename/hapus di FE cuma ditampilkan untuk
+// pengunggah sendiri (server tetap mengizinkan PM/AW lewat endpoint yang
+// sama; PM/AW mengelola lampiran user lain lewat halaman "AW Documents",
+// bukan dari modal ini). PIC handoff TETAP picker checklist
 // polos (bukan alur 2-langkah "SERAHKAN DARI"→"SERAHKAN KE" desain saat
 // PIC aktif >1) -- simplifikasi kecil diterima, sama pola PicPickerModal
 // Kanban.
-export default function TaskDetailModal({ taskId, onClose, projectId, statuses }: TaskDetailModalProps) {
+export default function TaskDetailModal({ taskId, onClose, projectId, workspaceId, statuses }: TaskDetailModalProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const task = useTask(taskId)
   const members = useProjectMembers(projectId, true)
+  const sprints = useProjectSprints(projectId)
   const projectTasks = useProjectTasks(projectId)
   const update = useUpdateTask(projectId)
   const setStatus = useSetTaskStatus(projectId)
@@ -158,6 +173,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const startWork = useStartWork(taskId ?? '')
   const statusSessions = useTaskStatusSessions(taskId)
   const attachments = useTaskAttachments(taskId)
+  const quota = useDocumentsQuota(workspaceId)
   const uploadAttachment = useUploadAttachment(taskId ?? '')
   const renameAttachment = useRenameAttachment(taskId ?? '')
   const deleteAttachmentMut = useDeleteAttachment(taskId ?? '')
@@ -190,6 +206,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const [dueDate, setDueDate] = useState('')
   const [estimatedHours, setEstimatedHours] = useState('')
   const [storyPoints, setStoryPoints] = useState<number | null>(null)
+  const [sprintId, setSprintId] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
   const [manualStart, setManualStart] = useState('')
   const [manualEnd, setManualEnd] = useState('')
@@ -234,6 +251,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
       setDueDate(task.data.due_date ?? '')
       setEstimatedHours(task.data.estimated_hours != null ? String(task.data.estimated_hours) : '')
       setStoryPoints(task.data.story_points)
+      setSprintId(task.data.sprint_id)
     }
     setActiveTab('overview')
     setActivityPage(1)
@@ -276,7 +294,8 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
       priority !== task.data.priority ||
       dueDate !== (task.data.due_date ?? '') ||
       estimatedHours !== (task.data.estimated_hours != null ? String(task.data.estimated_hours) : '') ||
-      storyPoints !== task.data.story_points)
+      storyPoints !== task.data.story_points ||
+      sprintId !== task.data.sprint_id)
 
   // handleCancelField -- "Batal" mengembalikan SEMUA draft (termasuk
   // deskripsi) ke nilai task.data (susulan 2026-09-15 "jadikan ini
@@ -290,6 +309,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
       setDueDate(task.data.due_date ?? '')
       setEstimatedHours(task.data.estimated_hours != null ? String(task.data.estimated_hours) : '')
       setStoryPoints(task.data.story_points)
+      setSprintId(task.data.sprint_id)
     }
     setFieldEditing(false)
     setSaveError('')
@@ -311,7 +331,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
           due_date: dueDate,
           estimated_hours: estimatedHours ? parseFloat(estimatedHours) : null,
           story_points: storyPoints,
-          sprint_id: task.data.sprint_id,
+          sprint_id: sprintId,
           assignee_ids: task.data.assignees.map((a) => a.user_id),
         },
       },
@@ -431,6 +451,21 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     })
   }
 
+  // onPasteImage (IG-97 susulan, tab LAMPIRAN "tempel screenshot dari
+  // clipboard") -- gambar dari clipboard diperlakukan SAMA seperti upload
+  // biasa lewat handleUpload (validasi ekstensi/ukuran/kuota yang sama,
+  // tidak ada jalur terpisah). Nama file diberi timestamp karena
+  // clipboard image biasanya tidak punya nama file asli.
+  const onPasteImage = (e: React.ClipboardEvent) => {
+    const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith('image/'))
+    if (!item) return
+    e.preventDefault()
+    const blob = item.getAsFile()
+    if (!blob) return
+    const ext = item.type.split('/')[1] || 'png'
+    handleUpload(new File([blob], `paste-${Date.now()}.${ext}`, { type: item.type }))
+  }
+
   const onDownloadAttachment = async (id: string, name: string) => {
     const blob = await downloadAttachment(id)
     const url = URL.createObjectURL(blob)
@@ -532,6 +567,14 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const isOverdue = Boolean(task.data?.due_date && task.data.due_date < new Date().toISOString().slice(0, 10) && task.data.status_name !== 'DONE')
   const loggedHours = (task.data?.logged_minutes ?? 0) / 60
   const isOverEstimate = Boolean(task.data?.estimated_hours && loggedHours > task.data.estimated_hours)
+
+  // quotaPct/quotaCritical/quotaWarn (IG-97 susulan, tab LAMPIRAN "KUOTA
+  // ORGANISASI") -- threshold SAMA PERSIS AwDocumentsPage (95%/80%), bukan
+  // angka baru.
+  const quotaPct = quota.data && quota.data.quota_bytes > 0 ? Math.min(100, (quota.data.used_bytes / quota.data.quota_bytes) * 100) : 0
+  const quotaCritical = quotaPct >= 95
+  const quotaWarn = quotaPct >= 80
+  const quotaFull = quotaPct >= 100
 
   return (
     <Dialog open={taskId !== null} onOpenChange={(next) => !next && onClose()}>
@@ -667,9 +710,12 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                       kosong saat tidak sedang diedit). DESKRIPSI DISATUKAN
                       di sini (susulan 2026-09-24, diminta user "supaya
                       tidak terlalu banyak tombol simpan" -- desain aslinya
-                      memisah DESKRIPSI jadi tombol simpan sendiri). Sprint
-                      TIDAK diedit di sini (belum ada picker sprint di form
-                      ini sebelumnya) -- simplifikasi diterima. */}
+                      memisah DESKRIPSI jadi tombol simpan sendiri). SPRINT
+                      ditambahkan susulan 2026-09-25 (diminta user, gap
+                      ditemukan lewat pengujian: pindah sprint task tidak
+                      bisa lewat sini sama sekali sebelumnya, cuma tampilan
+                      baca-saja di fields grid) -- picker chip sama pola
+                      AddTaskModal. */}
                   <div className="border border-line-strong bg-input-bg p-3.5">
                     <div className="flex items-center gap-2.5">
                       <span className="font-mono text-[8.5px] tracking-[0.14em] text-signal">FIELD TASK</span>
@@ -691,6 +737,31 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                             className="w-full border border-line-strong bg-panel px-3 py-2.5 text-[13px] text-text-bone outline-none focus-visible:border-signal"
                           />
                         </div>
+                        {(sprints.data ?? []).length > 0 && (
+                          <div>
+                            <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">SPRINT</label>
+                            <div className="flex flex-wrap gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setSprintId(null)}
+                                className={cn('border px-2.5 py-1.5 font-mono text-[9.5px]', sprintId === null ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted')}
+                              >
+                                Backlog (tanpa sprint)
+                              </button>
+                              {(sprints.data ?? []).map((s) => (
+                                <button
+                                  key={s.id}
+                                  type="button"
+                                  onClick={() => setSprintId(s.id)}
+                                  className={cn('border px-2.5 py-1.5 font-mono text-[9.5px]', sprintId === s.id ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted')}
+                                >
+                                  {s.name}
+                                  {s.status === 'active' ? ' · AKTIF' : ''}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <div>
                           <div className="mb-1.5 flex items-baseline gap-2.5">
                             <label className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">DESKRIPSI</label>
@@ -1123,40 +1194,79 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
               )}
 
               {activeTab === 'attach' && (
-                <div>
-                  <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">LAMPIRAN</div>
-                  <div
-                    onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      setDragOver(false)
-                      handleUpload(e.dataTransfer.files[0])
-                    }}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={cn(
-                      'cursor-pointer border border-dashed p-4 text-center font-mono text-[10px] text-text-muted',
-                      dragOver ? 'border-signal bg-signal/5' : 'border-line-strong',
-                    )}
-                  >
-                    Seret &amp; lepas file, atau <span className="text-signal">pilih file</span>
-                    <div className="mt-1.5 text-[8.5px] leading-relaxed text-text-dim">
-                      Maks 50 MB per file. Diizinkan: jpg png gif webp svg · pdf doc docx xls xlsx ppt pptx txt md csv · zip rar 7z · json xml
+                <div className="flex flex-col gap-4">
+                  {quota.data && (
+                    <div className={cn('border p-3', quotaCritical ? 'border-destructive bg-destructive/5' : 'border-line-strong bg-input-bg')}>
+                      <div className="flex items-baseline gap-2.5">
+                        <span className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">KUOTA ORGANISASI</span>
+                        <span className={cn('ml-auto font-mono text-[9.5px]', quotaCritical ? 'text-destructive' : quotaWarn ? 'text-amber' : 'text-mint')}>
+                          {formatBytes(quota.data.used_bytes)} / {formatBytes(quota.data.quota_bytes)} ({quotaPct.toFixed(0)}%)
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 bg-panel">
+                        <div
+                          className={cn('h-full', quotaCritical ? 'bg-destructive' : quotaWarn ? 'bg-amber' : 'bg-signal')}
+                          style={{ width: `${quotaPct}%` }}
+                        />
+                      </div>
+                      <p className="mt-2 font-mono text-[9px] leading-relaxed text-text-dim">
+                        Kuota berlaku untuk seluruh organisasi, bukan cuma task ini. Retensi file terhapus {quota.data.retention_days} hari. Minta tambah kuota lewat halaman "AW Documents".
+                      </p>
                     </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => {
-                        handleUpload(e.target.files?.[0])
-                        e.target.value = ''
-                      }}
-                    />
-                  </div>
-                  {uploadAttachment.isPending && <p className="mt-1.5 font-mono text-[9.5px] text-text-muted">Mengunggah...</p>}
-                  {attachError && <p className="mt-1.5 font-mono text-[10px] text-destructive">⚠ {attachError}</p>}
+                  )}
 
-                  <div className="mt-2.5 flex flex-col gap-1.5">
+                  {quotaFull ? (
+                    <div className="border border-destructive bg-destructive/5 p-3 font-mono text-[9.5px] leading-relaxed text-destructive">
+                      ⚠ Kuota storage organisasi telah habis -- upload lampiran baru diblokir di seluruh workspace organisasi ini. Hubungi Group Admin untuk menambah alokasi.
+                    </div>
+                  ) : (
+                    <>
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                        onDragLeave={() => setDragOver(false)}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          setDragOver(false)
+                          handleUpload(e.dataTransfer.files[0])
+                        }}
+                        onClick={() => fileInputRef.current?.click()}
+                        className={cn(
+                          'cursor-pointer border border-dashed p-4 text-center font-mono text-[10px] text-text-muted',
+                          dragOver ? 'border-signal bg-signal/5' : 'border-line-strong',
+                        )}
+                      >
+                        Seret &amp; lepas file, atau <span className="text-signal">pilih file</span>
+                        <div className="mt-1.5 text-[8.5px] leading-relaxed text-text-dim">
+                          Maks 50 MB per file. Diizinkan: jpg png gif webp svg · pdf doc docx xls xlsx ppt pptx txt md csv · zip rar 7z · json xml
+                        </div>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            handleUpload(e.target.files?.[0])
+                            e.target.value = ''
+                          }}
+                        />
+                      </div>
+                      <div className="border border-dashed border-line-strong p-3">
+                        <p className="mb-2 font-mono text-[9px] leading-relaxed text-text-muted">
+                          Tempel screenshot dari clipboard (⌘V / Ctrl+V) di kolom bawah ini -- gambar diperlakukan sama seperti upload biasa.
+                        </p>
+                        <input
+                          readOnly
+                          value=""
+                          onPaste={onPasteImage}
+                          placeholder="Klik di sini lalu tempel gambar"
+                          className="w-full border border-line-strong bg-input-bg px-3 py-2 font-mono text-[9.5px] text-text-bone outline-none focus-visible:border-signal"
+                        />
+                      </div>
+                    </>
+                  )}
+                  {uploadAttachment.isPending && <p className="font-mono text-[9.5px] text-text-muted">Mengunggah...</p>}
+                  {attachError && <p className="font-mono text-[10px] text-destructive">⚠ {attachError}</p>}
+
+                  <div className="flex flex-col gap-1.5">
                     {(attachments.data ?? []).map((a) => {
                       const isOwner = a.uploader_id === currentUserId
                       const isRenaming = renamingId === a.id
@@ -1197,6 +1307,9 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                                 <div className="truncate text-[12px] text-text-bone">{a.display_name}</div>
                                 <div className="font-mono text-[9px] text-text-dim">
                                   {formatBytes(a.size_bytes)} · {a.uploader_name || a.uploader_email} · {new Date(a.created_at).toLocaleDateString('id-ID')}
+                                </div>
+                                <div className="mt-0.5 font-mono text-[8.5px] text-text-dim">
+                                  {isOwner ? 'Anda dapat mengganti nama dan menghapus berkas ini' : 'Rename & hapus hanya untuk pengunggah, Project Manager, atau Admin Workspace'}
                                 </div>
                               </div>
                               <div className="flex flex-shrink-0 items-center gap-2.5">
