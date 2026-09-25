@@ -7,6 +7,7 @@ import type {
   SprintSummary,
   Task,
   TaskActivityEntry,
+  TaskChecklistItem,
   TaskDependency,
   TaskFormValues,
   TaskPicPhase,
@@ -139,6 +140,23 @@ export function getPicHistory(taskId: string) {
   return apiClient.get<TaskPicPhase[]>(`/api/v1/tasks/${taskId}/pic-history`)
 }
 
+// addTaskPic/handoffTaskPic/removeTaskPic (IG-97 susulan, tab PIC FASE
+// "+ Tambah PIC Paralel"/"SERAHKAN PIC FASE"/"✕ HAPUS PIC"). Beroperasi
+// pada fase status task SAAT INI -- server yang menentukan status_id,
+// FE tidak pernah mengirimnya.
+export function addTaskPic(taskId: string, userId: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/tasks/${taskId}/pic/add`, { user_id: userId })
+}
+
+// handoffTaskPic -- fromUserId kosong berarti SEMUA PIC aktif digantikan.
+export function handoffTaskPic(taskId: string, fromUserId: string, toUserId: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/tasks/${taskId}/pic/handoff`, { from_user_id: fromUserId, to_user_id: toUserId })
+}
+
+export function removeTaskPic(taskId: string, userId: string) {
+  return apiClient.delete<{ id: string }>(`/api/v1/tasks/${taskId}/pic/${userId}`)
+}
+
 // setTaskCompleteness -- Phase 3 (US-017c): cuma pembuat task/PIC aktif
 // yang diizinkan backend (403 selain itu).
 export function setTaskCompleteness(taskId: string, completeness: 'complete' | 'incomplete') {
@@ -218,4 +236,21 @@ export function approveTimeEntry(entryId: string) {
 
 export function rejectTimeEntry(entryId: string, rejectionNote: string) {
   return apiClient.post<{ id: string }>(`/api/v1/time-entries/${entryId}/reject`, { rejection_note: rejectionNote })
+}
+
+// SUB-TASK / checklist item (IG-97 susulan).
+export function getTaskChecklistItems(taskId: string) {
+  return apiClient.get<TaskChecklistItem[]>(`/api/v1/tasks/${taskId}/checklist-items`)
+}
+
+export function createChecklistItem(taskId: string, title: string) {
+  return apiClient.post<TaskChecklistItem>(`/api/v1/tasks/${taskId}/checklist-items`, { title })
+}
+
+export function updateChecklistItem(itemId: string, values: { title?: string; is_done?: boolean }) {
+  return apiClient.patch<{ id: string }>(`/api/v1/tasks/checklist-items/${itemId}`, values)
+}
+
+export function deleteChecklistItem(itemId: string) {
+  return apiClient.delete<void>(`/api/v1/tasks/checklist-items/${itemId}`)
 }

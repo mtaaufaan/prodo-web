@@ -3,14 +3,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   acknowledgePic,
   addTaskDependency,
+  addTaskPic,
   approveTimeEntry,
   assignTasksToSprint,
   bulkSetTaskStatus,
   completeSprint,
+  createChecklistItem,
   createCustomStatus,
   createManualTimeEntry,
   createSprint,
   createTask,
+  deleteChecklistItem,
   deleteSprint,
   deleteTask,
   getActiveTimer,
@@ -20,15 +23,18 @@ import {
   getSprintSummary,
   getTask,
   getTaskActivity,
+  getTaskChecklistItems,
   getTaskDependencies,
   getTaskStatusSessions,
   getTaskTimeEntries,
   getTaskVersions,
   getWorkspaceStatuses,
+  handoffTaskPic,
   moveStatus,
   rejectTimeEntry,
   reorderTask,
   removeTaskDependency,
+  removeTaskPic,
   reopenSprint,
   restoreStatus,
   setStatusStartConfirmation,
@@ -39,6 +45,7 @@ import {
   startWork,
   stopTimer,
   undefineStatus,
+  updateChecklistItem,
   updateManualTimeEntry,
   updateSprint,
   updateStatusAppearance,
@@ -60,6 +67,7 @@ export const taskKeys = {
   activity: (taskId: string, page: number) => [...taskKeys.all, 'activity', taskId, page] as const,
   timeEntries: (taskId: string) => [...taskKeys.all, 'time-entries', taskId] as const,
   activeTimer: (taskId: string) => [...taskKeys.all, 'active-timer', taskId] as const,
+  checklistItems: (taskId: string) => [...taskKeys.all, 'checklist-items', taskId] as const,
 }
 
 export function useWorkspaceStatuses(workspaceId: string) {
@@ -303,6 +311,46 @@ export function usePicHistory(taskId: string | null) {
   })
 }
 
+// useAddPic/useHandoffPic/useRemovePic (IG-97 susulan, tab PIC FASE) --
+// active_pics ikut ke response detail (taskKeys.detail), invalidate
+// list+detail+picHistory sama pola useSetTaskStatus.
+export function useAddPic(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskId, userId }: { taskId: string; userId: string }) => addTaskPic(taskId, userId),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.picHistory(vars.taskId) })
+    },
+  })
+}
+
+export function useHandoffPic(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskId, fromUserId, toUserId }: { taskId: string; fromUserId: string; toUserId: string }) =>
+      handoffTaskPic(taskId, fromUserId, toUserId),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.picHistory(vars.taskId) })
+    },
+  })
+}
+
+export function useRemovePic(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskId, userId }: { taskId: string; userId: string }) => removeTaskPic(taskId, userId),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.picHistory(vars.taskId) })
+    },
+  })
+}
+
 export function useSetCompleteness(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -325,15 +373,25 @@ export function useTaskDependencies(taskId: string | null) {
 // useAddDependency/useRemoveDependency invalidate list+detail JUGA (bukan
 // cuma dependencies) -- Task.is_blocked (S4-53, kolom komputasi backend)
 // ikut berubah begitu grafik dependency berubah.
+// invalidateBothSides -- taskId DAN predecessorTaskId sama-sama punya cache
+// dependencies/detail sendiri (predecessors dari sisi successor, successors
+// dari sisi predecessor). "MEMBLOKIR INI" (task terbuka jadi predecessor
+// dari kandidat) menulis relasi dari sisi kandidat sebagai taskId -- tanpa
+// invalidate dua sisi, tab DEPENDENCY task yang sedang terbuka tidak akan
+// refresh sendiri.
+function invalidateBothSides(queryClient: ReturnType<typeof useQueryClient>, projectId: string, taskId: string, predecessorTaskId: string) {
+  queryClient.invalidateQueries({ queryKey: taskKeys.dependencies(taskId) })
+  queryClient.invalidateQueries({ queryKey: taskKeys.dependencies(predecessorTaskId) })
+  queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+  queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) })
+  queryClient.invalidateQueries({ queryKey: taskKeys.detail(predecessorTaskId) })
+}
+
 export function useAddDependency(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ taskId, predecessorTaskId }: { taskId: string; predecessorTaskId: string }) => addTaskDependency(taskId, predecessorTaskId),
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.dependencies(vars.taskId) })
-      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
-      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
-    },
+    onSuccess: (_data, vars) => invalidateBothSides(queryClient, projectId, vars.taskId, vars.predecessorTaskId),
   })
 }
 
@@ -341,11 +399,7 @@ export function useRemoveDependency(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ taskId, predecessorTaskId }: { taskId: string; predecessorTaskId: string }) => removeTaskDependency(taskId, predecessorTaskId),
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.dependencies(vars.taskId) })
-      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
-      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
-    },
+    onSuccess: (_data, vars) => invalidateBothSides(queryClient, projectId, vars.taskId, vars.predecessorTaskId),
   })
 }
 
@@ -462,5 +516,38 @@ export function useRejectTimeEntry(taskId: string) {
   return useMutation({
     mutationFn: ({ entryId, note }: { entryId: string; note: string }) => rejectTimeEntry(entryId, note),
     onSuccess: () => invalidateTimesheet(queryClient, taskId),
+  })
+}
+
+// SUB-TASK / checklist item (IG-97 susulan).
+export function useTaskChecklistItems(taskId: string | null) {
+  return useQuery({
+    queryKey: taskKeys.checklistItems(taskId ?? ''),
+    queryFn: () => getTaskChecklistItems(taskId ?? ''),
+    enabled: taskId !== null,
+  })
+}
+
+export function useCreateChecklistItem(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (title: string) => createChecklistItem(taskId, title),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.checklistItems(taskId) }),
+  })
+}
+
+export function useUpdateChecklistItem(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ itemId, values }: { itemId: string; values: { title?: string; is_done?: boolean } }) => updateChecklistItem(itemId, values),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.checklistItems(taskId) }),
+  })
+}
+
+export function useDeleteChecklistItem(taskId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (itemId: string) => deleteChecklistItem(itemId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.checklistItems(taskId) }),
   })
 }
