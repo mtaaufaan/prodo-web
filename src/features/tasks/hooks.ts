@@ -330,15 +330,25 @@ export function useTaskDependencies(taskId: string | null) {
 // useAddDependency/useRemoveDependency invalidate list+detail JUGA (bukan
 // cuma dependencies) -- Task.is_blocked (S4-53, kolom komputasi backend)
 // ikut berubah begitu grafik dependency berubah.
+// invalidateBothSides -- taskId DAN predecessorTaskId sama-sama punya cache
+// dependencies/detail sendiri (predecessors dari sisi successor, successors
+// dari sisi predecessor). "MEMBLOKIR INI" (task terbuka jadi predecessor
+// dari kandidat) menulis relasi dari sisi kandidat sebagai taskId -- tanpa
+// invalidate dua sisi, tab DEPENDENCY task yang sedang terbuka tidak akan
+// refresh sendiri.
+function invalidateBothSides(queryClient: ReturnType<typeof useQueryClient>, projectId: string, taskId: string, predecessorTaskId: string) {
+  queryClient.invalidateQueries({ queryKey: taskKeys.dependencies(taskId) })
+  queryClient.invalidateQueries({ queryKey: taskKeys.dependencies(predecessorTaskId) })
+  queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+  queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) })
+  queryClient.invalidateQueries({ queryKey: taskKeys.detail(predecessorTaskId) })
+}
+
 export function useAddDependency(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ taskId, predecessorTaskId }: { taskId: string; predecessorTaskId: string }) => addTaskDependency(taskId, predecessorTaskId),
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.dependencies(vars.taskId) })
-      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
-      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
-    },
+    onSuccess: (_data, vars) => invalidateBothSides(queryClient, projectId, vars.taskId, vars.predecessorTaskId),
   })
 }
 
@@ -346,11 +356,7 @@ export function useRemoveDependency(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ taskId, predecessorTaskId }: { taskId: string; predecessorTaskId: string }) => removeTaskDependency(taskId, predecessorTaskId),
-    onSuccess: (_data, vars) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.dependencies(vars.taskId) })
-      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
-      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
-    },
+    onSuccess: (_data, vars) => invalidateBothSides(queryClient, projectId, vars.taskId, vars.predecessorTaskId),
   })
 }
 

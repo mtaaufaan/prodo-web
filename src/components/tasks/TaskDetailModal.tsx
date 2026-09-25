@@ -381,25 +381,26 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   // onAddDependency -- S4-47/51/52: backend deteksi circular (409
   // CIRCULAR_DEPENDENCY dengan cycle_path) -- FE TIDAK menghitung ulang
   // graph di client, cukup tampilkan pesan dari server. candidateId
-  // diklik langsung dari baris kandidat (desain: tombol "MENUNGGU INI"
-  // per baris, bukan dropdown+tombol terpisah).
-  const onAddDependency = (candidateId: string) => {
-    addDependency.mutate(
-      { taskId, predecessorTaskId: candidateId },
-      {
-        onSuccess: () => setDepSearch(''),
-        onError: (err: unknown) => {
-          const apiErr = err as { code?: string; details?: { cycle_path?: string[] } }
-          if (apiErr.code === 'CIRCULAR_DEPENDENCY') {
-            setDepError(`Menutup lingkaran: ${(apiErr.details?.cycle_path ?? []).join(' → ')}`)
-          } else if (apiErr.code === 'DEPENDENCY_ALREADY_EXISTS') {
-            setDepError('Dependency ini sudah ada.')
-          } else {
-            setDepError('Gagal menambah dependency.')
-          }
-        },
+  // diklik langsung dari baris kandidat. direction 'predecessor'
+  // ("MENUNGGU INI") = kandidat jadi predecessor task ini (task ini
+  // menunggu kandidat). direction 'successor' ("MEMBLOKIR INI") = arah
+  // dibalik, task ini jadi predecessor dari kandidat (task ini memblokir
+  // kandidat) -- sesuai desain PM Task Detail.dc.html.
+  const onAddDependency = (candidateId: string, direction: 'predecessor' | 'successor') => {
+    const vars = direction === 'predecessor' ? { taskId, predecessorTaskId: candidateId } : { taskId: candidateId, predecessorTaskId: taskId }
+    addDependency.mutate(vars, {
+      onSuccess: () => setDepSearch(''),
+      onError: (err: unknown) => {
+        const apiErr = err as { code?: string; details?: { cycle_path?: string[] } }
+        if (apiErr.code === 'CIRCULAR_DEPENDENCY') {
+          setDepError(`Menutup lingkaran: ${(apiErr.details?.cycle_path ?? []).join(' → ')}`)
+        } else if (apiErr.code === 'DEPENDENCY_ALREADY_EXISTS') {
+          setDepError('Dependency ini sudah ada.')
+        } else {
+          setDepError('Gagal menambah dependency.')
+        }
       },
-    )
+    })
   }
 
   // handleUpload -- validasi ekstensi klien (US-064 AC), server tetap
@@ -1030,14 +1031,26 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
                             <div className="truncate text-[12px] text-text-bone">{t.task_code ?? '—'} · {t.title}</div>
                             <div className="font-mono text-[9px] text-text-dim">{t.status_name} · {t.priority}</div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => onAddDependency(t.id)}
-                            disabled={addDependency.isPending}
-                            className="flex-shrink-0 whitespace-nowrap border border-amber px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.06em] text-amber disabled:opacity-40"
-                          >
-                            Menunggu Ini
-                          </button>
+                          <div className="flex flex-shrink-0 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => onAddDependency(t.id, 'predecessor')}
+                              disabled={addDependency.isPending}
+                              title={`Task ini menunggu ${t.task_code ?? t.title} selesai (DONE) dulu`}
+                              className="whitespace-nowrap border border-amber px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.06em] text-amber disabled:opacity-40"
+                            >
+                              Menunggu Ini
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onAddDependency(t.id, 'successor')}
+                              disabled={addDependency.isPending}
+                              title={`Task ini memblokir ${t.task_code ?? t.title} -- kandidat menunggu task ini selesai (DONE)`}
+                              className="whitespace-nowrap border border-blue px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.06em] text-blue disabled:opacity-40"
+                            >
+                              Memblokir Ini
+                            </button>
+                          </div>
                         </div>
                       ))}
                       {dependencyCandidates.length === 0 && (
