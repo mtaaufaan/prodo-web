@@ -79,7 +79,7 @@ function ProjectBoardPageContent() {
         projectName={project?.name ?? ''}
         defaultSprintId={activeSprint?.id ?? null}
       />
-      <TaskDetailModal taskId={detailTaskId} onClose={() => setDetailTaskId(null)} projectId={pid} statuses={statuses.data ?? []} />
+      <TaskDetailModal taskId={detailTaskId} onClose={() => setDetailTaskId(null)} projectId={pid} workspaceId={workspaceId} statuses={statuses.data ?? []} />
     </div>
   )
 }
