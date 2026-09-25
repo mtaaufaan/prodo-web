@@ -10,15 +10,18 @@ import {
   useAcknowledgePic,
   useActiveTimer,
   useAddDependency,
+  useAddPic,
   useApproveTimeEntry,
   useCreateChecklistItem,
   useCreateManualTimeEntry,
   useDeleteChecklistItem,
   useDeleteTask,
+  useHandoffPic,
   usePicHistory,
   useProjectTasks,
   useRejectTimeEntry,
   useRemoveDependency,
+  useRemovePic,
   useSetCompleteness,
   useSetTaskStatus,
   useStartTimer,
@@ -79,6 +82,12 @@ function describeTaskAction(action: string, before: Record<string, unknown> | nu
       return 'Dependency dihapus'
     case 'task.pic_acknowledged':
       return 'Serah terima PIC dikonfirmasi'
+    case 'task.pic_added':
+      return `PIC paralel ditambahkan pada fase ${(metadata as { status_name?: string } | null)?.status_name ?? '—'}`
+    case 'task.pic_removed':
+      return `PIC dihapus dari fase ${(metadata as { status_name?: string } | null)?.status_name ?? '—'}`
+    case 'task.pic_handoff':
+      return `PIC fase ${(metadata as { status_name?: string } | null)?.status_name ?? '—'} diserahterimakan`
     case 'attachment.uploaded':
       return `Lampiran diunggah: "${(metadata as { name?: string } | null)?.name ?? ''}"`
     case 'attachment.renamed':
@@ -122,10 +131,22 @@ interface TaskDetailModalProps {
 // saat membangun RIWAYAT VERSI), DEPENDENCY, PIC FASE, LAMPIRAN: lihat+edit
 // field dasar, ganti status via chip + pilih PIC (Phase 2, S4-31/32) +
 // riwayat PIC, toggle kelengkapan (Phase 3, S4-44/45), dependency
-// Finish-to-Start (Phase 3, S4-51/52 -- "autocomplete" disederhanakan jadi
-// <select> native, LINGKARAN DEPENDENCY ditampilkan sebagai teks error
-// polos bukan panel khusus -- simplifikasi kecil diterima), tombol "Mulai
-// Pengerjaan". WAKTU STATUS lengkap: widget Queue/Active/Lead Time (Phase
+// Finish-to-Start (Phase 3, S4-51/52, susulan disamakan penuh dengan
+// desain -- kartu predecessor/successor + pencarian kandidat + DUA aksi
+// per baris "MENUNGGU INI"/"MEMBLOKIR INI" arah dibalik; LINGKARAN
+// DEPENDENCY tetap teks error polos bukan panel khusus, simplifikasi kecil
+// diterima), tombol "Mulai Pengerjaan". PIC FASE (susulan disamakan penuh
+// dengan desain, 3 kapabilitas backend BARU yang sebelumnya tidak ada sama
+// sekali -- lihat service/task_pic.go): "+ Tambah PIC Paralel" (co-PIC
+// tanpa melepas yang lain), "SERAHKAN PIC FASE" (satu PIC tertentu atau
+// SEMUA PIC aktif digantikan sekaligus), "✕ HAPUS PIC" (PM/AW only,
+// ditolak kalau PIC terakhir). Ketiganya digerbangi PIC Group Full vs
+// Terbatas yang SAMA PERSIS dengan SetStatus (reuse isFullPicMode, bukan
+// aturan baru). Acknowledge TETAP self-only (cuma PIC bersangkutan sendiri
+// yang bisa acknowledge miliknya -- desain menyiratkan PM/AW bisa
+// acknowledge ATAS NAMA PIC lain, TIDAK dibangun, simplifikasi kecil
+// diterima karena backend Acknowledge sejak awal mengunci ke actor
+// sendiri). WAKTU STATUS lengkap: widget Queue/Active/Lead Time (Phase
 // 4, S4-65/66) + breakdown AKUMULASI PER STATUS + TIMELINE SESI
 // KRONOLOGIS (keduanya baru, dari raw session rows yang sama) + widget
 // Timesheet (start/stop timer + entri manual + approval AW/PM, IG-97/
@@ -151,6 +172,9 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const remove = useDeleteTask(projectId)
   const acknowledge = useAcknowledgePic(taskId ?? '')
   const picHistory = usePicHistory(taskId)
+  const addPic = useAddPic(projectId)
+  const handoffPic = useHandoffPic(projectId)
+  const removePic = useRemovePic(projectId)
   const setCompleteness = useSetCompleteness(projectId)
   const dependencies = useTaskDependencies(taskId)
   const addDependency = useAddDependency(projectId)
@@ -202,8 +226,14 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
   const [subtaskDraft, setSubtaskDraft] = useState('')
   const [pendingStatusId, setPendingStatusId] = useState<string | null>(null)
   const [picSelection, setPicSelection] = useState<string[]>([])
-  const [historyOpen, setHistoryOpen] = useState(false)
   const [picError, setPicError] = useState('')
+  // picAddSearch/picHandoffFrom/picTabError -- tab PIC FASE "+ Tambah PIC
+  // Paralel"/"SERAHKAN PIC FASE" (IG-97 susulan). picHandoffFrom: '' (PIC
+  // aktif tunggal, tidak perlu dipilih) | 'ALL' | user_id PIC aktif yang
+  // mau diserahterimakan.
+  const [picAddSearch, setPicAddSearch] = useState('')
+  const [picHandoffFrom, setPicHandoffFrom] = useState('')
+  const [picTabError, setPicTabError] = useState('')
   const [depSearch, setDepSearch] = useState('')
   const [depError, setDepError] = useState('')
   const [saveError, setSaveError] = useState('')
@@ -242,7 +272,9 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     setPendingStatusId(null)
     setPicSelection([])
     setPicError('')
-    setHistoryOpen(false)
+    setPicAddSearch('')
+    setPicHandoffFrom('')
+    setPicTabError('')
     setDepSearch('')
     setDepError('')
     setSaveError('')
@@ -472,10 +504,67 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
     rejectEntry.mutate({ entryId: rejectingId, note: rejectNote.trim() }, { onSuccess: () => { setRejectingId(null); setRejectNote('') } })
   }
 
+  // pic*ErrorMessage -- pesan generik per kode error backend, dipakai
+  // ketiga aksi PIC FASE baru (IG-97 susulan). Kode PIC_NOT_IN_GROUP/
+  // PIC_ALREADY_ACTIVE bisa muncul dari AddPic maupun HandoffPic.
+  const picErrorMessage = (err: unknown, fallback: string): string => {
+    const apiErr = err as { code?: string }
+    switch (apiErr.code) {
+      case 'PIC_NOT_IN_GROUP':
+        return 'PIC Group status ini belum memuat member yang Anda pilih. Minta Project Manager menambah anggota PIC Group.'
+      case 'PIC_ALREADY_ACTIVE':
+        return 'User ini sudah menjadi PIC aktif pada fase ini.'
+      case 'PIC_LAST_ACTIVE':
+        return 'Tidak dapat menghapus PIC terakhir -- gunakan Serah Terima PIC.'
+      case 'FORBIDDEN':
+        return 'Hanya Project Manager dan Admin Workspace yang boleh menghapus PIC fase.'
+      default:
+        return fallback
+    }
+  }
+
+  const onAddPic = (userId: string) => {
+    setPicTabError('')
+    addPic.mutate(
+      { taskId, userId },
+      {
+        onSuccess: () => setPicAddSearch(''),
+        onError: (err: unknown) => setPicTabError(picErrorMessage(err, 'Gagal menambah PIC.')),
+      },
+    )
+  }
+
+  const onHandoffPic = (toUserId: string) => {
+    setPicTabError('')
+    handoffPic.mutate(
+      { taskId, fromUserId: picHandoffFrom === 'ALL' ? '' : picHandoffFrom, toUserId },
+      {
+        onSuccess: () => { setPicHandoffFrom(''); setPicAddSearch('') },
+        onError: (err: unknown) => setPicTabError(picErrorMessage(err, 'Gagal menyerahkan PIC.')),
+      },
+    )
+  }
+
+  const onRemovePic = (userId: string) => {
+    setPicTabError('')
+    removePic.mutate({ taskId, userId }, { onError: (err: unknown) => setPicTabError(picErrorMessage(err, 'Gagal menghapus PIC.')) })
+  }
+
   const activePics = task.data?.active_pics ?? []
-  const myPendingAck = activePics.find((p) => p.user_id === currentUserId && p.acknowledged_at === null)
   const isCreatorOrActivePic = task.data != null && (task.data.created_by === currentUserId || activePics.some((p) => p.user_id === currentUserId))
   const showCompletenessToggle = task.data?.status_name === 'BACKLOG' && isCreatorOrActivePic
+
+  // picCandidates -- kandidat "SERAHKAN PIC FASE"/"+ Tambah PIC Paralel"
+  // (IG-97 susulan), sumber SAMA `members` (project member assignable)
+  // yang sudah dipakai picker status-change -- backend yang menegakkan
+  // PIC Group Full vs Terbatas (PIC_NOT_IN_GROUP), FE tidak menduplikasi
+  // logika itu (pola sama picSelection checklist di PINDAHKAN STATUS).
+  const picAddSearchLower = picAddSearch.trim().toLowerCase()
+  const picCandidates = (members.data ?? [])
+    .filter((m) => !activePics.some((p) => p.user_id === m.user_id))
+    .filter((m) => !picAddSearchLower || (m.display_name || '').toLowerCase().includes(picAddSearchLower) || m.email.toLowerCase().includes(picAddSearchLower))
+  const picHistoryList = picHistory.data ?? []
+
   const predecessors = dependencies.data?.predecessors ?? []
   const successors = dependencies.data?.successors ?? []
   const linkedTaskIds = new Set([taskId, ...predecessors.map((p) => p.task_id), ...successors.map((s) => s.task_id)])
@@ -1062,64 +1151,183 @@ export default function TaskDetailModal({ taskId, onClose, projectId, statuses }
               )}
 
               {activeTab === 'pic' && (
-                <>
-                  <div>
-                    <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">ASSIGNEE</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {task.data.assignees.map((a) => (
-                        <span key={a.user_id} className="border border-line-strong px-2.5 py-1.5 font-mono text-[9.5px] text-text-muted">
-                          {a.display_name || a.email} <span className="text-text-dim">· {a.role}</span>
-                        </span>
+                <div className="flex flex-col gap-4">
+                  <div className="border border-line-strong bg-input-bg p-3.5">
+                    <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">PIC FASE SAAT INI · {task.data.status_name}</div>
+                    <div className="mt-2.5 flex flex-col gap-2">
+                      {activePics.map((p) => (
+                        <div key={p.id} className="flex items-center gap-3 border border-line-strong p-2.5">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[12.5px] text-text-bone">{p.user_name || p.user_email}</div>
+                            <div className="font-mono text-[9px] text-text-dim">
+                              ditetapkan {new Date(p.activated_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              {p.acknowledged_at ? ` · acknowledge ${new Date(p.acknowledged_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}` : ''}
+                            </div>
+                          </div>
+                          <span
+                            className={cn(
+                              'flex-shrink-0 whitespace-nowrap border px-2 py-0.5 font-mono text-[9px] tracking-[0.06em]',
+                              p.acknowledged_at ? 'border-mint text-mint' : 'border-amber text-amber',
+                            )}
+                          >
+                            {p.acknowledged_at ? 'AKTIF' : 'PENDING ACK'}
+                          </span>
+                          {!p.acknowledged_at && p.user_id === currentUserId && (
+                            <button
+                              type="button"
+                              onClick={() => acknowledge.mutate(undefined, { onSuccess: () => setNotice('Serah terima PIC dikonfirmasi.') })}
+                              disabled={acknowledge.isPending}
+                              className="flex-shrink-0 whitespace-nowrap font-mono text-[9px] uppercase tracking-[0.06em] text-mint hover:underline"
+                            >
+                              ✓ Acknowledge
+                            </button>
+                          )}
+                          {activePics.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => onRemovePic(p.user_id)}
+                              disabled={removePic.isPending}
+                              className="flex-shrink-0 whitespace-nowrap font-mono text-[9px] uppercase tracking-[0.06em] text-destructive hover:underline"
+                            >
+                              ✕ Hapus PIC
+                            </button>
+                          )}
+                        </div>
                       ))}
+                      {activePics.length === 0 && <p className="font-mono text-[9.5px] text-text-dim">Tidak ada PIC aktif.</p>}
                     </div>
+                    <p className="mt-2.5 font-mono text-[9.5px] leading-relaxed text-text-dim">
+                      PIC fase bertanggung jawab menuntaskan task pada status {task.data.status_name}. Satu fase boleh punya lebih dari satu PIC aktif; setiap PIC baru berstatus PENDING sampai memberi acknowledge, dan setiap pergantian tercatat di riwayat PIC.
+                    </p>
                   </div>
 
                   <div>
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="font-mono text-[9px] tracking-[0.14em] text-text-dim">PIC AKTIF</span>
-                      <button type="button" onClick={() => setHistoryOpen((v) => !v)} className="font-mono text-[9px] text-text-muted hover:text-signal">
-                        {historyOpen ? '▴ Tutup riwayat' : '▾ Riwayat PIC'}
-                      </button>
-                    </div>
+                    <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-text-dim">ASSIGNEE TASK</div>
                     <div className="flex flex-wrap gap-1.5">
-                      {activePics.map((p) => (
-                        <span
-                          key={p.id}
+                      {task.data.assignees.map((a) => {
+                        const active = activePics.some((p) => p.user_id === a.user_id)
+                        const past = !active && picHistoryList.some((h) => h.user_id === a.user_id)
+                        return (
+                          <span
+                            key={a.user_id}
+                            className={cn(
+                              'border px-2.5 py-1.5 font-mono text-[9.5px]',
+                              active ? 'border-signal text-text-bone' : 'border-line-strong text-text-muted',
+                              past && 'opacity-50',
+                            )}
+                          >
+                            {a.display_name || a.email} <span className="text-text-dim">· {a.role}</span>
+                            {active && <span className="ml-1.5 text-signal">· PIC FASE</span>}
+                            {past && <span className="ml-1.5 text-text-dim">· PIC NON-AKTIF</span>}
+                          </span>
+                        )
+                      })}
+                      {task.data.assignees.length === 0 && <span className="font-mono text-[9.5px] text-text-dim">Belum ada assignee.</span>}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-line pt-4">
+                    <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">SERAHKAN PIC FASE · TAMBAH PIC PARALEL</div>
+                    <p className="mt-1.5 font-mono text-[9.5px] leading-relaxed text-text-muted">
+                      Serah terima memindahkan tanggung jawab fase ini ke orang lain -- PIC lama dilepas dari task dan tetap tercatat di riwayat PIC. Tambah paralel menambah co-PIC tanpa melepas siapa pun; PIC baru wajib acknowledge.
+                    </p>
+                    {activePics.length > 1 && (
+                      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                        <span className="font-mono text-[8.5px] tracking-[0.12em] text-text-dim">SERAHKAN DARI</span>
+                        {activePics.map((p) => (
+                          <button
+                            key={p.user_id}
+                            type="button"
+                            onClick={() => setPicHandoffFrom(p.user_id)}
+                            className={cn(
+                              'border px-2.5 py-1 font-mono text-[9px]',
+                              picHandoffFrom === p.user_id ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
+                            )}
+                          >
+                            {p.user_name || p.user_email}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setPicHandoffFrom('ALL')}
                           className={cn(
-                            'border px-2.5 py-1.5 font-mono text-[9.5px]',
-                            p.acknowledged_at ? 'border-mint text-mint' : 'border-amber text-amber',
+                            'border px-2.5 py-1 font-mono text-[9px]',
+                            picHandoffFrom === 'ALL' ? 'border-destructive bg-destructive/10 text-destructive' : 'border-line-strong text-text-muted',
                           )}
                         >
-                          {p.user_name || p.user_email} · {p.acknowledged_at ? 'AKTIF' : 'PENDING'}
-                        </span>
-                      ))}
-                      {activePics.length === 0 && <span className="font-mono text-[9.5px] text-text-dim">Tidak ada PIC aktif.</span>}
-                    </div>
-                    {myPendingAck && (
-                      <Button
-                        type="button"
-                        onClick={() => acknowledge.mutate(undefined, { onSuccess: () => setNotice('Serah terima PIC dikonfirmasi.') })}
-                        disabled={acknowledge.isPending}
-                        className="mt-2.5 font-mono text-[9.5px] font-bold uppercase tracking-[0.06em]"
-                      >
-                        ✓ Konfirmasi Serah Terima PIC
-                      </Button>
-                    )}
-                    {historyOpen && (
-                      <div className="mt-2.5 flex flex-col gap-1.5 border-t border-line pt-2.5">
-                        {(picHistory.data ?? []).map((p) => (
-                          <div key={p.id} className="flex items-center justify-between font-mono text-[9px] text-text-muted">
-                            <span>{p.status_name} · {p.user_name || p.user_email}</span>
-                            <span className={p.is_active ? 'text-mint' : 'text-text-dim'}>
-                              {p.acknowledged_at ? 'Acknowledged' : p.is_active ? 'Pending' : 'Non-aktif'}
-                            </span>
-                          </div>
-                        ))}
-                        {(picHistory.data ?? []).length === 0 && <p className="font-mono text-[9px] text-text-dim">Belum ada riwayat.</p>}
+                          SEMUA PIC
+                        </button>
                       </div>
                     )}
+                    <input
+                      value={picAddSearch}
+                      onChange={(e) => { setPicAddSearch(e.target.value); setPicTabError('') }}
+                      placeholder="Cari member project"
+                      className="mt-2.5 w-full border border-line-strong bg-input-bg px-3 py-2 text-[12.5px] text-text-bone outline-none focus-visible:border-signal"
+                    />
+                    {picTabError && <p className="mt-2 text-[10px] text-destructive">⚠ {picTabError}</p>}
+                    <div className="mt-2.5 flex max-h-[200px] flex-col gap-1.5 overflow-y-auto">
+                      {picCandidates.map((m) => (
+                        <div key={m.user_id} className="flex items-center gap-2.5 border border-line-strong p-2.5">
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[12px] text-text-bone">{m.display_name || m.email}</div>
+                            <div className="font-mono text-[9px] text-text-dim">{m.role} · {m.email}</div>
+                          </div>
+                          <div className="flex flex-shrink-0 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (activePics.length > 1 && !picHandoffFrom) { setPicTabError('Pilih PIC yang akan diserahkan dulu.'); return }
+                                onHandoffPic(m.user_id)
+                              }}
+                              disabled={handoffPic.isPending || activePics.length === 0}
+                              title="Serahkan tanggung jawab fase ini"
+                              className="whitespace-nowrap border border-signal px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.06em] text-signal disabled:opacity-40"
+                            >
+                              Serahkan →
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => onAddPic(m.user_id)}
+                              disabled={addPic.isPending}
+                              title="Tambah sebagai PIC paralel, tanpa melepas PIC lain"
+                              className="whitespace-nowrap border border-blue px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.06em] text-blue disabled:opacity-40"
+                            >
+                              + Paralel
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {picCandidates.length === 0 && (
+                        <p className="font-mono text-[9.5px] text-text-dim">{picAddSearch ? 'Tidak ada member yang cocok.' : 'Tidak ada kandidat PIC lain di project ini.'}</p>
+                      )}
+                    </div>
                   </div>
-                </>
+
+                  <div className="border-t border-line pt-4">
+                    <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-text-dim">RIWAYAT PIC</div>
+                    <div className="flex flex-col gap-1.5">
+                      {picHistoryList.filter((p) => !p.is_active).map((p) => (
+                        <div key={p.id} className="flex items-center gap-3 border border-line-strong p-2.5">
+                          <span className="flex-shrink-0 whitespace-nowrap border border-line-strong px-2 py-0.5 font-mono text-[8.5px] tracking-[0.08em] text-text-dim">
+                            {p.status_name}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[12px] text-text-bone">{p.user_name || p.user_email}</div>
+                            <div className="font-mono text-[9px] text-text-dim">
+                              aktif {new Date(p.activated_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })} → non-aktif{' '}
+                              {p.deactivated_at ? new Date(p.deactivated_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                            </div>
+                          </div>
+                          <span className="flex-shrink-0 whitespace-nowrap font-mono text-[8.5px] tracking-[0.08em] text-text-dim">NON-AKTIF</span>
+                        </div>
+                      ))}
+                      {picHistoryList.filter((p) => !p.is_active).length === 0 && (
+                        <p className="font-mono text-[9.5px] text-text-dim">Belum ada pergantian PIC pada task ini.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
 
               {activeTab === 'attach' && (

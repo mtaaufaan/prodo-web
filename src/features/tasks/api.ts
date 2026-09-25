@@ -140,6 +140,23 @@ export function getPicHistory(taskId: string) {
   return apiClient.get<TaskPicPhase[]>(`/api/v1/tasks/${taskId}/pic-history`)
 }
 
+// addTaskPic/handoffTaskPic/removeTaskPic (IG-97 susulan, tab PIC FASE
+// "+ Tambah PIC Paralel"/"SERAHKAN PIC FASE"/"✕ HAPUS PIC"). Beroperasi
+// pada fase status task SAAT INI -- server yang menentukan status_id,
+// FE tidak pernah mengirimnya.
+export function addTaskPic(taskId: string, userId: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/tasks/${taskId}/pic/add`, { user_id: userId })
+}
+
+// handoffTaskPic -- fromUserId kosong berarti SEMUA PIC aktif digantikan.
+export function handoffTaskPic(taskId: string, fromUserId: string, toUserId: string) {
+  return apiClient.post<{ id: string }>(`/api/v1/tasks/${taskId}/pic/handoff`, { from_user_id: fromUserId, to_user_id: toUserId })
+}
+
+export function removeTaskPic(taskId: string, userId: string) {
+  return apiClient.delete<{ id: string }>(`/api/v1/tasks/${taskId}/pic/${userId}`)
+}
+
 // setTaskCompleteness -- Phase 3 (US-017c): cuma pembuat task/PIC aktif
 // yang diizinkan backend (403 selain itu).
 export function setTaskCompleteness(taskId: string, completeness: 'complete' | 'incomplete') {
