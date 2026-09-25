@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   acknowledgePic,
   addTaskDependency,
+  addTaskPic,
   approveTimeEntry,
   assignTasksToSprint,
   bulkSetTaskStatus,
@@ -28,10 +29,12 @@ import {
   getTaskTimeEntries,
   getTaskVersions,
   getWorkspaceStatuses,
+  handoffTaskPic,
   moveStatus,
   rejectTimeEntry,
   reorderTask,
   removeTaskDependency,
+  removeTaskPic,
   reopenSprint,
   restoreStatus,
   setStatusStartConfirmation,
@@ -305,6 +308,46 @@ export function usePicHistory(taskId: string | null) {
     queryKey: taskKeys.picHistory(taskId ?? ''),
     queryFn: () => getPicHistory(taskId ?? ''),
     enabled: taskId !== null,
+  })
+}
+
+// useAddPic/useHandoffPic/useRemovePic (IG-97 susulan, tab PIC FASE) --
+// active_pics ikut ke response detail (taskKeys.detail), invalidate
+// list+detail+picHistory sama pola useSetTaskStatus.
+export function useAddPic(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskId, userId }: { taskId: string; userId: string }) => addTaskPic(taskId, userId),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.picHistory(vars.taskId) })
+    },
+  })
+}
+
+export function useHandoffPic(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskId, fromUserId, toUserId }: { taskId: string; fromUserId: string; toUserId: string }) =>
+      handoffTaskPic(taskId, fromUserId, toUserId),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.picHistory(vars.taskId) })
+    },
+  })
+}
+
+export function useRemovePic(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ taskId, userId }: { taskId: string; userId: string }) => removeTaskPic(taskId, userId),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.picHistory(vars.taskId) })
+    },
   })
 }
 
