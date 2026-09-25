@@ -102,6 +102,35 @@ function describeTaskAction(action: string, before: Record<string, unknown> | nu
   }
 }
 
+// activityTypeMeta -- IG-97 susulan, badge kategori tab AKTIVITAS (desain
+// "PM Task Detail.dc.html": badge BUAT/UBAH/HAPUS/NOTIFIKASI berwarna,
+// BUKAN nama action mentah seperti sebelumnya). Setiap action baru butuh
+// dipetakan ke salah satu 4 kategori ini, fallback UBAH untuk yang belum
+// dipetakan.
+function activityTypeMeta(action: string): { label: string; className: string } {
+  const create = { label: 'BUAT', className: 'border-mint text-mint' }
+  const update = { label: 'UBAH', className: 'border-blue text-blue' }
+  const remove = { label: 'HAPUS', className: 'border-destructive text-destructive' }
+  const notify = { label: 'NOTIFIKASI', className: 'border-violet text-violet' }
+  switch (action) {
+    case 'task.created':
+    case 'task.dependency_added':
+    case 'task.pic_added':
+    case 'attachment.uploaded':
+    case 'attachment.restored':
+      return create
+    case 'task.deleted':
+    case 'task.dependency_removed':
+    case 'task.pic_removed':
+    case 'attachment.deleted':
+      return remove
+    case 'task.pic_acknowledged':
+      return notify
+    default:
+      return update
+  }
+}
+
 type DetailTab = 'overview' | 'deps' | 'pic' | 'attach' | 'time' | 'versions' | 'activity'
 
 const TABS: { key: DetailTab; label: string }[] = [
@@ -168,9 +197,17 @@ interface TaskDetailModalProps {
 // US-036/037 -- DIMAJUKAN dari Sprint S8 asli, TIDAK ADA di desain
 // "PM Task Detail.dc.html" sendiri jadi ditaruh di sini sebagai section
 // tambahan, keputusan penempatan disengaja). RIWAYAT VERSI (snapshot
-// deskripsi tiap disimpan, IG-97) dan AKTIVITAS (feed audit_logs task,
-// menutup IG-94 -- audit_logs task sebelumnya kosong total sejak Phase 1)
-// KEDUANYA sudah lengkap. LAMPIRAN (susulan 2026-09-25 disamakan penuh
+// deskripsi tiap disimpan, IG-97, susulan 2026-09-25: versi terbaru
+// disorot border+nomor signal, versi lama netral -- sebelumnya semua
+// nomor versi signal seragam) dan AKTIVITAS (feed audit_logs task,
+// menutup IG-94 -- audit_logs task sebelumnya kosong total sejak Phase 1,
+// susulan 2026-09-25: badge kategori BUAT/UBAH/HAPUS/NOTIFIKASI berwarna
+// -- `activityTypeMeta` -- menggantikan label action mentah, plus
+// jump-to-page melengkapi paginasi "Grid 1" yang sebelumnya cuma
+// Sblm/Berikutnya) KEDUANYA sudah disamakan dengan desain. Field
+// `hasFiles`/`files` per-versi desain SENGAJA tidak diikutkan --
+// duplikat data lampiran yang sudah ada sendiri di tab LAMPIRAN.
+// LAMPIRAN (susulan 2026-09-25 disamakan penuh
 // dengan desain): box "KUOTA ORGANISASI" (reuse useDocumentsQuota existing
 // AW Documents, threshold 80%/95% SAMA PERSIS -- workspaceId baru jadi
 // prop modal ini khusus untuk ini) + gate upload diblokir total saat
@@ -212,6 +249,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   const renameAttachment = useRenameAttachment(taskId ?? '')
   const deleteAttachmentMut = useDeleteAttachment(taskId ?? '')
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const activityPageInputRef = useRef<HTMLInputElement>(null)
   const versions = useTaskVersions(taskId)
   const activeTimer = useActiveTimer(taskId)
   const timeEntries = useTaskTimeEntries(taskId)
@@ -1847,13 +1885,13 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                   </p>
                   <div className="flex flex-col gap-2.5">
                     {(versions.data ?? []).map((v, i) => (
-                      <div key={v.id} className="border border-line-strong bg-input-bg p-3">
+                      <div key={v.id} className={cn('border bg-input-bg p-3', i === 0 ? 'border-signal' : 'border-line-strong')}>
                         <div className="flex flex-wrap items-baseline gap-2.5">
-                          <span className="font-mono text-[9.5px] font-semibold text-signal">v{(versions.data?.length ?? 0) - i}</span>
+                          <span className={cn('font-mono text-[9.5px] font-semibold', i === 0 ? 'text-signal' : 'text-text-dim')}>v{(versions.data?.length ?? 0) - i}</span>
                           <span className="font-mono text-[9px] text-text-dim">
                             {v.changed_by_name || v.changed_by_email} · {new Date(v.snapshot_at).toLocaleString('id-ID')}
                           </span>
-                          <span className="ml-auto font-mono text-[9px] text-text-muted">{v.trigger}</span>
+                          <span className="ml-auto font-mono text-[9px] text-signal">{v.trigger}</span>
                         </div>
                         <div className="mt-2 text-[12px] font-semibold text-text-bone">{v.title}</div>
                         {typeof v.description === 'string' && v.description && (
@@ -1869,46 +1907,78 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
               {activeTab === 'activity' && (
                 <div>
                   <div className="flex flex-col gap-2">
-                    {(activity.data?.items ?? []).map((a) => (
-                      <div key={a.id} className="flex gap-2.5 border border-line-strong bg-input-bg p-3">
-                        <span className="h-fit flex-shrink-0 border border-line-strong px-2 py-0.5 font-mono text-[8.5px] uppercase text-text-muted">
-                          {a.action.split('.')[1]?.replace(/_/g, ' ') ?? a.action}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[12.5px] text-text-bone">{describeTaskAction(a.action, a.state_before, a.state_after, a.metadata)}</div>
-                          <div className="mt-1 font-mono text-[9px] text-text-dim">
-                            {a.actor_name || a.actor_email || 'Sistem'} {a.actor_role ? `· ${a.actor_role}` : ''} · {new Date(a.logged_at).toLocaleString('id-ID')}
+                    {(activity.data?.items ?? []).map((a) => {
+                      const typeMeta = activityTypeMeta(a.action)
+                      return (
+                        <div key={a.id} className="flex gap-2.5 border border-line-strong bg-input-bg p-3">
+                          <span className={cn('h-fit flex-shrink-0 whitespace-nowrap border px-2 py-0.5 font-mono text-[8.5px] tracking-[0.06em]', typeMeta.className)}>
+                            {typeMeta.label}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[12.5px] text-text-bone">{describeTaskAction(a.action, a.state_before, a.state_after, a.metadata)}</div>
+                            <div className="mt-1 font-mono text-[9px] text-text-dim">
+                              {a.actor_name || a.actor_email || 'Sistem'} {a.actor_role ? `· ${a.actor_role}` : ''} · {new Date(a.logged_at).toLocaleString('id-ID')}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                     {(activity.data?.items ?? []).length === 0 && (
                       <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
                         Belum ada aktivitas tercatat untuk task ini. Perubahan status, role, lampiran, dan dependency akan muncul di sini.
                       </p>
                     )}
                   </div>
-                  {(activity.data?.total ?? 0) > 10 && (
-                    <div className="mt-3 flex items-center gap-2 border-t border-line pt-3 font-mono text-[9.5px]">
-                      <span className="text-text-dim">Halaman {activityPage} dari {Math.ceil((activity.data?.total ?? 0) / 10)}</span>
-                      <button
-                        type="button"
-                        onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
-                        disabled={activityPage <= 1}
-                        className="ml-auto border border-line-strong px-2.5 py-1 uppercase text-text-muted disabled:opacity-30"
-                      >
-                        ◄ Sblm
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActivityPage((p) => (p * 10 < (activity.data?.total ?? 0) ? p + 1 : p))}
-                        disabled={activityPage * 10 >= (activity.data?.total ?? 0)}
-                        className="border border-line-strong px-2.5 py-1 uppercase text-text-muted disabled:opacity-30"
-                      >
-                        Brkt ►
-                      </button>
-                    </div>
-                  )}
+                  {(activity.data?.total ?? 0) > 10 && (() => {
+                    const totalPages = Math.max(1, Math.ceil((activity.data?.total ?? 0) / 10))
+                    const goToActivityPage = (raw: string) => {
+                      const n = parseInt(raw, 10)
+                      if (!Number.isFinite(n)) return
+                      setActivityPage(Math.min(totalPages, Math.max(1, n)))
+                    }
+                    return (
+                      <div className="mt-3 flex items-center gap-2 border-t border-line pt-3 font-mono text-[9.5px]">
+                        <button
+                          type="button"
+                          onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                          disabled={activityPage <= 1}
+                          className="border border-line-strong px-2.5 py-1 uppercase text-text-muted disabled:opacity-30"
+                        >
+                          ◄ Sblm
+                        </button>
+                        <span className="flex items-center gap-1.5 text-text-dim">
+                          Halaman
+                          <input
+                            key={activityPage}
+                            ref={activityPageInputRef}
+                            type="number"
+                            min={1}
+                            max={totalPages}
+                            defaultValue={activityPage}
+                            onKeyDown={(e) => e.key === 'Enter' && goToActivityPage(e.currentTarget.value)}
+                            className="w-11 border border-line-strong bg-input-bg px-1 py-0.5 text-center font-mono text-[10px] text-text-body outline-none focus-visible:border-signal"
+                            aria-label="Nomor halaman"
+                          />
+                          / {totalPages} · {activity.data?.total ?? 0} data
+                          <button
+                            type="button"
+                            onClick={() => goToActivityPage(activityPageInputRef.current?.value ?? '')}
+                            className="border border-line-strong px-1.5 py-0.5 font-mono text-[9px] uppercase text-text-muted"
+                          >
+                            Ke
+                          </button>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setActivityPage((p) => (p * 10 < (activity.data?.total ?? 0) ? p + 1 : p))}
+                          disabled={activityPage * 10 >= (activity.data?.total ?? 0)}
+                          className="ml-auto border border-line-strong px-2.5 py-1 uppercase text-text-muted disabled:opacity-30"
+                        >
+                          Brkt ►
+                        </button>
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
 
