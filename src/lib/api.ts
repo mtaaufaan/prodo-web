@@ -83,8 +83,28 @@ function refreshAccessToken(): Promise<string | null> {
   return refreshPromise
 }
 
+// unwrapApiResponse -- buka envelope backend {"data": ...} (response.Success).
+// `?? response.data` yang lama SALAH untuk endpoint yang memang mengembalikan
+// "data": null secara sah (mis. GET .../time-entries/active saat tidak ada
+// timer aktif) -- `null ?? x` mengevaluasi ke `x`, jadi pemanggil menerima
+// OBJEK PEMBUNGKUS `{data: null}` (truthy) alih-alih `null` sungguhan. Bug
+// ini yang membuat widget Timer TaskDetailModal salah kira ada timer aktif
+// ("HENTIKAN TIMER" tampil terus + "NaNm berjalan", ditemukan user lewat
+// screenshot). Exported supaya bisa diuji langsung tanpa mock axios/msw.
+export function unwrapApiResponse(body: unknown): unknown {
+  if (body !== null && typeof body === 'object' && 'data' in body) {
+    return (body as { data: unknown }).data
+  }
+  return body
+}
+
 instance.interceptors.response.use(
-  (response) => response.data?.data ?? response.data,
+  // apiClient.get<T>() (di bawah) mengetik ulang hasil ini ke T -- axios
+  // sendiri mewajibkan fulfilled interceptor mengembalikan AxiosResponse,
+  // jadi `as any` di sini SENGAJA (sama seperti perilaku implisit versi
+  // lama `response.data?.data ?? response.data`, bukan longgar baru).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (response) => unwrapApiResponse(response.data) as any,
   async (error) => {
     // responseType:'blob' (unduhan CSV/file) -- error.response.data DIAM-DIAM
     // tetap Blob walau server merespons JSON (axios tidak menebak ulang dari
