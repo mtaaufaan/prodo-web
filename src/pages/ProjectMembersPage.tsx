@@ -6,8 +6,8 @@ import AddMemberModal from '@/components/projects/AddMemberModal'
 import ManageProjectMemberPanel from '@/components/projects/ManageProjectMemberPanel'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { useMyContext } from '@/features/context/hooks'
-import { useProjectMembers } from '@/features/project-members/hooks'
-import type { ProjectMember } from '@/features/project-members/types'
+import { useProjectMembersForManagement } from '@/features/project-members/hooks'
+import { PROJECT_SCOPED_ROLES, type ProjectMember } from '@/features/project-members/types'
 import { useProjects } from '@/features/projects/hooks'
 import { cn } from '@/lib/utils'
 
@@ -26,6 +26,24 @@ import { cn } from '@/lib/utils'
 // tidak ada state PENDING yang mungkin muncul di data nyata. Kartu stat
 // "PENDING" tetap ditampilkan (akan selalu 0) demi kesetiaan ke desain,
 // bukan data palsu -- 0 adalah nilai yang benar.
+//
+// Susulan sekalian (ditemukan user LEWAT PENGUJIAN LIVE: "kenapa isinya
+// masih kosong, padahal untuk member project sudah ada fia sebagai role
+// PM") -- keputusan awal MEMANG SALAH: PM sengaja disembunyikan total
+// dari halaman ini dengan asumsi desain tidak menampilkannya, padahal `PM
+// Member Project.dc.html` justru menampilkan PM sebagai baris (dikunci
+// "— KUNCI", bukan disembunyikan) -- project dengan PM tapi 0
+// project_members akan tampil KOSONG TOTAL padahal py 1 penanggung jawab.
+// Diperluas LAGI (dikonfirmasi user: "yang dikecualikan itu admin group
+// dan executive, untuk AW, DV, PM, Editor, Approver, dan Viewer yang
+// ditampilkan hanya yang berhubungan dengan project") -- pakai
+// `useProjectMembersForManagement` (?view=manage) yang menyertakan PM +
+// SEMUA Admin Workspace/Division Viewer di workspace pemilik project ini
+// (role-role itu scope-nya seluruh workspace, "berhubungan dengan
+// project" lewat akses implisit). Baris non-project-scoped (PM/AW/DV)
+// dikunci di ProjectMemberRow lewat cek role di luar PROJECT_SCOPED_ROLES
+// (lihat komentar di sana) -- Group Admin/Executive/Platform Admin org-level
+// SENGAJA tidak pernah masuk endpoint ini sama sekali.
 function ProjectMembersPageContent() {
   const { wsId, projectId } = useParams<{ wsId: string; projectId: string }>()
   const workspaceId = wsId ?? ''
@@ -35,7 +53,7 @@ function ProjectMembersPageContent() {
   // no-op supaya tidak crash, CTA di rute lama itu memang tidak pernah ada.
   const outletContext = useOutletContext<WorkspaceOutletContext>()
   const { registerCta } = outletContext ?? { registerCta: () => {} }
-  const { data, isLoading, isError } = useProjectMembers(id)
+  const { data, isLoading, isError } = useProjectMembersForManagement(id)
   const projects = useProjects(workspaceId)
   const myContext = useMyContext()
   const project = projects.data?.find((p) => p.id === id) ?? null
@@ -100,7 +118,7 @@ function ProjectMembersPageContent() {
                 onChange={(e) => setFRole(e.target.value)}
                 className="border border-line-strong bg-panel px-2.5 py-1.5 font-mono text-[10px] text-text-bone outline-none focus-visible:border-signal"
               >
-                {['Semua', 'PROJECT MANAGER', 'EDITOR', 'APPROVER', 'VIEWER'].map((o) => (
+                {['Semua', 'ADMIN WORKSPACE', 'DIVISION VIEWER', 'PROJECT MANAGER', 'EDITOR', 'APPROVER', 'VIEWER'].map((o) => (
                   <option key={o} value={o}>
                     {o}
                   </option>
@@ -155,13 +173,36 @@ function ProjectMembersPageContent() {
 }
 
 const ROLE_COLOR: Record<string, string> = {
+  admin_workspace: 'text-signal',
+  division_viewer: 'text-text-muted',
   project_manager: 'text-blue',
   editor: 'text-mint',
   approver: 'text-violet',
   viewer: 'text-text-muted',
 }
 
+const LOCKED_TAG: Record<string, string> = {
+  project_manager: 'PIC PROJECT',
+  admin_workspace: 'ADMIN WORKSPACE',
+  division_viewer: 'DIVISION VIEWER',
+}
+
+const LOCKED_NOTE: Record<string, string> = {
+  project_manager: 'PIC project',
+  admin_workspace: 'akses penuh seluruh project workspace',
+  division_viewer: 'akses lihat lintas project workspace',
+}
+
+// locked (desain "PM Member Project.dc.html": PM/Admin Workspace = "—
+// KUNCI", diperluas IG-100 mencakup Division Viewer -- lihat
+// ProjectMemberRepository.ListMembersView) -- role di luar 3
+// project_scoped_role (editor/approver/viewer) TIDAK PERNAH punya baris
+// project_members asli, tidak bisa diedit/dihapus lewat panel Kelola
+// member biasa dari halaman project-scoped ini (dikelola dari halaman
+// lain -- WorkspaceMembersPage untuk AW/DV, ManageOrganizationModal
+// untuk PM).
 function ProjectMemberRow({ member, onManage }: { member: ProjectMember; onManage: () => void }) {
+  const locked = !PROJECT_SCOPED_ROLES.some((r) => r.key === member.role)
   const initials = (member.display_name || member.email)
     .split(/[\s.@]+/)
     .map((w) => w[0] || '')
@@ -176,7 +217,10 @@ function ProjectMemberRow({ member, onManage }: { member: ProjectMember; onManag
           {initials}
         </span>
         <div className="min-w-0 leading-[1.35]">
-          <div className="truncate text-[12.5px] font-semibold text-text-bone">{member.display_name || member.email}</div>
+          <div className="truncate text-[12.5px] font-semibold text-text-bone">
+            {member.display_name || member.email}
+            {locked && <span className="ml-1.5 font-mono text-[8.5px] tracking-[0.1em] text-blue">{LOCKED_TAG[member.role] ?? '—'}</span>}
+          </div>
           <div className="truncate font-mono text-[9.5px] text-text-dim">{member.email}</div>
         </div>
       </div>
@@ -187,12 +231,18 @@ function ProjectMemberRow({ member, onManage }: { member: ProjectMember; onManag
         <div className={cn('whitespace-nowrap font-mono text-[9px] tracking-[0.1em]', member.is_scoped ? 'text-amber' : 'text-text-muted')}>
           {member.is_scoped ? 'PROJECT-SCOPED' : 'DARI WORKSPACE'}
         </div>
-        <div className="truncate font-mono text-[9px] text-text-dim">{member.is_scoped ? 'ditambahkan PM' : 'ikut role workspace'}</div>
+        <div className="truncate font-mono text-[9px] text-text-dim">
+          {locked ? (LOCKED_NOTE[member.role] ?? '—') : member.is_scoped ? 'ditambahkan PM' : 'ikut role workspace'}
+        </div>
       </div>
       <span className="font-mono text-[9.5px] tracking-[0.08em] text-mint">AKTIF</span>
-      <button onClick={onManage} className="justify-self-end font-mono text-[9.5px] tracking-[0.08em] text-text-muted hover:text-signal">
-        ✎ KELOLA
-      </button>
+      {locked ? (
+        <span className="justify-self-end font-mono text-[9.5px] tracking-[0.08em] text-text-dim">— KUNCI</span>
+      ) : (
+        <button onClick={onManage} className="justify-self-end font-mono text-[9.5px] tracking-[0.08em] text-text-muted hover:text-signal">
+          ✎ KELOLA
+        </button>
+      )}
     </div>
   )
 }
