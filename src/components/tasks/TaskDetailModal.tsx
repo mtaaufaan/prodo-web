@@ -38,7 +38,7 @@ import {
   useUpdateChecklistItem,
   useUpdateTask,
 } from '@/features/tasks/hooks'
-import { FIBONACCI_STORY_POINTS, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
+import { FIBONACCI_STORY_POINTS, statusColorClasses, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -151,9 +151,19 @@ interface TaskDetailModalProps {
 // yang bisa acknowledge miliknya -- desain menyiratkan PM/AW bisa
 // acknowledge ATAS NAMA PIC lain, TIDAK dibangun, simplifikasi kecil
 // diterima karena backend Acknowledge sejak awal mengunci ke actor
-// sendiri). WAKTU STATUS lengkap: widget Queue/Active/Lead Time (Phase
-// 4, S4-65/66) + breakdown AKUMULASI PER STATUS + TIMELINE SESI
-// KRONOLOGIS (keduanya baru, dari raw session rows yang sama) + widget
+// sendiri). WAKTU STATUS (susulan 2026-09-25 disamakan penuh dengan
+// desain, kartu stat sebelumnya QUEUE/ACTIVE/LEAD TIME diganti PERSIS 4
+// kartu desain -- LEAD TIME/ACTIVE TIME/FLOW EFFICIENCY (Active÷Lead)/
+// REGRESI, reuse `task.data.regression_count` yang sudah ada, bukan
+// hitung ulang dari sesi): AKUMULASI PER STATUS dapat bar proporsional
+// queue/active + kolom TOTAL, TIMELINE SESI jadi kartu penuh (badge
+// warna status asli, stamps masuk/keluar+aktor, badge regresi/TIDAK
+// DILACAK). BACKLOG/DONE SENGAJA dikecualikan dari queue/active
+// (`isUntrackedStatusTime`) -- backend `CloseActiveSession` auto-fill
+// `work_started_at` untuk SEMUA status termasuk keduanya (S4-67), tanpa
+// filter ini ACTIVE TIME salah menghitung waktu tunggu backlog/idle
+// selesai sebagai pengerjaan aktual; filter ini murni tampilan tab ini
+// (variabel lokal komponen, tidak menyentuh data lain). + widget
 // Timesheet (start/stop timer + entri manual + approval AW/PM, IG-97/
 // US-036/037 -- DIMAJUKAN dari Sprint S8 asli, TIDAK ADA di desain
 // "PM Task Detail.dc.html" sendiri jadi ditaruh di sini sebagai section
@@ -619,33 +629,63 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   const activeStatus = statuses.find((s) => s.id === task.data?.status_id)
   const showStartWorkButton = Boolean(activeStatus?.require_start_confirmation) && activeSession != null && activeSession.work_started_at === null
 
-  let queueMs = 0
+  // isUntrackedStatusTime (IG-97 susulan, desain "PM Task Detail.dc.html"
+  // timeNote: "Waktu dicatat otomatis di setiap status KECUALI BACKLOG dan
+  // DONE") -- CloseActiveSession backend auto-fill work_started_at=entered_at
+  // untuk SEMUA status termasuk BACKLOG/DONE (S4-67), jadi tanpa filter ini
+  // "ACTIVE TIME" akan salah menghitung waktu tunggu di BACKLOG/idle di DONE
+  // sebagai pengerjaan aktual. Filter ini MURNI tampilan tab ini (queueMs/
+  // activeMs/statusTotals lokal ke komponen, tidak dipakai halaman lain).
+  const isUntrackedStatusTime = (statusName: string) => statusName === 'BACKLOG' || statusName === 'DONE'
+
+  const statusColorByName = (statusName: string, statusId: string) => {
+    const st = statuses.find((s) => s.id === statusId) ?? statuses.find((s) => s.name === statusName)
+    return statusColorClasses(st?.color_token ?? null)
+  }
+
+  const resolveActorName = (userId: string | null) => {
+    if (!userId) return 'Sistem/Rule'
+    return members.data?.find((m) => m.user_id === userId)?.display_name || 'Anggota lain'
+  }
+
+  // activeMs (top stat "ACTIVE TIME"/"FLOW EFFICIENCY") -- HANYA sesi
+  // status tracked (bukan BACKLOG/DONE). leadMs TETAP mencakup seluruh
+  // rentang (termasuk BACKLOG) -- itu justru esensi Lead Time vs Cycle
+  // Time (desain: "created_at -> status_entered_at(Done)").
   let activeMs = 0
   for (const s of sessions) {
-    const entered = new Date(s.entered_at).getTime()
+    if (isUntrackedStatusTime(s.status_name)) continue
     const started = s.work_started_at ? new Date(s.work_started_at).getTime() : null
-    const exited = s.exited_at ? new Date(s.exited_at).getTime() : null
-    if (started != null) queueMs += started - entered
-    if (started != null) activeMs += (exited ?? Date.now()) - started
+    if (started == null) continue
+    const exited = s.exited_at ? new Date(s.exited_at).getTime() : Date.now()
+    activeMs += exited - started
   }
   const leadMs = sessions.length > 0 ? (sessions[sessions.length - 1].exited_at ? new Date(sessions[sessions.length - 1].exited_at!).getTime() : Date.now()) - new Date(sessions[0].entered_at).getTime() : 0
+  const flowPct = sessions.length > 0 && leadMs > 0 ? Math.round((activeMs / leadMs) * 100) : null
+  const regressionCount = task.data?.regression_count ?? 0
 
   // statusTotals (IG-97, WAKTU STATUS "AKUMULASI PER STATUS") -- sesi
   // digabung per status_name, TIDAK direset saat mundur (sama catatan
-  // desain "sesi baru diakumulasi ke total").
-  const statusTotals = new Map<string, { queueMs: number; activeMs: number; sessionCount: number }>()
+  // desain "sesi baru diakumulasi ke total"). totalMs dihitung untuk
+  // SEMUA status (termasuk BACKLOG/DONE, "task duduk di status ini
+  // selama..."), queue/active HANYA untuk status tracked.
+  const statusTotals = new Map<string, { statusId: string; queueMs: number; activeMs: number; totalMs: number; sessionCount: number; regressionCount: number; tracked: boolean }>()
   for (const s of sessions) {
     const entered = new Date(s.entered_at).getTime()
     const started = s.work_started_at ? new Date(s.work_started_at).getTime() : null
-    const exited = s.exited_at ? new Date(s.exited_at).getTime() : null
-    const entry = statusTotals.get(s.status_name) ?? { queueMs: 0, activeMs: 0, sessionCount: 0 }
+    const exited = s.exited_at ? new Date(s.exited_at).getTime() : Date.now()
+    const tracked = !isUntrackedStatusTime(s.status_name)
+    const entry = statusTotals.get(s.status_name) ?? { statusId: s.status_id, queueMs: 0, activeMs: 0, totalMs: 0, sessionCount: 0, regressionCount: 0, tracked }
     entry.sessionCount += 1
-    if (started != null) {
+    entry.totalMs += exited - entered
+    if (s.is_regression) entry.regressionCount += 1
+    if (tracked && started != null) {
       entry.queueMs += started - entered
-      entry.activeMs += (exited ?? Date.now()) - started
+      entry.activeMs += exited - started
     }
     statusTotals.set(s.status_name, entry)
   }
+  const statusTotalsMax = Math.max(1, ...Array.from(statusTotals.values()).map((t) => t.totalMs))
 
   // myActiveEntry -- entri time_entries pending milik user sendiri (untuk
   // gate tombol approve/reject: bukan approver tetap bisa lihat, backend
@@ -1579,20 +1619,29 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
 
               {activeTab === 'time' && (
                 <div className="flex flex-col gap-5">
-                  <div>
-                    <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">STATUS TIME TRACKING</div>
-                    <div className="grid grid-cols-3 gap-2 font-mono text-[10px]">
-                      <div className="border border-line-strong p-2 text-center">
-                        <div className="text-[8px] text-text-dim">QUEUE TIME</div>
-                        <div className="mt-1 text-text-bone">{formatDuration(queueMs)}</div>
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                    <div className="border border-line-strong bg-input-bg p-3">
+                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">LEAD TIME</div>
+                      <div className="mt-2 font-mono text-[16px] font-semibold text-text-bone">{formatDuration(leadMs)}</div>
+                      <div className="mt-1.5 font-mono text-[8.5px] text-text-dim">created_at → status_entered_at(Done)</div>
+                    </div>
+                    <div className="border border-line-strong bg-input-bg p-3">
+                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">ACTIVE TIME</div>
+                      <div className="mt-2 font-mono text-[16px] font-semibold text-mint">{formatDuration(activeMs)}</div>
+                      <div className="mt-1.5 font-mono text-[8.5px] text-text-dim">akumulasi seluruh sesi pengerjaan aktual</div>
+                    </div>
+                    <div className="border border-line-strong bg-input-bg p-3">
+                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">FLOW EFFICIENCY</div>
+                      <div className={cn('mt-2 font-mono text-[16px] font-semibold', flowPct == null ? 'text-text-dim' : flowPct >= 40 ? 'text-mint' : flowPct >= 20 ? 'text-amber' : 'text-destructive')}>
+                        {flowPct == null ? '—' : `${flowPct}%`}
                       </div>
-                      <div className="border border-line-strong p-2 text-center">
-                        <div className="text-[8px] text-text-dim">ACTIVE TIME</div>
-                        <div className="mt-1 text-text-bone">{formatDuration(activeMs)}</div>
-                      </div>
-                      <div className="border border-line-strong p-2 text-center">
-                        <div className="text-[8px] text-text-dim">LEAD TIME</div>
-                        <div className="mt-1 text-text-bone">{formatDuration(leadMs)}</div>
+                      <div className="mt-1.5 font-mono text-[8.5px] text-text-dim">Σ Active Time ÷ Lead Time</div>
+                    </div>
+                    <div className="border border-line-strong bg-input-bg p-3">
+                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">REGRESI</div>
+                      <div className={cn('mt-2 font-mono text-[16px] font-semibold', regressionCount > 0 ? 'text-destructive' : 'text-text-dim')}>{regressionCount}×</div>
+                      <div className="mt-1.5 font-mono text-[8.5px] text-text-dim">
+                        {regressionCount > 0 ? 'PM & Admin Workspace sudah dinotifikasi' : 'belum pernah mundur status'}
                       </div>
                     </div>
                   </div>
@@ -1600,33 +1649,89 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                   <div>
                     <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-text-dim">AKUMULASI PER STATUS · SESI DIGABUNG, TIDAK DIRESET SAAT MUNDUR</div>
                     <div className="flex flex-col gap-1.5">
-                      {Array.from(statusTotals.entries()).map(([statusName, t]) => (
-                        <div key={statusName} className="flex flex-wrap items-center gap-2.5 border border-line-strong p-2 font-mono text-[9px]">
-                          <span className="border border-line-strong px-2 py-0.5 font-semibold text-text-bone">{statusName}</span>
-                          <span className="text-text-dim">{t.sessionCount} sesi</span>
-                          <span className="ml-auto text-amber">QUEUE {formatDuration(t.queueMs)}</span>
-                          <span className="text-mint">ACTIVE {formatDuration(t.activeMs)}</span>
-                        </div>
-                      ))}
+                      {Array.from(statusTotals.entries()).map(([statusName, t]) => {
+                        const colors = statusColorByName(statusName, t.statusId)
+                        return (
+                          <div key={statusName} className="flex flex-wrap items-center gap-3 border border-line-strong bg-input-bg p-2.5 font-mono text-[9px]">
+                            <span className={cn('flex-shrink-0 whitespace-nowrap border px-2 py-0.5 font-semibold', colors.border, colors.text)}>{statusName}</span>
+                            <span className="flex-shrink-0 text-text-dim">
+                              {t.sessionCount} sesi{t.regressionCount > 0 ? ` · ${t.regressionCount}× masuk lewat regresi` : ''}
+                            </span>
+                            <span className="block h-1.5 min-w-[100px] flex-1 bg-panel">
+                              <span className="block h-full bg-amber float-left" style={{ width: t.tracked ? `${Math.round((t.queueMs / statusTotalsMax) * 100)}%` : '0%' }} />
+                              <span className="block h-full bg-mint float-left" style={{ width: t.tracked ? `${Math.round((t.activeMs / statusTotalsMax) * 100)}%` : '0%' }} />
+                            </span>
+                            <span className="flex-shrink-0 whitespace-nowrap text-amber">QUEUE {t.tracked ? formatDuration(t.queueMs) : '—'}</span>
+                            <span className="flex-shrink-0 whitespace-nowrap text-mint">ACTIVE {t.tracked ? formatDuration(t.activeMs) : '—'}</span>
+                            <span className="min-w-[64px] flex-shrink-0 whitespace-nowrap text-right text-[10px] font-semibold text-text-bone">{formatDuration(t.totalMs)}</span>
+                          </div>
+                        )
+                      })}
                       {statusTotals.size === 0 && <p className="font-mono text-[9px] text-text-dim">Belum ada sesi status.</p>}
                     </div>
                   </div>
 
                   <div>
                     <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-text-dim">TIMELINE SESI · KRONOLOGIS</div>
-                    <div className="flex flex-col gap-1">
-                      {sessions.map((s) => (
-                        <div key={s.id} className="flex items-center justify-between font-mono text-[9px] text-text-muted">
-                          <span>
-                            {s.status_name} #{s.session_no}
-                            {s.is_regression && <span className="ml-1 text-amber">↩ regresi</span>}
-                            {s.is_auto_start && <span className="ml-1 text-text-dim" title="Mulai pengerjaan diisi otomatis (tidak diklik manual)">⏱ auto</span>}
-                          </span>
-                          <span className="text-text-dim">{s.exited_at ? 'Selesai' : 'Aktif'}</span>
-                        </div>
-                      ))}
+                    <div className="flex flex-col gap-1.5">
+                      {sessions.slice().reverse().map((s) => {
+                        const colors = statusColorByName(s.status_name, s.status_id)
+                        const untracked = isUntrackedStatusTime(s.status_name)
+                        const open = s.exited_at === null
+                        const entered = new Date(s.entered_at).getTime()
+                        const exited = s.exited_at ? new Date(s.exited_at).getTime() : Date.now()
+                        const started = s.work_started_at ? new Date(s.work_started_at).getTime() : null
+                        const waiting = !untracked && open && started == null
+                        const workNote = untracked
+                          ? ''
+                          : waiting
+                            ? '⏳ menunggu -- tombol Mulai Pengerjaan belum diklik, pengerjaan belum dihitung'
+                            : s.is_auto_start
+                              ? '⏱ auto -- tombol Mulai Pengerjaan tidak diklik, work_started_at = status_entered_at'
+                              : `work_started_at ${s.work_started_at ? new Date(s.work_started_at).toLocaleString('id-ID') : '—'}`
+                        return (
+                          <div
+                            key={s.id}
+                            className={cn(
+                              'flex flex-col gap-1.5 border bg-input-bg p-2.5',
+                              open ? 'border-signal' : s.is_regression ? 'border-destructive' : 'border-line-strong',
+                            )}
+                          >
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={cn('flex-shrink-0 whitespace-nowrap border px-2 py-0.5 font-mono text-[9px] font-semibold', colors.border, colors.text)}>
+                                {s.status_name} — SESI {s.session_no}
+                              </span>
+                              {s.is_regression && (
+                                <span className="flex-shrink-0 whitespace-nowrap border border-destructive px-1.5 py-0.5 font-mono text-[8.5px] text-destructive">↩ MASUK LEWAT REGRESI</span>
+                              )}
+                              {untracked && (
+                                <span className="flex-shrink-0 whitespace-nowrap border border-line-strong px-1.5 py-0.5 font-mono text-[8.5px] text-text-dim">TIDAK DILACAK</span>
+                              )}
+                              <span className={cn('ml-auto flex-shrink-0 whitespace-nowrap font-mono text-[10px] font-semibold', open ? 'text-signal' : 'text-text-bone')}>
+                                {formatDuration(exited - entered)}{open ? ' · BERJALAN' : ''}
+                              </span>
+                            </div>
+                            <div className="font-mono text-[9px] leading-relaxed text-text-muted">
+                              masuk {new Date(s.entered_at).toLocaleString('id-ID')}
+                              {s.exited_at ? ` → keluar ${new Date(s.exited_at).toLocaleString('id-ID')}` : ' → masih di status ini'}
+                              {' · aktor '}{resolveActorName(s.triggered_by)}
+                            </div>
+                            {!untracked && (
+                              <div className="flex flex-wrap gap-2.5 font-mono text-[9px]">
+                                <span className="text-amber">QUEUE {started != null ? formatDuration(started - entered) : '—'}</span>
+                                <span className="text-mint">ACTIVE {started != null ? formatDuration(exited - started) : '—'}</span>
+                                <span className="text-text-dim">{workNote}</span>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
                       {sessions.length === 0 && <p className="font-mono text-[9px] text-text-dim">Belum ada sesi.</p>}
                     </div>
+                  </div>
+
+                  <div className="border border-line-strong bg-input-bg p-3 font-mono text-[9.5px] leading-relaxed text-text-muted">
+                    Waktu dicatat otomatis di setiap status kecuali BACKLOG dan DONE. Saat task mundur, durasi status tidak direset -- sesi baru diakumulasi ke total dan direkam terpisah untuk audit. Data ini menjadi sumber Cycle Time, Bottleneck Detection, Flow Efficiency, dan Regression Rate di Performance Dashboard.
                   </div>
 
                   <div className="border-t border-line pt-4">
