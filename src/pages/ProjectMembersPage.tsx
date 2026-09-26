@@ -166,7 +166,7 @@ function ProjectMembersPageContent() {
         </>
       )}
 
-      <AddMemberModal projectId={id} open={addOpen} onClose={() => setAddOpen(false)} />
+      <AddMemberModal projectId={id} projectName={project?.name ?? '...'} open={addOpen} onClose={() => setAddOpen(false)} />
       <ManageProjectMemberPanel projectId={id} projectName={project?.name ?? '...'} target={manageTarget} onClose={() => setManageTarget(null)} />
     </div>
   )
