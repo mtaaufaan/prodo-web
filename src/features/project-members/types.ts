@@ -37,3 +37,13 @@ export const addProjectMemberSchema = z.object({
   role: z.enum(['editor', 'approver', 'viewer']),
 })
 export type AddProjectMemberFormValues = z.infer<typeof addProjectMemberSchema>
+
+// BulkAddMembersResult (IG-100 susulan, "AW Invite Member.dc.html"
+// actingRole='Project Manager') -- respons POST /projects/:id/members/bulk,
+// bentuknya sama persis CreateInvitationsResult (workspace-members) karena
+// reuse penuh InvitationService.CreateBulkInvitations di backend.
+export interface BulkAddMembersResult {
+  invitation_ids: string[]
+  added_directly: string[] | null
+  errors: Record<string, string>
+}

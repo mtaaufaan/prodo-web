@@ -2,7 +2,16 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 
 import { projectKeys } from '@/features/projects/hooks'
 
-import { addProjectMember, listProjectMembers, listProjectMembersForManagement, removeProjectMember, searchGroupAccounts, updateProjectMemberRole } from './api'
+import {
+  addMembersBulk,
+  addProjectMember,
+  listProjectMemberCandidates,
+  listProjectMembers,
+  listProjectMembersForManagement,
+  removeProjectMember,
+  searchGroupAccounts,
+  updateProjectMemberRole,
+} from './api'
 
 export const projectMemberKeys = {
   all: ['project-members'] as const,
@@ -16,6 +25,7 @@ export const projectMemberKeys = {
   forProject: (projectId: string) => [...projectMemberKeys.all, 'list', projectId] as const,
   list: (projectId: string, assignable = false) => [...projectMemberKeys.all, 'list', projectId, assignable] as const,
   manage: (projectId: string) => [...projectMemberKeys.all, 'list', projectId, 'manage'] as const,
+  candidates: (projectId: string) => [...projectMemberKeys.all, 'candidates', projectId] as const,
 }
 
 const projectMembersQuery = (projectId: string, assignable = false) =>
@@ -89,5 +99,31 @@ export function useRemoveProjectMember(projectId: string) {
 export function useSearchGroupAccounts() {
   return useMutation({
     mutationFn: ({ groupId, query }: { groupId: string; query: string }) => searchGroupAccounts(groupId, query),
+  })
+}
+
+// useProjectMemberCandidates (IG-100 susulan) -- "candidate pool" modal
+// Tambah Member Project, lihat listProjectMemberCandidates.
+export function useProjectMemberCandidates(projectId: string) {
+  return useQuery({
+    queryKey: projectMemberKeys.candidates(projectId),
+    queryFn: () => listProjectMemberCandidates(projectId),
+    enabled: projectId !== '',
+  })
+}
+
+// useAddMembersBulk (IG-100 susulan) -- pool kandidat harus ikut
+// di-invalidate (pola sama useCreateInvitations workspace-members): akun
+// yang baru ditambahkan/diundang harus hilang dari pool, bukan tetap
+// muncul sampai reload manual.
+export function useAddMembersBulk(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ emails, role }: { emails: string[]; role: string }) => addMembersBulk(projectId, emails, role),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectMemberKeys.forProject(projectId) })
+      queryClient.invalidateQueries({ queryKey: projectMemberKeys.candidates(projectId) })
+      queryClient.invalidateQueries({ queryKey: projectKeys.all })
+    },
   })
 }
