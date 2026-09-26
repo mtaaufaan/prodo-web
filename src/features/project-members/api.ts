@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api'
 
-import type { GroupAccount, ProjectMember } from './types'
+import type { BulkAddMembersResult, GroupAccount, ProjectMember } from './types'
 
 export function listProjectMembers(projectId: string, assignable = false) {
   return apiClient.get<ProjectMember[]>(`/api/v1/projects/${projectId}/members`, assignable ? { params: { assignable: 'true' } } : undefined)
@@ -35,4 +35,18 @@ export function removeProjectMember(projectId: string, userId: string) {
 // S3-20 -- dipakai autocomplete pencarian member (S3-24 AC).
 export function searchGroupAccounts(groupId: string, query: string) {
   return apiClient.get<GroupAccount[]>(`/api/v1/groups/${groupId}/accounts/search`, { params: { q: query } })
+}
+
+// listProjectMemberCandidates (IG-100 susulan, "candidate pool" modal
+// Tambah Member Project) -- lintas SELURUH organisasi (dikonfirmasi user),
+// bukan dibatasi satu grup seperti searchGroupAccounts di atas.
+export function listProjectMemberCandidates(projectId: string) {
+  return apiClient.get<GroupAccount[]>(`/api/v1/projects/${projectId}/member-candidates`)
+}
+
+// addMembersBulk (IG-100 susulan, "AW Invite Member.dc.html"
+// actingRole='Project Manager') -- role WAJIB salah satu PROJECT_SCOPED_ROLES,
+// email BOLEH dari luar workspace/organisasi ini sama sekali.
+export function addMembersBulk(projectId: string, emails: string[], role: string) {
+  return apiClient.post<BulkAddMembersResult>(`/api/v1/projects/${projectId}/members/bulk`, { emails, role })
 }
