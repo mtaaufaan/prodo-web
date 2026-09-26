@@ -19,13 +19,18 @@ import { cn } from '@/lib/utils'
 // desain otoritatif "PM Member Project.dc.html", diminta user "saya lihat
 // belum sesuai dengan desain claudenya") -- versi lama cuma grid polos
 // tanpa stat/filter/search, role diubah lewat <select> inline langsung
-// (bukan panel Kelola). STATUS kolom desain (AKTIF/PENDING) SENGAJA
-// SELALU "AKTIF" -- AddMemberModal/`AddMember` backend menambah member
-// LANGSUNG aktif, tidak ada alur undangan/acceptance untuk project-scoped
-// member (beda dari workspace member yang punya user_invitations), jadi
-// tidak ada state PENDING yang mungkin muncul di data nyata. Kartu stat
-// "PENDING" tetap ditampilkan (akan selalu 0) demi kesetiaan ke desain,
-// bukan data palsu -- 0 adalah nilai yang benar.
+// (bukan panel Kelola).
+//
+// KOREKSI (IG-100 susulan lanjutan, ditemukan user: "kenapa akun daniel
+// tidak muncul pada member project PM, tapi kalau saya cek di member
+// roles AW akun daniel muncul dengan status pending") -- asumsi awal di
+// atas SALAH: STATUS kolom desain (AKTIF/PENDING) TIDAK PERNAH benar-benar
+// selalu AKTIF, project_manager yang diundang tapi belum accept sudah bisa
+// PENDING sejak lama (S4W susulan), cuma belum pernah kejadian nyata
+// sampai kasus Daniel. Sekarang `data` juga menyertakan baris sintetis
+// undangan pending PROJECT INI (dikonfirmasi user "jika mengacu pada
+// project yang sama" -- lihat ProjectMemberRepository.listPendingInvitations),
+// PENDING kartu stat dan kolom STATUS akhirnya dipakai sungguhan.
 //
 // Susulan sekalian (ditemukan user LEWAT PENGUJIAN LIVE: "kenapa isinya
 // masih kosong, padahal untuk member project sudah ada fia sebagai role
@@ -72,12 +77,14 @@ function ProjectMembersPageContent() {
   }, [])
 
   const members = data ?? []
-  const scopedCount = members.filter((m) => m.is_scoped).length
+  const activeMembers = members.filter((m) => !m.is_pending)
+  const pendingCount = members.length - activeMembers.length
+  const scopedCount = activeMembers.filter((m) => m.is_scoped).length
   const stats = [
-    { label: 'MEMBER PROJECT', value: members.length, className: 'text-text-bone' },
+    { label: 'MEMBER PROJECT', value: activeMembers.length, className: 'text-text-bone' },
     { label: 'PROJECT-SCOPED', value: scopedCount, className: 'text-amber' },
-    { label: 'DARI WORKSPACE', value: members.length - scopedCount, className: 'text-blue' },
-    { label: 'PENDING', value: 0, className: 'text-violet' },
+    { label: 'DARI WORKSPACE', value: activeMembers.length - scopedCount, className: 'text-blue' },
+    { label: 'PENDING', value: pendingCount, className: 'text-violet' },
   ]
 
   const qLower = q.trim().toLowerCase()
@@ -110,7 +117,7 @@ function ProjectMembersPageContent() {
             <span className="font-mono text-[9px] tracking-[0.14em] text-signal">PROJECT</span>
             <span className="text-[13px] font-bold text-text-bone">{project?.name ?? '...'}</span>
             <span className="font-mono text-[9.5px] text-text-dim">
-              workspace {workspaceName} · {members.length} member · {scopedCount} project-scoped
+              workspace {workspaceName} · {activeMembers.length} member · {scopedCount} project-scoped
             </span>
             <div className="ml-auto flex flex-wrap items-center gap-2.5">
               <select
@@ -200,9 +207,11 @@ const LOCKED_NOTE: Record<string, string> = {
 // project_members asli, tidak bisa diedit/dihapus lewat panel Kelola
 // member biasa dari halaman project-scoped ini (dikelola dari halaman
 // lain -- WorkspaceMembersPage untuk AW/DV, ManageOrganizationModal
-// untuk PM).
+// untuk PM). Diperluas lagi (IG-100 susulan lanjutan): baris undangan
+// PENDING juga selalu locked -- user_id-nya sintetis ("pending:<id>"),
+// bukan id user asli, jadi TIDAK BISA dipakai panel Kelola sama sekali.
 function ProjectMemberRow({ member, onManage }: { member: ProjectMember; onManage: () => void }) {
-  const locked = !PROJECT_SCOPED_ROLES.some((r) => r.key === member.role)
+  const locked = member.is_pending || !PROJECT_SCOPED_ROLES.some((r) => r.key === member.role)
   const initials = (member.display_name || member.email)
     .split(/[\s.@]+/)
     .map((w) => w[0] || '')
@@ -219,7 +228,11 @@ function ProjectMemberRow({ member, onManage }: { member: ProjectMember; onManag
         <div className="min-w-0 leading-[1.35]">
           <div className="truncate text-[12.5px] font-semibold text-text-bone">
             {member.display_name || member.email}
-            {locked && <span className="ml-1.5 font-mono text-[8.5px] tracking-[0.1em] text-blue">{LOCKED_TAG[member.role] ?? '—'}</span>}
+            {locked && (
+              <span className="ml-1.5 font-mono text-[8.5px] tracking-[0.1em] text-blue">
+                {member.is_pending ? 'UNDANGAN' : (LOCKED_TAG[member.role] ?? '—')}
+              </span>
+            )}
           </div>
           <div className="truncate font-mono text-[9.5px] text-text-dim">{member.email}</div>
         </div>
@@ -232,10 +245,18 @@ function ProjectMemberRow({ member, onManage }: { member: ProjectMember; onManag
           {member.is_scoped ? 'PROJECT-SCOPED' : 'DARI WORKSPACE'}
         </div>
         <div className="truncate font-mono text-[9px] text-text-dim">
-          {locked ? (LOCKED_NOTE[member.role] ?? '—') : member.is_scoped ? 'ditambahkan PM' : 'ikut role workspace'}
+          {member.is_pending
+            ? 'menunggu diterima'
+            : locked
+              ? (LOCKED_NOTE[member.role] ?? '—')
+              : member.is_scoped
+                ? 'ditambahkan PM'
+                : 'ikut role workspace'}
         </div>
       </div>
-      <span className="font-mono text-[9.5px] tracking-[0.08em] text-mint">AKTIF</span>
+      <span className={cn('font-mono text-[9.5px] tracking-[0.08em]', member.is_pending ? 'text-violet' : 'text-mint')}>
+        {member.is_pending ? 'PENDING' : 'AKTIF'}
+      </span>
       {locked ? (
         <span className="justify-self-end font-mono text-[9.5px] tracking-[0.08em] text-text-dim">— KUNCI</span>
       ) : (
