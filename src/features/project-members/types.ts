@@ -8,6 +8,11 @@ export interface ProjectMember {
   is_scoped: boolean
   added_at: string
   is_pm?: boolean
+  // workspace_role (IG-97 susulan, "PM Member Project.dc.html" panel
+  // Kelola) -- role member ini di workspace pemilik project (BEDA dari
+  // `role` yang selalu project_scoped_role). null kalau project-scoped
+  // murni tanpa keanggotaan workspace.
+  workspace_role: string | null
 }
 
 export interface GroupAccount {
@@ -21,10 +26,10 @@ export interface GroupAccount {
 // project_scoped_role (DATABASE_SCHEMA.md §5.13) -- HANYA 3 nilai, TIDAK
 // termasuk admin_workspace/project_manager (role setinggi itu tidak
 // relevan di-scope ke satu project saja).
-export const PROJECT_SCOPED_ROLES: { key: string; label: string }[] = [
-  { key: 'editor', label: 'EDITOR' },
-  { key: 'approver', label: 'APPROVER' },
-  { key: 'viewer', label: 'VIEWER' },
+export const PROJECT_SCOPED_ROLES: { key: string; label: string; description: string }[] = [
+  { key: 'editor', label: 'EDITOR', description: 'Membuat dan mengedit task, komentar, dan lampiran.' },
+  { key: 'approver', label: 'APPROVER', description: 'Menyetujui atau menolak entri waktu dan task tertentu.' },
+  { key: 'viewer', label: 'VIEWER', description: 'Akses lihat saja, tidak dapat mengubah data.' },
 ]
 
 export const addProjectMemberSchema = z.object({

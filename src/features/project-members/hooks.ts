@@ -2,11 +2,20 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 
 import { projectKeys } from '@/features/projects/hooks'
 
-import { addProjectMember, listProjectMembers, removeProjectMember, searchGroupAccounts, updateProjectMemberRole } from './api'
+import { addProjectMember, listProjectMembers, listProjectMembersForManagement, removeProjectMember, searchGroupAccounts, updateProjectMemberRole } from './api'
 
 export const projectMemberKeys = {
   all: ['project-members'] as const,
+  // forProject -- prefix 3-elemen (TANPA varian assignable/manage) supaya
+  // invalidateQueries di bawah mengenai SEMUA mode fetch project ini
+  // sekaligus (fuzzy-match TanStack Query cuma cocok kalau key yang
+  // di-invalidate PERSIS prefix dari key asli -- key 4-elemen lama
+  // `list(projectId)` alias `list(projectId, false)` TIDAK PERNAH
+  // menjangkau varian assignable=true/'manage', bug laten yang baru
+  // ketahuan sekarang karena IG-100 menambah varian ketiga).
+  forProject: (projectId: string) => [...projectMemberKeys.all, 'list', projectId] as const,
   list: (projectId: string, assignable = false) => [...projectMemberKeys.all, 'list', projectId, assignable] as const,
+  manage: (projectId: string) => [...projectMemberKeys.all, 'list', projectId, 'manage'] as const,
 }
 
 const projectMembersQuery = (projectId: string, assignable = false) =>
@@ -19,10 +28,21 @@ const projectMembersQuery = (projectId: string, assignable = false) =>
 // assignable=true ikut sertakan PM penanggung jawab project sebagai kandidat
 // (lihat ProjectMemberRepository.ListAssignableMembers backend) -- dipakai
 // picker assignee/PIC (AddTaskModal/TaskDetailModal/KanbanBoard), BUKAN
-// halaman kelola member (ProjectMembersPage/WorkspaceMembersPage tetap
-// default false -- entri PM sintetis tidak punya role yang bisa diedit).
+// halaman kelola member (ProjectMembersPage -- lihat useProjectMembersForManagement
+// di bawah).
 export function useProjectMembers(projectId: string, assignable = false) {
   return useQuery(projectMembersQuery(projectId, assignable))
+}
+
+// useProjectMembersForManagement (IG-100 susulan) -- ?view=manage: project
+// member + PM + SEMUA Admin Workspace/Division Viewer workspace pemilik
+// project ini. KHUSUS ProjectMembersPage.
+export function useProjectMembersForManagement(projectId: string) {
+  return useQuery({
+    queryKey: projectMemberKeys.manage(projectId),
+    queryFn: () => listProjectMembersForManagement(projectId),
+    enabled: projectId !== '',
+  })
 }
 
 export function useAddProjectMember(projectId: string) {
@@ -30,7 +50,7 @@ export function useAddProjectMember(projectId: string) {
   return useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: string }) => addProjectMember(projectId, userId, role),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectMemberKeys.list(projectId) })
+      queryClient.invalidateQueries({ queryKey: projectMemberKeys.forProject(projectId) })
       // Project.member_count (ProjectListPage) berubah tiap kali baris
       // project_members bertambah/berkurang -- tidak tahu workspaceId di
       // sini (cuma projectId), jadi invalidate seluruh prefix projectKeys
@@ -48,7 +68,7 @@ export function useUpdateProjectMemberRole(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ userId, role }: { userId: string; role: string }) => updateProjectMemberRole(projectId, userId, role),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectMemberKeys.list(projectId) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectMemberKeys.forProject(projectId) }),
   })
 }
 
@@ -57,7 +77,7 @@ export function useRemoveProjectMember(projectId: string) {
   return useMutation({
     mutationFn: (userId: string) => removeProjectMember(projectId, userId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: projectMemberKeys.list(projectId) })
+      queryClient.invalidateQueries({ queryKey: projectMemberKeys.forProject(projectId) })
       queryClient.invalidateQueries({ queryKey: projectKeys.all })
     },
   })
