@@ -94,7 +94,7 @@ function CustomStatusPageContent() {
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span className="text-[13.5px] font-semibold text-text-bone">{p.name}</span>
                   <span className="font-mono text-[9px] text-text-muted">
-                    {p.code} · {p.task_count} task · PM {p.pm_name || '—'}
+                    {p.code} · {p.task_count} task · PM {p.project_managers.map((pm) => pm.name).join(', ') || '—'}
                   </span>
                   <span
                     className={cn(

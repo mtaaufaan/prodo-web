@@ -35,6 +35,15 @@ import { PROJECT_STATUSES, type Project, type ProjectStatus } from '@/features/p
 // resolvePM) -- pmUserId/member-picker tidak lagi dipakai FE, backend
 // tetap mendukungnya (dipakai AddProjectModal, di luar cakupan perubahan
 // ini).
+//
+// Dibangun ulang lagi (susulan multi-PM, ditemukan user: "+ Tetapkan PM"
+// ternyata MENGGANTI PM yang ada, bukan menambah -- "bagaimana cara
+// menambah PM dalam suatu project?") -- project.project_managers/
+// pending_pm_invitations sekarang ARRAY (dulu satu field pm_user_id/
+// pm_pending_email tunggal), tabel PM merender SEMUA baris sekaligus,
+// masing-masing punya tombol Cabut sendiri (targetnya userId spesifik,
+// bukan "PM yang ada"). "+ Tetapkan PM" jadi "+ Tambah PM" -- ADITIF,
+// tidak pernah mengganti/menghapus PM lain.
 interface ManageProjectModalProps {
   workspaceId: string
   project: Project | null
@@ -146,31 +155,35 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
       { projectId: project.id, pm: { email: pmEmail.trim(), name: pmName.trim() } },
       {
         onSuccess: () => {
-          setNotice('PM diperbarui. Tercatat di audit trail.')
+          setNotice('PM ditambahkan. Tercatat di audit trail.')
           setPmEmail('')
           setPmName('')
         },
-        onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal menetapkan PM.'),
+        onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal menambahkan PM.'),
       },
     )
   }
 
-  const handleRemovePM = () => {
+  const handleRemovePM = (userId: string) => {
     setError('')
-    removePM.mutate(project.id, {
-      onSuccess: () => setNotice('PM dihapus. Project berstatus "menunggu PM". Tercatat di audit trail.'),
-      onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal menghapus PM.'),
-    })
+    removePM.mutate(
+      { projectId: project.id, userId },
+      {
+        onSuccess: () => setNotice('PM dicabut. Tercatat di audit trail.'),
+        onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal menghapus PM.'),
+      },
+    )
   }
 
   const handleCancelPendingPM = (invitationId: string) => {
     setError('')
     cancelPMInvitation.mutate(invitationId, {
       onSuccess: () => {
-        // refetch project list -- pm_pending_email dibaca dari SANA, BUKAN
-        // dari query pending-invitations workspace-members yang otomatis
-        // di-invalidate hook ini (pola sama IG-69: mutasi di satu folder
-        // tidak otomatis tahu ada grid folder lain yang bergantung padanya).
+        // refetch project list -- pending_pm_invitations dibaca dari SANA,
+        // BUKAN dari query pending-invitations workspace-members yang
+        // otomatis di-invalidate hook ini (pola sama IG-69: mutasi di satu
+        // folder tidak otomatis tahu ada grid folder lain yang bergantung
+        // padanya).
         queryClient.invalidateQueries({ queryKey: projectKeys.list(workspaceId) })
         setNotice('Undangan PM dibatalkan.')
       },
@@ -310,35 +323,37 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
                 <span>Status</span>
                 <span>Aksi</span>
               </div>
-              {project.pm_user_id ? (
-                <div className="grid grid-cols-[1.2fr_1.5fr_1fr_0.6fr] items-center gap-2 border-t border-line px-3 py-2 text-[12px]">
-                  <span className="truncate">{project.pm_name}</span>
-                  <span className="truncate font-mono text-[10.5px] text-text-muted">{project.pm_email}</span>
+              {project.project_managers.map((pm) => (
+                <div key={pm.user_id} className="grid grid-cols-[1.2fr_1.5fr_1fr_0.6fr] items-center gap-2 border-t border-line px-3 py-2 text-[12px]">
+                  <span className="truncate">{pm.name}</span>
+                  <span className="truncate font-mono text-[10.5px] text-text-muted">{pm.email}</span>
                   <span className="font-mono text-[10px] text-mint">Aktif</span>
                   <button
                     type="button"
                     disabled={removePM.isPending}
-                    onClick={handleRemovePM}
+                    onClick={() => handleRemovePM(pm.user_id)}
                     className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
                   >
                     Cabut
                   </button>
                 </div>
-              ) : project.pm_pending_email ? (
-                <div className="grid grid-cols-[1.2fr_1.5fr_1fr_0.6fr] items-center gap-2 border-t border-line px-3 py-2 text-[12px]">
+              ))}
+              {project.pending_pm_invitations.map((pending) => (
+                <div key={pending.invitation_id} className="grid grid-cols-[1.2fr_1.5fr_1fr_0.6fr] items-center gap-2 border-t border-line px-3 py-2 text-[12px]">
                   <span className="text-text-dim">—</span>
-                  <span className="truncate font-mono text-[10.5px] text-text-muted">{project.pm_pending_email}</span>
+                  <span className="truncate font-mono text-[10.5px] text-text-muted">{pending.email}</span>
                   <span className="font-mono text-[10px] text-amber">Menunggu Diterima</span>
                   <button
                     type="button"
                     disabled={cancelPMInvitation.isPending}
-                    onClick={() => handleCancelPendingPM(project.pm_pending_invitation_id ?? '')}
+                    onClick={() => handleCancelPendingPM(pending.invitation_id)}
                     className="w-fit font-mono text-[10px] text-destructive hover:underline disabled:cursor-not-allowed disabled:opacity-40 disabled:no-underline"
                   >
                     Cabut
                   </button>
                 </div>
-              ) : (
+              ))}
+              {project.project_managers.length === 0 && project.pending_pm_invitations.length === 0 && (
                 <p className="border-t border-line px-3 py-3 text-[11px] text-text-muted">Belum ada Project Manager.</p>
               )}
             </div>
@@ -370,14 +385,14 @@ export default function ManageProjectModal({ workspaceId, project, onClose }: Ma
                 onClick={handleAssignPM}
                 className="flex-shrink-0 font-mono text-[10px] uppercase tracking-[0.06em]"
               >
-                {assignPM.isPending ? 'Menyimpan...' : '+ Tetapkan PM'}
+                {assignPM.isPending ? 'Menyimpan...' : '+ Tambah PM'}
               </Button>
             </div>
 
             <p className="font-mono text-[9px] leading-relaxed text-text-faint">
-              Email yang sudah terdaftar (member workspace ini atau user lain) langsung ditetapkan sebagai PM; yang
-              belum terdaftar diundang (isi Nama supaya tersimpan di form aktivasinya). Mengganti/menghapus PM
-              memindahkan hak kelola sprint, task, dan rule level project. Tercatat di audit trail.
+              Email yang sudah terdaftar (member workspace ini atau user lain) langsung ditambahkan sebagai PM; yang
+              belum terdaftar diundang (isi Nama supaya tersimpan di form aktivasinya). Satu project boleh punya lebih
+              dari satu PM -- menambah PM baru tidak mengganti PM yang sudah ada. Tercatat di audit trail.
             </p>
           </div>
 

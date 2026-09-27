@@ -6,6 +6,7 @@ import { useMyContext } from '@/features/context/hooks'
 import { useProjectPerformance, useWorkspacePerformance } from '@/features/performance/hooks'
 import { formatHours, PRIORITY_ORDER, PRIORITY_WEIGHT, type PerformanceDashboard } from '@/features/performance/types'
 import { useProjects } from '@/features/projects/hooks'
+import { isProjectPM } from '@/features/projects/types'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -43,7 +44,7 @@ export default function PerformanceDashboardPage() {
 
   const projects = useProjects(workspaceId)
   const myProjects = useMemo(
-    () => (projects.data ?? []).filter((p) => p.pm_user_id === currentUserId && !p.is_archived),
+    () => (projects.data ?? []).filter((p) => isProjectPM(p, currentUserId) && !p.is_archived),
     [projects.data, currentUserId],
   )
   const isPM = !isFullMode && myProjects.length > 0

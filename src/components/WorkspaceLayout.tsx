@@ -4,6 +4,7 @@ import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-rout
 
 import { useMyContext, useSwitchContext } from '@/features/context/hooks'
 import { useProjects } from '@/features/projects/hooks'
+import { isProjectPM } from '@/features/projects/types'
 import { useWorkspace } from '@/features/workspaces/hooks'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -275,7 +276,7 @@ export default function WorkspaceLayout() {
   const isPM = myWorkspaceRole === 'project_manager'
   const allProjects = useProjects(isPM ? workspaceId : '')
   const myProjects = useMemo(
-    () => (allProjects.data ?? []).filter((p) => p.pm_user_id === currentUserId && !p.is_archived),
+    () => (allProjects.data ?? []).filter((p) => isProjectPM(p, currentUserId) && !p.is_archived),
     [allProjects.data, currentUserId],
   )
   const [activeProjectId, setActiveProjectId] = useState('')
