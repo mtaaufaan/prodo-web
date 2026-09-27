@@ -177,7 +177,14 @@ function SprintPageContent() {
   const sprints = useProjectSprints(pid)
   const tasks = useProjectTasks(pid)
   const [addOpen, setAddOpen] = useState(false)
-  const [manageSprint, setManageSprint] = useState<Sprint | null>(null)
+  // manageSprintId (BUKAN objek Sprint langsung) -- pola sama
+  // ProjectListPage.managingId/managingProject: objek diturunkan ULANG
+  // dari sprints.data tiap render, supaya setelah Simpan Perubahan
+  // berhasil (invalidateQueries -> refetch) modal menerima data SEGAR,
+  // bukan snapshot basi dari saat tombol diklik -- tanpa ini `dirty` di
+  // ManageSprintModal tidak pernah balik false, notice "tersimpan" tidak
+  // pernah muncul (ditemukan user via pengujian live).
+  const [manageSprintId, setManageSprintId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
 
   useEffect(() => {
@@ -240,7 +247,7 @@ function SprintPageContent() {
 
       <div className="flex flex-col gap-3">
         {pagedSprints.map((s) => (
-          <SprintCard key={s.id} sprint={s} tasksInSprint={tasksBySprintId.get(s.id) ?? []} onManage={() => setManageSprint(s)} />
+          <SprintCard key={s.id} sprint={s} tasksInSprint={tasksBySprintId.get(s.id) ?? []} onManage={() => setManageSprintId(s.id)} />
         ))}
         {!sprints.isLoading && filteredSprints.length === 0 && (
           <div className="border border-line p-8 text-center font-mono text-[10.5px] text-text-dim">
@@ -299,7 +306,10 @@ function SprintPageContent() {
       </div>
 
       <AddSprintModal projectId={pid} open={addOpen} onClose={() => setAddOpen(false)} />
-      <ManageSprintModal sprint={manageSprint} onClose={() => setManageSprint(null)} />
+      <ManageSprintModal
+        sprint={(sprints.data ?? []).find((s) => s.id === manageSprintId) ?? null}
+        onClose={() => setManageSprintId(null)}
+      />
     </div>
   )
 }
