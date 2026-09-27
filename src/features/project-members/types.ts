@@ -13,6 +13,13 @@ export interface ProjectMember {
   // `role` yang selalu project_scoped_role). null kalau project-scoped
   // murni tanpa keanggotaan workspace.
   workspace_role: string | null
+  // is_pending (IG-100 susulan lanjutan, ditemukan user: undangan yang
+  // belum accepted muncul PENDING di grid AW Member Roles tapi tidak
+  // pernah muncul sama sekali di halaman ini) -- true untuk baris sintetis
+  // dari user_invitations project ini yang belum diterima. user_id untuk
+  // baris ini BUKAN id user asli (email belum terdaftar), jangan dipakai
+  // untuk aksi kelola/hapus.
+  is_pending: boolean
 }
 
 export interface GroupAccount {
