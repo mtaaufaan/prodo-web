@@ -5,6 +5,18 @@ import { Button } from '@/components/ui/button'
 import { useMyContext } from '@/features/context/hooks'
 import { useAuthStore } from '@/store/useAuthStore'
 
+// landingViewFor -- admin_workspace DAN project_manager mendarat ke
+// Performance Dashboard (2026-09-22 utk AW; susulan untuk PM setelah user
+// menemukan lewat pengujian live: PM landing ke /projects, halaman yang
+// menurut desainnya sendiri "AW Projects.dc.html" -- PM malah tidak
+// pernah punya link ke sana di nav PM sendiri, lihat WorkspaceLayout.
+// pmNavItems). Role lain (editor/approver/viewer/division_viewer) tetap
+// ke /projects seperti semula -- nav mereka (awNavItems, item 'project'
+// bukan adminOnly) memang menyertakannya.
+function landingViewFor(role: string) {
+  return role === 'admin_workspace' || role === 'project_manager' ? 'performance' : 'projects'
+}
+
 // Placeholder landing setelah login (S1-22/25) -- dashboard sungguhan belum
 // dibangun (menyusul sprint berikutnya per PRD §2.3+). group_admin dialihkan
 // ke /summary saat login (Login.tsx), jadi halaman ini pada praktiknya cuma
@@ -27,9 +39,7 @@ export default function Home() {
   useEffect(() => {
     if (memberships.length === 1) {
       const m = memberships[0]
-      // admin_workspace mendarat langsung ke Performance Dashboard (2026-09-22,
-      // dikonfirmasi user) -- role lain tetap ke Project seperti semula.
-      navigate(`/workspaces/${m.workspace_id}/${m.role === 'admin_workspace' ? 'performance' : 'projects'}`, { replace: true })
+      navigate(`/workspaces/${m.workspace_id}/${landingViewFor(m.role)}`, { replace: true })
     }
   }, [memberships, navigate])
 
@@ -70,7 +80,7 @@ export default function Home() {
               <button
                 key={w.workspace_id}
                 type="button"
-                onClick={() => navigate(`/workspaces/${w.workspace_id}/${w.role === 'admin_workspace' ? 'performance' : 'projects'}`)}
+                onClick={() => navigate(`/workspaces/${w.workspace_id}/${landingViewFor(w.role)}`)}
                 className="flex items-center justify-between border border-line px-3.5 py-2.5 text-left hover:border-line-strong"
               >
                 <div className="min-w-0">

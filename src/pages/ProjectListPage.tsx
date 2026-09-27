@@ -5,6 +5,7 @@ import type { WorkspaceOutletContext } from "@/components/WorkspaceLayout";
 import AddProjectModal from "@/components/projects/AddProjectModal";
 import ManageProjectModal from "@/components/projects/ManageProjectModal";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
+import { useMyContext } from "@/features/context/hooks";
 import { useProjects } from "@/features/projects/hooks";
 import { PROJECT_STATUSES, type ProjectStatus } from "@/features/projects/types";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,25 @@ function ProjectListPageContent() {
   const workspaceId = wsId ?? "";
   const { data, isLoading, isError } = useProjects(workspaceId);
   const { view, registerCta, query } = useOutletContext<WorkspaceOutletContext>();
+
+  // Halaman ini persis "AW Projects.dc.html" (lihat komentar di bawah) --
+  // SENGAJA cuma didesain untuk Admin Workspace (+ Group Admin/Platform
+  // Admin bypass org-level, sama pola PerformanceDashboardPage.isFullMode).
+  // Project Manager/Editor/Approver/Viewer TIDAK PERNAH punya menu ini di
+  // nav sendiri (pmNavItems tidak menyertakannya), tapi route-nya sendiri
+  // tidak digerbangi apa pun -- siapa saja yang tahu URL-nya (atau, sampai
+  // ditemukan user lewat pengujian live, redirect landing-page Home.tsx
+  // yang keliru mengarahkan PM ke sini) tetap bisa melihat grid "Kelola"
+  // SELURUH project workspace, termasuk project yang sama sekali bukan
+  // urusannya. Digerbangi di sini (bukan router) karena belum ada guard
+  // berbasis workspace_role di level router (RoleGuard baru menjangkau
+  // platform_role, lihat komentarnya sendiri).
+  const myContext = useMyContext();
+  const platformRole = myContext.data?.platform_role;
+  const myWorkspaceRole = (myContext.data?.workspace_memberships ?? []).find((w) => w.workspace_id === workspaceId)?.role;
+  const isAWOrHigher = platformRole === "platform_admin" || platformRole === "group_admin" || myWorkspaceRole === "admin_workspace";
+  const contextLoading = myContext.isLoading;
+  const denied = !contextLoading && !isAWOrHigher;
   const filter = view as Filter;
   const [addOpen, setAddOpen] = useState(false);
   const [managingId, setManagingId] = useState<string | null>(null);
@@ -103,6 +123,24 @@ function ProjectListPageContent() {
   useEffect(() => {
     setPage(1);
   }, [filter, query]);
+
+  if (contextLoading) {
+    return <div className="p-6 text-sm text-text-muted">Memuat...</div>;
+  }
+  if (denied) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-10">
+        <div className="max-w-md text-center">
+          <div className="mb-2.5 font-mono text-[10px] tracking-[0.16em] text-amber">AKSES DITOLAK · 403</div>
+          <div className="mb-2 text-[16px] font-bold text-text-bone">Menu Project tidak tersedia untuk role ini</div>
+          <div className="font-mono text-[10px] leading-relaxed text-text-dim">
+            Hanya Admin Workspace, Group Admin, dan Platform Admin yang memiliki akses. Project Manager mengelola
+            project miliknya sendiri lewat menu Sprint, Board, dan Member Project.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3.5 p-6">
