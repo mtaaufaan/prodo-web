@@ -23,14 +23,17 @@ export function updateProject(projectId: string, input: { name: string; status: 
   return apiClient.put<{ id: string; name: string; status: ProjectStatus; end_date: string | null }>(`/api/v1/projects/${projectId}`, input)
 }
 
-// assignProjectPM/removeProjectPM (S4W susulan) -- seksi PM panel Kelola,
-// terpisah dari updateProject (nama).
+// assignProjectPM/removeProjectPM (S4W susulan, diperluas susulan multi-PM)
+// -- seksi PM panel Kelola, terpisah dari updateProject (nama).
+// assignProjectPM sekarang ADITIF (menambah PM, bukan mengganti);
+// removeProjectPM mencabut SATU PM spesifik (userId), PM lain tidak
+// terpengaruh.
 export function assignProjectPM(projectId: string, pm: PMTarget) {
   return apiClient.post<{ id: string }>(`/api/v1/projects/${projectId}/pm`, pmRequestBody(pm))
 }
 
-export function removeProjectPM(projectId: string) {
-  return apiClient.delete<{ id: string }>(`/api/v1/projects/${projectId}/pm`)
+export function removeProjectPM(projectId: string, userId: string) {
+  return apiClient.delete<{ id: string }>(`/api/v1/projects/${projectId}/pm/${userId}`)
 }
 
 // lookupProjectPM (susulan 2026-10-18, "saat input tambah PM, apabila
