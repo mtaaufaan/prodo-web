@@ -21,6 +21,15 @@ function addDaysISO(dateStr: string, days: number) {
   return d.toISOString().slice(0, 10)
 }
 
+// toDateInput -- backend mengembalikan start_date/end_date sebagai RFC3339
+// penuh (mis. "2026-09-01T00:00:00Z", lihat sprintJSON serialisasi
+// *time.Time apa adanya), sementara <input type="date"> butuh persis
+// "YYYY-MM-DD" -- tanpa ini field tampak tidak terbinding (pola sama
+// ManageProjectModal.tsx untuk project.end_date).
+function toDateInput(iso: string | null) {
+  return iso ? iso.slice(0, 10) : ''
+}
+
 // ManageSprintModal -- belum ada di desain (diminta user langsung: "buatkan
 // kelola sprint PM, karena belum ada didesain. jika judul sprint di klik
 // maka akan masuk ke form kelola sprint yang berupa pop up"). Dibangun
@@ -48,8 +57,8 @@ export default function ManageSprintModal({ sprint, onClose }: ManageSprintModal
   useEffect(() => {
     if (sprint) {
       setName(sprint.name)
-      setStart(sprint.start_date ?? '')
-      setEnd(sprint.end_date ?? '')
+      setStart(toDateInput(sprint.start_date))
+      setEnd(toDateInput(sprint.end_date))
       setGoal(sprint.goal ?? '')
       setConfirmText('')
       setError('')
@@ -67,7 +76,11 @@ export default function ManageSprintModal({ sprint, onClose }: ManageSprintModal
   if (!sprint) return null
 
   const canDelete = confirmText.trim() === sprint.name
-  const dirty = name.trim() !== sprint.name || start !== (sprint.start_date ?? '') || end !== (sprint.end_date ?? '') || goal.trim() !== (sprint.goal ?? '')
+  const dirty =
+    name.trim() !== sprint.name ||
+    start !== toDateInput(sprint.start_date) ||
+    end !== toDateInput(sprint.end_date) ||
+    goal.trim() !== (sprint.goal ?? '')
 
   const applyPreset = (days: number) => {
     const base = start || new Date().toISOString().slice(0, 10)
