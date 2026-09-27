@@ -86,10 +86,14 @@ export function useLookupProjectPM(projectId: string) {
   })
 }
 
+// RemovePM (beda dari AssignPM) TIDAK menyentuh workspace_role sama sekali
+// -- cuma menghapus baris project_managers, jadi TIDAK perlu
+// invalidatePMRoleChange (tidak ada perubahan role member manapun untuk
+// dipantulkan ke daftar member workspace).
 export function useRemoveProjectPM(workspaceId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (projectId: string) => removeProjectPM(projectId),
+    mutationFn: ({ projectId, userId }: { projectId: string; userId: string }) => removeProjectPM(projectId, userId),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: projectKeys.list(workspaceId) }),
   })
 }

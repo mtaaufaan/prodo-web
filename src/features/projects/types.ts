@@ -1,23 +1,37 @@
+// ProjectPM -- satu PM aktif project (susulan multi-PM, dikonfirmasi user
+// setelah menemukan "+ Tetapkan PM" ternyata mengganti PM yang ada --
+// "bagaimana cara menambah PM dalam suatu project?"). Satu project boleh
+// punya LEBIH dari satu PM sekarang.
+export interface ProjectPM {
+  user_id: string
+  name: string
+  email: string
+}
+
+// ProjectPendingPM -- satu undangan project_manager pending tertaut
+// project ini. BOLEH lebih dari satu bersamaan (dikonfirmasi user).
+export interface ProjectPendingPM {
+  invitation_id: string
+  email: string
+}
+
 // S4-02/03/04, US-012.
 export interface Project {
   id: string
   workspace_id: string
   name: string
   code: string
-  pm_user_id: string | null
-  pm_name: string
-  pm_email: string
+  // project_managers/pending_pm_invitations (susulan multi-PM) --
+  // menggantikan pm_user_id/pm_name/pm_email/pm_pending_email/
+  // pm_pending_invitation_id tunggal.
+  project_managers: ProjectPM[]
+  pending_pm_invitations: ProjectPendingPM[]
   is_archived: boolean
   member_count: number
   sprint_count: number
   task_count: number
   created_by_name: string
   created_by_email: string
-  // pm_pending_email -- terisi kalau pm_user_id NULL DAN ada undangan
-  // project_manager pending tertaut project ini ("menunggu PM", S4W
-  // susulan, dikonfirmasi user 2026-09-13).
-  pm_pending_email: string
-  pm_pending_invitation_id: string
   created_at: string
   archived_at: string | null
   // status/end_date (susulan 2026-10-18, diminta user langsung "tambahkan
@@ -49,3 +63,13 @@ export const PROJECT_STATUSES: { key: ProjectStatus; label: string }[] = [
 // email+name (undang baru, name cuma wajib kalau email belum terdaftar --
 // FE tidak tahu duluan, jadi selalu dikirim) dipakai Create/AssignPM.
 export type PMTarget = { userId: string; email?: never; name?: never } | { userId?: never; email: string; name: string }
+
+// isProjectPM (susulan multi-PM) -- helper bersama WorkspaceLayout.tsx dan
+// PerformanceDashboardPage.tsx (dulu duplikat verbatim `p.pm_user_id ===
+// currentUserId` di kedua file, keduanya sengaja disamakan logikanya --
+// bug ditemukan lewat gap-check: co-PM yang bukan PM PERTAMA project itu
+// tidak akan pernah cocok perbandingan tunggal, kehilangan nav/dashboard
+// project-nya sendiri).
+export function isProjectPM(project: Project, userId: string | undefined): boolean {
+  return userId != null && project.project_managers.some((pm) => pm.user_id === userId)
+}
