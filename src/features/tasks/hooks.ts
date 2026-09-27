@@ -225,11 +225,18 @@ export function useSprintSummary(sprintId: string) {
   })
 }
 
+// useDeleteSprint -- tasks.sprint_id ON DELETE SET NULL (task tetap ada,
+// balik ke backlog begitu sprint-nya dihapus), jadi ikut invalidate
+// taskKeys.list sama pola useCompleteSprint (bug basi kalau tidak --
+// task masih tampak terkait sprint yang sudah dihapus di halaman Board).
 export function useDeleteSprint(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (sprintId: string) => deleteSprint(sprintId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.sprints(projectId) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.sprints(projectId) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
+    },
   })
 }
 

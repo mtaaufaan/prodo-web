@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
 
 import AddSprintModal from '@/components/sprints/AddSprintModal'
+import ManageSprintModal from '@/components/sprints/ManageSprintModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import {
@@ -28,7 +29,7 @@ function formatDate(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString('id-ID') : '—'
 }
 
-function SprintCard({ sprint, tasksInSprint }: { sprint: Sprint; tasksInSprint: Task[] }) {
+function SprintCard({ sprint, tasksInSprint, onManage }: { sprint: Sprint; tasksInSprint: Task[]; onManage: () => void }) {
   const startSprint = useStartSprint(sprint.project_id)
   const completeSprint = useCompleteSprint(sprint.project_id)
   const reopenSprint = useReopenSprint(sprint.project_id)
@@ -48,7 +49,16 @@ function SprintCard({ sprint, tasksInSprint }: { sprint: Sprint; tasksInSprint: 
     <div className="flex flex-col gap-3 border border-line bg-panel p-4">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <div className={cn('text-[13.5px] font-semibold', sprint.status === 'done' ? 'text-text-muted' : 'text-text-bone')}>{sprint.name}</div>
+          <button
+            type="button"
+            onClick={onManage}
+            className={cn(
+              'text-left text-[13.5px] font-semibold hover:underline',
+              sprint.status === 'done' ? 'text-text-muted' : 'text-text-bone',
+            )}
+          >
+            {sprint.name}
+          </button>
           <div className="mt-1 font-mono text-[8.5px] text-text-dim">
             {formatDate(sprint.start_date)} → {formatDate(sprint.end_date)} · {total} TASK
           </div>
@@ -167,6 +177,7 @@ function SprintPageContent() {
   const sprints = useProjectSprints(pid)
   const tasks = useProjectTasks(pid)
   const [addOpen, setAddOpen] = useState(false)
+  const [manageSprint, setManageSprint] = useState<Sprint | null>(null)
   const [page, setPage] = useState(1)
 
   useEffect(() => {
@@ -229,7 +240,7 @@ function SprintPageContent() {
 
       <div className="flex flex-col gap-3">
         {pagedSprints.map((s) => (
-          <SprintCard key={s.id} sprint={s} tasksInSprint={tasksBySprintId.get(s.id) ?? []} />
+          <SprintCard key={s.id} sprint={s} tasksInSprint={tasksBySprintId.get(s.id) ?? []} onManage={() => setManageSprint(s)} />
         ))}
         {!sprints.isLoading && filteredSprints.length === 0 && (
           <div className="border border-line p-8 text-center font-mono text-[10.5px] text-text-dim">
@@ -288,6 +299,7 @@ function SprintPageContent() {
       </div>
 
       <AddSprintModal projectId={pid} open={addOpen} onClose={() => setAddOpen(false)} />
+      <ManageSprintModal sprint={manageSprint} onClose={() => setManageSprint(null)} />
     </div>
   )
 }
