@@ -112,7 +112,11 @@ export default function InviteMemberModal({ workspaceId, workspaceName, open, on
           }
           const failed = Object.keys(result.errors)
           if (failed.length) {
-            parts.push(`${failed.length} gagal: ${failed.join(', ')}`)
+            // errors[email] (susulan, ditemukan user: pesan "gagal" cuma
+            // menyebut email, alasannya tidak pernah ditampilkan) --
+            // backend sudah mengirim alasan per-email, sebelumnya dibuang
+            // (cuma Object.keys dipakai).
+            parts.push(`${failed.length} gagal: ${failed.map((email) => `${email} (${result.errors[email]})`).join(', ')}`)
           }
           setSuccessMsg(parts.length ? `${parts.join('. ')}. Tercatat di Audit Trail workspace.` : 'Selesai diproses.')
           setEmailsInput('')
