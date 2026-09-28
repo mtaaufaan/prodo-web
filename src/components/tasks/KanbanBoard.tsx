@@ -266,6 +266,9 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask }: 
                       {t.completeness === 'incomplete' && (
                         <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[8px] text-amber">BELUM LENGKAP · STATUS TERKUNCI</div>
                       )}
+                      {t.status_name === 'BACKLOG' && t.sprint_id == null && (
+                        <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[8px] text-amber">BELUM DI SPRINT · STATUS TERKUNCI</div>
+                      )}
                       {t.regression_count > 0 && (
                         <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[8px] text-amber">↩ {t.regression_count}× regresi</div>
                       )}
@@ -323,6 +326,7 @@ function describeMoveError(err: unknown): string {
   const apiErr = err as { code?: string; details?: { blocking_tasks?: { task_code: string; title: string }[] } }
   if (apiErr.code === 'PIC_NOT_IN_GROUP') return 'PIC Group status ini belum memuat member yang Anda pilih. Minta Project Manager menambah anggota PIC Group.'
   if (apiErr.code === 'TASK_INCOMPLETE') return 'Task ini masih ditandai "Belum Lengkap" -- tandai Lengkap dulu sebelum mengubah status (kecuali ke BLOCKED).'
+  if (apiErr.code === 'TASK_NOT_IN_SPRINT') return 'Task ini belum ditarik ke sprint mana pun -- pindahkan ke sprint dulu sebelum mengubah status (kecuali ke BLOCKED).'
   if (apiErr.code === 'DEPENDENCY_HARD_BLOCK') {
     const names = (apiErr.details?.blocking_tasks ?? []).map((t) => `${t.task_code} (${t.title})`).join(', ')
     return `Task ini diblokir predecessor yang belum selesai: ${names || '-'}.`
