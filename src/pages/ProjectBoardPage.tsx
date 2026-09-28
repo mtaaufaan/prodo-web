@@ -66,7 +66,13 @@ function ProjectBoardPageContent() {
       {(statuses.isError || tasks.isError) && <p className="text-sm text-destructive">Gagal memuat papan task.</p>}
 
       {statuses.data && filteredTasks && tab === 'Kanban' && (
-        <KanbanBoard projectId={pid} statuses={statuses.data} tasks={filteredTasks} onOpenTask={setDetailTaskId} />
+        <KanbanBoard
+          projectId={pid}
+          statuses={statuses.data}
+          tasks={filteredTasks}
+          onOpenTask={setDetailTaskId}
+          activeSprintId={activeSprint?.id ?? null}
+        />
       )}
       {tab === 'Daftar' && <p className="font-mono text-[10.5px] text-text-dim">Tampilan Daftar menyusul.</p>}
       {tab === 'Gantt' && <p className="font-mono text-[10.5px] text-text-dim">Tampilan Gantt menyusul.</p>}

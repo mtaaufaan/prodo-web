@@ -29,9 +29,16 @@ interface KanbanBoardProps {
   statuses: CustomStatus[]
   tasks: Task[]
   onOpenTask: (taskId: string) => void
+  // activeSprintId (susulan domain.ErrTaskNotInSprint, dikoreksi setelah
+  // user menguji live: task di sprint yang BELUM dimulai tetap harus
+  // terkunci selama sprint LAIN yang sedang aktif -- badge sebelumnya
+  // cuma cek "punya sprint atau tidak", sekarang harus tahu sprint MANA
+  // yang benar-benar aktif) -- null berarti project ini belum py sprint
+  // aktif sama sekali, SEMUA task BACKLOG terkunci lewat jalur ini.
+  activeSprintId: string | null
 }
 
-export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask }: KanbanBoardProps) {
+export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, activeSprintId }: KanbanBoardProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const members = useProjectMembers(projectId, true)
   const setStatus = useSetTaskStatus(projectId)
@@ -266,8 +273,8 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask }: 
                       {t.completeness === 'incomplete' && (
                         <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[8px] text-amber">BELUM LENGKAP · STATUS TERKUNCI</div>
                       )}
-                      {t.status_name === 'BACKLOG' && t.sprint_id == null && (
-                        <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[8px] text-amber">BELUM DI SPRINT · STATUS TERKUNCI</div>
+                      {t.status_name === 'BACKLOG' && !(t.sprint_id != null && t.sprint_id === activeSprintId) && (
+                        <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[8px] text-amber">BUKAN SPRINT AKTIF · STATUS TERKUNCI</div>
                       )}
                       {t.regression_count > 0 && (
                         <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[8px] text-amber">↩ {t.regression_count}× regresi</div>
@@ -326,7 +333,7 @@ function describeMoveError(err: unknown): string {
   const apiErr = err as { code?: string; details?: { blocking_tasks?: { task_code: string; title: string }[] } }
   if (apiErr.code === 'PIC_NOT_IN_GROUP') return 'PIC Group status ini belum memuat member yang Anda pilih. Minta Project Manager menambah anggota PIC Group.'
   if (apiErr.code === 'TASK_INCOMPLETE') return 'Task ini masih ditandai "Belum Lengkap" -- tandai Lengkap dulu sebelum mengubah status (kecuali ke BLOCKED).'
-  if (apiErr.code === 'TASK_NOT_IN_SPRINT') return 'Task ini belum ditarik ke sprint mana pun -- pindahkan ke sprint dulu sebelum mengubah status (kecuali ke BLOCKED).'
+  if (apiErr.code === 'TASK_NOT_IN_SPRINT') return 'Task ini belum berada di sprint yang sedang aktif -- pindahkan ke sprint aktif dulu sebelum mengubah status (kecuali ke BLOCKED).'
   if (apiErr.code === 'DEPENDENCY_HARD_BLOCK') {
     const names = (apiErr.details?.blocking_tasks ?? []).map((t) => `${t.task_code} (${t.title})`).join(', ')
     return `Task ini diblokir predecessor yang belum selesai: ${names || '-'}.`
