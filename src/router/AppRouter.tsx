@@ -15,6 +15,8 @@ import AwWebhookPage from '@/pages/AwWebhookPage'
 import CooldownMentionPage from '@/pages/CooldownMentionPage'
 import CrossOrgMembershipsPage from '@/pages/CrossOrgMembershipsPage'
 import CustomStatusPage from '@/pages/CustomStatusPage'
+import ProjectStatusSettingsPage from '@/pages/ProjectStatusSettingsPage'
+import ProjectRuleAutomationPage from '@/pages/ProjectRuleAutomationPage'
 import DesignPage from '@/pages/DesignPage'
 import ErasureRequestsPage from '@/pages/ErasureRequestsPage'
 import Forbidden from '@/pages/Forbidden'
@@ -112,6 +114,13 @@ export default function AppRouter() {
               status 3-state, kapasitas SP, dibangun mengikuti "PM
               Sprint.dc.html"/"PM Add Sprint.dc.html". */}
           <Route path="/workspaces/:wsId/projects/:projectId/sprints" element={<SprintPage />} />
+          {/* Track S5B, US-019 ("PM Custom Status.dc.html"/"PM Add
+              Status.dc.html") -- status level project, salinan independen
+              dari template workspace. */}
+          <Route path="/workspaces/:wsId/projects/:projectId/statuses" element={<ProjectStatusSettingsPage />} />
+          {/* Track S5B ("Rule Builder.dc.html") -- rule automation level
+              project, berdampingan dengan rule workspace AW di bawah. */}
+          <Route path="/workspaces/:wsId/projects/:projectId/rules" element={<ProjectRuleAutomationPage />} />
           {/* S4W-05/06, US-020/021 ("AW Custom Status.dc.html"). */}
           <Route path="/workspaces/:wsId/statuses" element={<CustomStatusPage />} />
           {/* S4W-07/08, US-033 ("AW Cooldown Mention.dc.html"). */}

@@ -11,6 +11,7 @@ import {
   createChecklistItem,
   createCustomStatus,
   createManualTimeEntry,
+  createProjectCustomStatus,
   createSprint,
   createTask,
   deleteChecklistItem,
@@ -19,6 +20,7 @@ import {
   getActiveTimer,
   getPicHistory,
   getProjectSprints,
+  getProjectStatuses,
   getProjectTasks,
   getSprintSummary,
   getTask,
@@ -56,6 +58,7 @@ import type { TaskFormValues } from './types'
 export const taskKeys = {
   all: ['tasks'] as const,
   statuses: (workspaceId: string) => [...taskKeys.all, 'statuses', workspaceId] as const,
+  projectStatuses: (projectId: string) => [...taskKeys.all, 'project-statuses', projectId] as const,
   sprints: (projectId: string) => [...taskKeys.all, 'sprints', projectId] as const,
   sprintSummary: (sprintId: string) => [...taskKeys.all, 'sprint-summary', sprintId] as const,
   list: (projectId: string) => [...taskKeys.all, 'list', projectId] as const,
@@ -128,6 +131,70 @@ export function useSetStatusStartConfirmation(workspaceId: string) {
   return useMutation({
     mutationFn: ({ statusId, require }: { statusId: string; require: boolean }) => setStatusStartConfirmation(statusId, require),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.statuses(workspaceId) }),
+  })
+}
+
+// useProjectStatuses/useCreateProjectCustomStatus/
+// useUpdateProjectStatusAppearance/useMoveProjectStatus/
+// useUndefineProjectStatus/useRestoreProjectStatus/
+// useSetProjectStatusStartConfirmation (Track S5B, US-019, "PM Custom
+// Status.dc.html"/"PM Add Status.dc.html") -- status level project,
+// salinan independen dari template workspace. Mutasi selain Create reuse
+// fungsi API workspace di atas apa adanya (backend meresolve scope dari
+// statusId sendiri), cuma invalidasi query key project yang beda.
+export function useProjectStatuses(projectId: string) {
+  return useQuery({
+    queryKey: taskKeys.projectStatuses(projectId),
+    queryFn: () => getProjectStatuses(projectId),
+    enabled: projectId !== '',
+  })
+}
+
+export function useCreateProjectCustomStatus(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { name: string; color_token: string; position: number }) => createProjectCustomStatus(projectId, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.projectStatuses(projectId) }),
+  })
+}
+
+export function useUpdateProjectStatusAppearance(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ statusId, input }: { statusId: string; input: { name: string; color_token: string } }) => updateStatusAppearance(statusId, input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.projectStatuses(projectId) }),
+  })
+}
+
+export function useMoveProjectStatus(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ statusId, direction }: { statusId: string; direction: 'up' | 'down' }) => moveStatus(statusId, direction),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.projectStatuses(projectId) }),
+  })
+}
+
+export function useUndefineProjectStatus(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (statusId: string) => undefineStatus(statusId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.projectStatuses(projectId) }),
+  })
+}
+
+export function useRestoreProjectStatus(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (statusId: string) => restoreStatus(statusId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.projectStatuses(projectId) }),
+  })
+}
+
+export function useSetProjectStatusStartConfirmation(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ statusId, require }: { statusId: string; require: boolean }) => setStatusStartConfirmation(statusId, require),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.projectStatuses(projectId) }),
   })
 }
 
