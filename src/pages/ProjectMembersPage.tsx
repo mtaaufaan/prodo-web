@@ -6,10 +6,15 @@ import AddMemberModal from '@/components/projects/AddMemberModal'
 import ManageProjectMemberPanel from '@/components/projects/ManageProjectMemberPanel'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { useMyContext } from '@/features/context/hooks'
-import { useProjectMembersForManagement } from '@/features/project-members/hooks'
+import {
+  useCancelProjectMemberInvitation,
+  useProjectMembersForManagement,
+  useResendProjectMemberInvitation,
+} from '@/features/project-members/hooks'
 import { PROJECT_SCOPED_ROLES, type ProjectMember } from '@/features/project-members/types'
 import { useProjects } from '@/features/projects/hooks'
 import { cn } from '@/lib/utils'
+import { useUIStore } from '@/store/useUIStore'
 
 // S3-24, US-009b (implementation_gaps.md IG-17 -- forward-pull projects/
 // project_members). Disambungkan ke menu "Member Project" PM 2026-09-22
@@ -160,7 +165,13 @@ function ProjectMembersPageContent() {
               ))}
             </div>
             {rows.map((member) => (
-              <ProjectMemberRow key={member.user_id} member={member} onManage={() => setManageTarget(member)} />
+              <ProjectMemberRow
+                key={member.user_id}
+                member={member}
+                workspaceId={workspaceId}
+                projectId={id}
+                onManage={() => setManageTarget(member)}
+              />
             ))}
             {rows.length === 0 && (
               <p className="p-9 text-center font-mono text-[10.5px] leading-relaxed text-text-dim">
@@ -207,10 +218,24 @@ const LOCKED_NOTE: Record<string, string> = {
 // project_members asli, tidak bisa diedit/dihapus lewat panel Kelola
 // member biasa dari halaman project-scoped ini (dikelola dari halaman
 // lain -- WorkspaceMembersPage untuk AW/DV, ManageOrganizationModal
-// untuk PM). Diperluas lagi (IG-100 susulan lanjutan): baris undangan
-// PENDING juga selalu locked -- user_id-nya sintetis ("pending:<id>"),
-// bukan id user asli, jadi TIDAK BISA dipakai panel Kelola sama sekali.
-function ProjectMemberRow({ member, onManage }: { member: ProjectMember; onManage: () => void }) {
+// untuk PM). Baris undangan PENDING TETAP locked dari panel Kelola (user_id
+// sintetis "pending:<id>", bukan id user asli, tidak bisa dipakai panel
+// Kelola) -- tapi kini dapat aksi Kirim Ulang/Batalkan sendiri (susulan,
+// ditemukan user "belum ada aksi batalkan dan kirim ulang undangan seperti
+// pada sebelumnya" -- backend authorizeManage sekarang mengizinkan
+// PM-of-project, tidak cuma admin_workspace, lihat features/project-members/
+// hooks.ts).
+function ProjectMemberRow({
+  member,
+  workspaceId,
+  projectId,
+  onManage,
+}: {
+  member: ProjectMember
+  workspaceId: string
+  projectId: string
+  onManage: () => void
+}) {
   const locked = member.is_pending || !PROJECT_SCOPED_ROLES.some((r) => r.key === member.role)
   const initials = (member.display_name || member.email)
     .split(/[\s.@]+/)
@@ -218,6 +243,12 @@ function ProjectMemberRow({ member, onManage }: { member: ProjectMember; onManag
     .join('')
     .slice(0, 2)
     .toUpperCase()
+
+  const showToast = useUIStore((state) => state.showToast)
+  const resendInvitation = useResendProjectMemberInvitation(workspaceId)
+  const cancelInvitation = useCancelProjectMemberInvitation(projectId, workspaceId)
+  const invitationBusy = resendInvitation.isPending || cancelInvitation.isPending
+  const invitationId = member.is_pending ? member.user_id.replace(/^pending:/, '') : ''
 
   return (
     <div className="grid grid-cols-[minmax(220px,2.4fr)_1.1fr_1.3fr_0.8fr_0.9fr] items-center gap-3.5 border-t border-line px-4 py-3">
@@ -257,7 +288,34 @@ function ProjectMemberRow({ member, onManage }: { member: ProjectMember; onManag
       <span className={cn('font-mono text-[9.5px] tracking-[0.08em]', member.is_pending ? 'text-violet' : 'text-mint')}>
         {member.is_pending ? 'PENDING' : 'AKTIF'}
       </span>
-      {locked ? (
+      {member.is_pending ? (
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="button"
+            disabled={invitationBusy}
+            onClick={() =>
+              resendInvitation.mutate(invitationId, {
+                onSuccess: () => showToast(`Undangan untuk ${member.email} dikirim ulang — berlaku 72 jam.`),
+              })
+            }
+            className="font-mono text-[9.5px] tracking-[0.08em] text-text-muted hover:text-signal disabled:opacity-40"
+          >
+            KIRIM ULANG
+          </button>
+          <button
+            type="button"
+            disabled={invitationBusy}
+            onClick={() =>
+              cancelInvitation.mutate(invitationId, {
+                onSuccess: () => showToast(`Undangan untuk ${member.email} dibatalkan.`),
+              })
+            }
+            className="font-mono text-[9.5px] tracking-[0.08em] text-text-muted hover:text-destructive disabled:opacity-40"
+          >
+            BATALKAN
+          </button>
+        </div>
+      ) : locked ? (
         <span className="justify-self-end font-mono text-[9.5px] tracking-[0.08em] text-text-dim">— KUNCI</span>
       ) : (
         <button onClick={onManage} className="justify-self-end font-mono text-[9.5px] tracking-[0.08em] text-text-muted hover:text-signal">
