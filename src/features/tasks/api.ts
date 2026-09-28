@@ -20,6 +20,20 @@ export function getWorkspaceStatuses(workspaceId: string) {
   return apiClient.get<CustomStatus[]>(`/api/v1/workspaces/${workspaceId}/statuses`)
 }
 
+// getProjectStatuses/createProjectCustomStatus (Track S5B, US-019, "PM
+// Custom Status.dc.html"/"PM Add Status.dc.html") -- status level project,
+// salinan independen dari template workspace (lihat komentar backend
+// CustomStatusRepository). Mutasi lain (appearance/move/undefine/restore/
+// start-confirmation) reuse fungsi workspace di atas apa adanya -- backend
+// meresolve scope dari statusId sendiri.
+export function getProjectStatuses(projectId: string) {
+  return apiClient.get<CustomStatus[]>(`/api/v1/projects/${projectId}/statuses`)
+}
+
+export function createProjectCustomStatus(projectId: string, input: { name: string; color_token: string; position: number }) {
+  return apiClient.post<CustomStatus>(`/api/v1/projects/${projectId}/statuses`, input)
+}
+
 // createCustomStatus/updateStatusAppearance/moveStatus/undefineStatus/
 // restoreStatus/setStatusStartConfirmation (S4W-05, "AW Custom
 // Status.dc.html"/"AW Add Status.dc.html") -- CRUD template status

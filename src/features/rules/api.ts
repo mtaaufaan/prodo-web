@@ -28,3 +28,28 @@ export function exportRuleExecutionsCSV(workspaceId: string, status: string) {
     responseType: 'blob',
   })
 }
+
+// getProjectRules/createProjectRule/getProjectRuleExecutions/
+// exportProjectRuleExecutionsCSV (Track S5B, "Rule Builder.dc.html") --
+// rule level project (PM+AW), berdampingan dengan rule workspace (AW) di
+// atas -- keduanya sama-sama dievaluasi saat task berubah (aditif, lihat
+// backend TaskService.fireRules). Toggle/delete rule reuse fungsi di atas
+// apa adanya -- backend meresolve scope dari ruleId sendiri.
+export function getProjectRules(projectId: string) {
+  return apiClient.get<Rule[]>(`/api/v1/projects/${projectId}/rules`)
+}
+
+export function createProjectRule(projectId: string, values: CreateRuleValues) {
+  return apiClient.post<{ id: string }>(`/api/v1/projects/${projectId}/rules`, values)
+}
+
+export function getProjectRuleExecutions(projectId: string, status: string) {
+  return apiClient.get<RuleExecution[]>(`/api/v1/projects/${projectId}/rules/executions`, { params: { status } })
+}
+
+export function exportProjectRuleExecutionsCSV(projectId: string, status: string) {
+  return apiClient.get<Blob>(`/api/v1/projects/${projectId}/rules/executions`, {
+    params: { status, export: 'csv' },
+    responseType: 'blob',
+  })
+}

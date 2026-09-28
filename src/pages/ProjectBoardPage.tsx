@@ -7,7 +7,7 @@ import TaskDetailModal from '@/components/tasks/TaskDetailModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { useProjects } from '@/features/projects/hooks'
-import { useProjectSprints, useProjectTasks, useWorkspaceStatuses } from '@/features/tasks/hooks'
+import { useProjectSprints, useProjectStatuses, useProjectTasks } from '@/features/tasks/hooks'
 
 // ProjectBoardPage (Task Management Core Phase 1, desain "PM Board.dc.html").
 // Kanban (Track S5, drag-drop+bulk+quick-move+filter -- lihat KanbanBoard.tsx)
@@ -27,7 +27,9 @@ function ProjectBoardPageContent() {
   const projects = useProjects(workspaceId)
   const project = projects.data?.find((p) => p.id === pid) ?? null
 
-  const statuses = useWorkspaceStatuses(workspaceId)
+  // useProjectStatuses (Track S5B) -- status kolom Kanban kini per-project
+  // (salinan independen dari template workspace), bukan lagi workspace-wide.
+  const statuses = useProjectStatuses(pid)
   const tasks = useProjectTasks(pid)
   const sprints = useProjectSprints(pid)
 
