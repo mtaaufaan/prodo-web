@@ -149,18 +149,19 @@ function awNavItems(workspaceId: string): WorkspaceNavItemDef[] {
 // null (PM belum py project SAMA SEKALI, atau belum termuat) -> seluruh
 // item project-scoped jatuh ke "SEGERA" sampai ada project aktif.
 //
-// Status per 2026-09-23: 'kinerja' (reuse AW), 'board' (Kanban Phase 1,
-// S4-05 dst/IG-46-49), 'pmmembers' (ProjectMembersPage, S3-24/IG-17), dan
-// 'sprint' (dibangun lengkap Track S5, IG-92 -- status 3-state
-// backlog/aktif/selesai, kapasitas SP US-081, audit trail) sudah py
-// halaman sungguhan. 7 sisanya "SEGERA", dipetakan ke Track S5:
-// status/picgroup -> S5A/S5B, import -> S5C, board (List/Gantt/Riwayat)
-// -> S5D, analytics -> S5E. 'rule' (level PROJECT, beda dari Rule
-// Automation AW yang level workspace/IG-82) dan 'docs' (level PROJECT,
-// beda dari AW Documents yang workspace-wide) dan 'audit' (Audit Trail
-// PM, beda dari Audit Trail Workspace AW) BELUM py task Sprint 5 sama
-// sekali (IG-90), perlu dikonfirmasi cakupannya ke user sebelum
-// dikerjakan.
+// Status per 2026-09-28: 'kinerja' (reuse AW), 'board' (Kanban Phase 1,
+// S4-05 dst/IG-46-49), 'pmmembers' (ProjectMembersPage, S3-24/IG-17),
+// 'sprint' (dibangun lengkap Track S5, IG-92), 'status' (Track S5B,
+// US-019, "PM Custom Status.dc.html" -- salinan independen per-project,
+// lihat ProjectStatusSettingsPage.tsx), dan 'rule' (Track S5B, "Rule
+// Builder.dc.html" -- rule level PROJECT, berdampingan/aditif dengan Rule
+// Automation AW level workspace, lihat ProjectRuleAutomationPage.tsx)
+// sudah py halaman sungguhan. 4 sisanya "SEGERA": picgroup -> S5B lanjutan,
+// import -> S5C, board (List/Gantt/Riwayat) -> S5D, analytics -> S5E.
+// 'docs' (level PROJECT, beda dari AW Documents yang workspace-wide) dan
+// 'audit' (Audit Trail PM, beda dari Audit Trail Workspace AW) BELUM py
+// task Sprint 5 sama sekali (IG-90), perlu dikonfirmasi cakupannya ke user
+// sebelum dikerjakan.
 function pmNavItems(workspaceId: string, activeProjectId: string | null): WorkspaceNavItemDef[] {
   const p = activeProjectId
   return [
@@ -196,9 +197,23 @@ function pmNavItems(workspaceId: string, activeProjectId: string | null): Worksp
       tabs: ['Kanban', 'Daftar', 'Gantt', 'Riwayat'],
       cta: '+ Task',
     },
-    { key: 'status', icon: '◫', label: 'Custom Status Project', to: null, tabs: ['Status Project'], cta: '+ Status' },
+    {
+      key: 'status',
+      icon: '◫',
+      label: 'Custom Status Project',
+      to: p ? `/workspaces/${workspaceId}/projects/${p}/statuses` : null,
+      tabs: ['Status Project'],
+      cta: '+ Status',
+    },
     { key: 'picgroup', icon: '◈', label: 'PIC Group per Status', to: null, tabs: ['Konfigurasi'], cta: null },
-    { key: 'rule', icon: '⌗', label: 'Rule Automation', to: null, tabs: ['Rule Aktif', 'Template Library', 'Log Eksekusi'], cta: '+ Rule' },
+    {
+      key: 'rule',
+      icon: '⌗',
+      label: 'Rule Automation',
+      to: p ? `/workspaces/${workspaceId}/projects/${p}/rules` : null,
+      tabs: ['Rule Aktif', 'Template Library', 'Log Eksekusi'],
+      cta: '+ Rule',
+    },
     { key: 'import', icon: '⇪', label: 'Import CSV', to: null, tabs: ['Unggah CSV', 'Riwayat'], cta: null },
     { key: 'docs', icon: '▧', label: 'Dokumen & Lampiran', to: null, tabs: null, cta: null },
     { key: 'analytics', icon: '◔', label: 'Timesheet & Analitik', to: null, tabs: ['Ringkasan', 'Per-Member'], cta: null },
