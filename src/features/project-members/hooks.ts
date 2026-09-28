@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { projectKeys } from '@/features/projects/hooks'
+import { cancelInvitation, resendInvitation } from '@/features/workspace-members/api'
 
 import {
   addMembersBulk,
@@ -90,6 +91,29 @@ export function useRemoveProjectMember(projectId: string) {
       queryClient.invalidateQueries({ queryKey: projectMemberKeys.forProject(projectId) })
       queryClient.invalidateQueries({ queryKey: projectKeys.all })
     },
+  })
+}
+
+// useCancelProjectMemberInvitation/useResendProjectMemberInvitation
+// (susulan, ditemukan user: "belum ada aksi batalkan dan kirim ulang
+// undangan seperti pada sebelumnya" -- baris PENDING di grid Member
+// Project PM cuma bisa dilihat, tidak ada aksi apa pun) -- reuse
+// cancelInvitation/resendInvitation API workspace-members apa adanya
+// (backend authorizeManage sekarang juga mengizinkan PM-of-project, tidak
+// cuma admin_workspace), cuma invalidasi query key project ini alih-alih
+// query key AW (invitationKeys.list) supaya grid Member Project ikut
+// ter-refresh, bukan cuma grid AW Member Roles.
+export function useCancelProjectMemberInvitation(projectId: string, workspaceId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (invitationId: string) => cancelInvitation(workspaceId, invitationId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: projectMemberKeys.forProject(projectId) }),
+  })
+}
+
+export function useResendProjectMemberInvitation(workspaceId: string) {
+  return useMutation({
+    mutationFn: (invitationId: string) => resendInvitation(workspaceId, invitationId),
   })
 }
 
