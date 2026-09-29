@@ -13,6 +13,7 @@ import {
 } from '@/features/project-members/hooks'
 import { PROJECT_SCOPED_ROLES, type ProjectMember } from '@/features/project-members/types'
 import { useProjects } from '@/features/projects/hooks'
+import { isProjectScopedRole } from '@/features/workspace-members/types'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/store/useUIStore'
 
@@ -199,15 +200,6 @@ const ROLE_COLOR: Record<string, string> = {
   viewer: 'text-text-muted',
 }
 
-// isProjectScopedRole (diluruskan user: Lingkup ditentukan ROLE-nya, bukan
-// flag is_scoped/cara ditambahkan) -- PM/editor/approver/viewer SELALU
-// perproject, terlepas siapa yang menambahkan (AW maupun PM); admin_workspace/
-// division_viewer SELALU workspace-wide. WORKSPACE_SCOPED_ROLES -- satu-
-// satunya 2 role yang lingkupnya workspace, dipakai juga WorkspaceMembersPage.
-export const WORKSPACE_SCOPED_ROLES = new Set(['admin_workspace', 'division_viewer'])
-export function isProjectScopedRole(role: string) {
-  return !WORKSPACE_SCOPED_ROLES.has(role)
-}
 
 const LOCKED_TAG: Record<string, string> = {
   project_manager: 'PIC PROJECT',

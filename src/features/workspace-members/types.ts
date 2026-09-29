@@ -26,6 +26,18 @@ export interface WorkspaceMember {
   scoped_only?: boolean
 }
 
+// isProjectScopedRole (diluruskan user: Lingkup ditentukan ROLE-nya, bukan
+// flag is_scoped/cara ditambahkan) -- PM/editor/approver/viewer SELALU
+// perproject, terlepas siapa yang menambahkan (AW maupun PM); admin_workspace/
+// division_viewer SELALU workspace-wide. WORKSPACE_SCOPED_ROLES -- satu-
+// satunya 2 role yang lingkupnya workspace. Dipindah dari ProjectMembersPage.tsx
+// (react-refresh/only-export-components -- file halaman TIDAK BOLEH ekspor
+// selain komponen) supaya ManageMemberPanel.tsx bisa impor tanpa warning CI.
+export const WORKSPACE_SCOPED_ROLES = new Set(['admin_workspace', 'division_viewer'])
+export function isProjectScopedRole(role: string) {
+  return !WORKSPACE_SCOPED_ROLES.has(role)
+}
+
 // admin_workspace SENGAJA tidak masuk daftar assignable -- per desain (AW
 // Members Roles.dc.html), Admin Workspace tidak boleh memberi/mencabut
 // role admin_workspace LEWAT PANEL INI (ubah role member existing). Baris
