@@ -20,6 +20,13 @@ export interface ProjectMember {
   // baris ini BUKAN id user asli (email belum terdaftar), jangan dipakai
   // untuk aksi kelola/hapus.
   is_pending: boolean
+  // title (susulan, diminta user setelah menanyakan arti keterangan
+  // sekunder "ditambahkan PM"/"ikut role workspace") -- jabatan
+  // (`users.title`), ditampilkan menggantikan teks itu untuk baris
+  // PROJECT-SCOPED (editor/approver/viewer). null/"" kalau user belum
+  // mengisi jabatan -- TIDAK ADA fallback lain, tampilkan kosong
+  // (dikonfirmasi user).
+  title: string | null
 }
 
 export interface GroupAccount {
