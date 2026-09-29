@@ -282,9 +282,7 @@ function ProjectMemberRow({
             ? 'menunggu diterima'
             : locked
               ? (LOCKED_NOTE[member.role] ?? '—')
-              : member.is_scoped
-                ? 'ditambahkan PM'
-                : 'ikut role workspace'}
+              : member.title || ''}
         </div>
       </div>
       <span className={cn('font-mono text-[9.5px] tracking-[0.08em]', member.is_pending ? 'text-violet' : 'text-mint')}>
