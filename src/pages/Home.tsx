@@ -35,20 +35,30 @@ export default function Home() {
   const clearSession = useAuthStore((state) => state.clearSession)
   const ctx = useMyContext()
   const memberships = useMemo(() => ctx.data?.workspace_memberships ?? [], [ctx.data])
+  // projectScoped (susulan, ditemukan user: project-scoped member --
+  // TANPA workspace_memberships sama sekali -- landing di sini jadi jalan
+  // buntu "belum jadi anggota workspace mana pun", padahal dia py project.
+  // Fallback: kalau memberships kosong, arahkan/tampilkan pilihan dari
+  // sini, LANGSUNG ke board project (bukan workspace) -- workspace
+  // tinggal menyesuaikan dari project yang dipilih (dikonfirmasi user).
+  const projectScoped = useMemo(() => ctx.data?.project_scoped_projects ?? [], [ctx.data])
 
   useEffect(() => {
     if (memberships.length === 1) {
       const m = memberships[0]
       navigate(`/workspaces/${m.workspace_id}/${landingViewFor(m.role)}`, { replace: true })
+    } else if (memberships.length === 0 && projectScoped.length === 1) {
+      const p = projectScoped[0]
+      navigate(`/workspaces/${p.workspace_id}/projects/${p.project_id}/board`, { replace: true })
     }
-  }, [memberships, navigate])
+  }, [memberships, projectScoped, navigate])
 
   const handleLogout = () => {
     clearSession()
     navigate('/login')
   }
 
-  if (ctx.isLoading || memberships.length === 1) {
+  if (ctx.isLoading || memberships.length === 1 || (memberships.length === 0 && projectScoped.length === 1)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-deep p-6">
         <p className="text-sm text-text-muted">Memuat...</p>
@@ -69,8 +79,32 @@ export default function Home() {
           </div>
         )}
 
-        {memberships.length === 0 && !ctx.data?.ga_console_enabled && (
+        {memberships.length === 0 && projectScoped.length === 0 && !ctx.data?.ga_console_enabled && (
           <p className="mt-2 text-muted-foreground">Anda belum menjadi anggota workspace mana pun. Hubungi admin organisasi Anda.</p>
+        )}
+
+        {memberships.length === 0 && projectScoped.length > 1 && (
+          <div className="mt-4 flex flex-col gap-2 text-left">
+            <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Pilih Project</p>
+            {projectScoped.map((p) => (
+              <button
+                key={p.project_id}
+                type="button"
+                onClick={() => navigate(`/workspaces/${p.workspace_id}/projects/${p.project_id}/board`)}
+                className="flex items-center justify-between border border-line px-3.5 py-2.5 text-left hover:border-line-strong"
+              >
+                <div className="min-w-0">
+                  <div className="truncate text-[9.5px] text-text-muted">
+                    {p.org_name} · {p.workspace_name}
+                  </div>
+                  <div className="truncate text-[13px] text-text-bone">{p.project_name}</div>
+                </div>
+                <span className="ml-3 flex-shrink-0 font-mono text-[9px] text-text-dim">
+                  {p.role.toUpperCase().replace(/_/g, ' ')}
+                </span>
+              </button>
+            ))}
+          </div>
         )}
 
         {memberships.length > 1 && (

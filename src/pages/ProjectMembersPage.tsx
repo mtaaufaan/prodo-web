@@ -199,6 +199,16 @@ const ROLE_COLOR: Record<string, string> = {
   viewer: 'text-text-muted',
 }
 
+// isProjectScopedRole (diluruskan user: Lingkup ditentukan ROLE-nya, bukan
+// flag is_scoped/cara ditambahkan) -- PM/editor/approver/viewer SELALU
+// perproject, terlepas siapa yang menambahkan (AW maupun PM); admin_workspace/
+// division_viewer SELALU workspace-wide. WORKSPACE_SCOPED_ROLES -- satu-
+// satunya 2 role yang lingkupnya workspace, dipakai juga WorkspaceMembersPage.
+export const WORKSPACE_SCOPED_ROLES = new Set(['admin_workspace', 'division_viewer'])
+export function isProjectScopedRole(role: string) {
+  return !WORKSPACE_SCOPED_ROLES.has(role)
+}
+
 const LOCKED_TAG: Record<string, string> = {
   project_manager: 'PIC PROJECT',
   admin_workspace: 'ADMIN WORKSPACE',
@@ -272,8 +282,8 @@ function ProjectMemberRow({
         {member.role}
       </span>
       <div className="min-w-0 leading-[1.45]">
-        <div className={cn('whitespace-nowrap font-mono text-[9px] tracking-[0.1em]', member.is_scoped ? 'text-amber' : 'text-text-muted')}>
-          {member.is_scoped ? 'PROJECT-SCOPED' : 'DARI WORKSPACE'}
+        <div className={cn('whitespace-nowrap font-mono text-[9px] tracking-[0.1em]', isProjectScopedRole(member.role) ? 'text-amber' : 'text-text-muted')}>
+          {isProjectScopedRole(member.role) ? 'PROJECT-SCOPED' : 'WORKSPACE'}
         </div>
         <div className="truncate font-mono text-[9px] text-text-dim">
           {member.is_pending

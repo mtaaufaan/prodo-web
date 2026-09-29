@@ -14,6 +14,16 @@ export interface WorkspaceMember {
   // ManageMemberPanel pre-fill pemilih project (ditemukan user: "dropdown
   // project juga tidak terbinding"). "" kalau project_names juga "".
   project_id: string
+  // scoped_only -- TIDAK datang dari API (backend mengembalikannya lewat
+  // array TERPISAH project_scoped_members), ditempel WorkspaceMembersPage
+  // saat menggabung dua array itu jadi satu grid. true berarti baris ini
+  // TIDAK punya workspace_members (PM/editor/approver/viewer project-scoped
+  // murni) -- ManageMemberPanel pakai flag ini untuk mengunci pemilih
+  // project (SATU project tetap, tidak ada move semantics) dan me-routing
+  // Simpan Role/Keluarkan ke endpoint /projects/:id/members (bukan
+  // /workspaces/:wsId/members yang mengasumsikan baris workspace_members
+  // sudah ada).
+  scoped_only?: boolean
 }
 
 // admin_workspace SENGAJA tidak masuk daftar assignable -- per desain (AW
