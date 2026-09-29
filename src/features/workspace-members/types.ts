@@ -14,6 +14,28 @@ export interface WorkspaceMember {
   // ManageMemberPanel pre-fill pemilih project (ditemukan user: "dropdown
   // project juga tidak terbinding"). "" kalau project_names juga "".
   project_id: string
+  // scoped_only -- TIDAK datang dari API (backend mengembalikannya lewat
+  // array TERPISAH project_scoped_members), ditempel WorkspaceMembersPage
+  // saat menggabung dua array itu jadi satu grid. true berarti baris ini
+  // TIDAK punya workspace_members (PM/editor/approver/viewer project-scoped
+  // murni) -- ManageMemberPanel pakai flag ini untuk mengunci pemilih
+  // project (SATU project tetap, tidak ada move semantics) dan me-routing
+  // Simpan Role/Keluarkan ke endpoint /projects/:id/members (bukan
+  // /workspaces/:wsId/members yang mengasumsikan baris workspace_members
+  // sudah ada).
+  scoped_only?: boolean
+}
+
+// isProjectScopedRole (diluruskan user: Lingkup ditentukan ROLE-nya, bukan
+// flag is_scoped/cara ditambahkan) -- PM/editor/approver/viewer SELALU
+// perproject, terlepas siapa yang menambahkan (AW maupun PM); admin_workspace/
+// division_viewer SELALU workspace-wide. WORKSPACE_SCOPED_ROLES -- satu-
+// satunya 2 role yang lingkupnya workspace. Dipindah dari ProjectMembersPage.tsx
+// (react-refresh/only-export-components -- file halaman TIDAK BOLEH ekspor
+// selain komponen) supaya ManageMemberPanel.tsx bisa impor tanpa warning CI.
+export const WORKSPACE_SCOPED_ROLES = new Set(['admin_workspace', 'division_viewer'])
+export function isProjectScopedRole(role: string) {
+  return !WORKSPACE_SCOPED_ROLES.has(role)
 }
 
 // admin_workspace SENGAJA tidak masuk daftar assignable -- per desain (AW

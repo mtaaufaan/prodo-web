@@ -276,7 +276,18 @@ export default function WorkspaceLayout() {
   // sempat terlihat lalu hilang untuk viewer yang bukan admin.
   const platformRole = myContext.data?.platform_role
   const workspaceMemberships = myContext.data?.workspace_memberships ?? []
-  const myWorkspaceRole = workspaceMemberships.find((w) => w.workspace_id === workspaceId)?.role
+  // projectScopedRole (susulan, ditemukan user: project-scoped member --
+  // TANPA baris workspace_members -- role-nya tidak pernah ter-resolve di
+  // sini, bikin nav/gate salah). Fallback: role project-scoped MANA PUN
+  // yang terkait workspace ini (bukan harus project yang sedang aktif di
+  // URL) -- cukup untuk semua kebutuhan di bawah (isPM/canSeeAdminItems
+  // cuma peduli admin_workspace/project_manager, dan role project-scoped
+  // TIDAK PERNAH salah satu dari itu, lihat komentar backend
+  // ListProjectScopedMembershipsForUser), jadi role SPESIFIK-nya (editor
+  // vs approver vs viewer) tidak penting buat nav shell ini.
+  const projectScopedProjects = myContext.data?.project_scoped_projects ?? []
+  const projectScopedRole = projectScopedProjects.find((p) => p.workspace_id === workspaceId)?.role
+  const myWorkspaceRole = workspaceMemberships.find((w) => w.workspace_id === workspaceId)?.role ?? projectScopedRole
   const canSeeAdminItems =
     platformRole === 'platform_admin' || platformRole === 'group_admin' || myWorkspaceRole === 'admin_workspace'
   const gaConsoleEnabled = myContext.data?.ga_console_enabled ?? false

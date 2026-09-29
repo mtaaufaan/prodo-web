@@ -8,7 +8,7 @@ import {
   createInvitations,
   listPendingInvitations,
   listWorkspaceMemberCandidates,
-  listWorkspaceMembers,
+  listWorkspaceMembersResponse,
   removeMember,
   resendInvitation,
   updateMemberRole,
@@ -28,12 +28,21 @@ export const invitationKeys = {
 const membersListQuery = (workspaceId: string) =>
   queryOptions({
     queryKey: workspaceMemberKeys.list(workspaceId),
-    queryFn: () => listWorkspaceMembers(workspaceId),
+    queryFn: () => listWorkspaceMembersResponse(workspaceId),
     enabled: Boolean(workspaceId),
   })
 
 export function useWorkspaceMembers(workspaceId: string) {
-  return useQuery(membersListQuery(workspaceId))
+  return useQuery({ ...membersListQuery(workspaceId), select: (res) => res.workspace_members })
+}
+
+// useProjectScopedMembers (susulan, dikonfirmasi user "tampil dan bisa
+// dikelola penuh dari sini juga") -- baca dari CACHE QUERY YANG SAMA
+// (queryKey identik) dengan useWorkspaceMembers, cuma select berbeda --
+// SATU fetch jaringan melayani kedua hook, bukan dua request terpisah ke
+// endpoint yang sama.
+export function useProjectScopedMembers(workspaceId: string) {
+  return useQuery({ ...membersListQuery(workspaceId), select: (res) => res.project_scoped_members })
 }
 
 // Organization.member_count (OrganizationManagementPage) dan GroupAdmin.
