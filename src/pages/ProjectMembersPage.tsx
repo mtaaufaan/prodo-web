@@ -280,11 +280,9 @@ function ProjectMemberRow({
         <div className="truncate font-mono text-[9px] text-text-dim">
           {member.is_pending
             ? 'menunggu diterima'
-            : locked
-              ? (LOCKED_NOTE[member.role] ?? '—')
-              : member.is_scoped
-                ? 'ditambahkan PM'
-                : 'ikut role workspace'}
+            : isProjectScopedRole(member.role)
+              ? member.title || ''
+              : (LOCKED_NOTE[member.role] ?? '—')}
         </div>
       </div>
       <span className={cn('font-mono text-[9.5px] tracking-[0.08em]', member.is_pending ? 'text-violet' : 'text-mint')}>
