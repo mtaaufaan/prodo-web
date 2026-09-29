@@ -13,6 +13,7 @@ import {
 } from '@/features/project-members/hooks'
 import { PROJECT_SCOPED_ROLES, type ProjectMember } from '@/features/project-members/types'
 import { useProjects } from '@/features/projects/hooks'
+import { isProjectScopedRole } from '@/features/workspace-members/types'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/store/useUIStore'
 
@@ -199,6 +200,7 @@ const ROLE_COLOR: Record<string, string> = {
   viewer: 'text-text-muted',
 }
 
+
 const LOCKED_TAG: Record<string, string> = {
   project_manager: 'PIC PROJECT',
   admin_workspace: 'ADMIN WORKSPACE',
@@ -272,8 +274,8 @@ function ProjectMemberRow({
         {member.role}
       </span>
       <div className="min-w-0 leading-[1.45]">
-        <div className={cn('whitespace-nowrap font-mono text-[9px] tracking-[0.1em]', member.is_scoped ? 'text-amber' : 'text-text-muted')}>
-          {member.is_scoped ? 'PROJECT-SCOPED' : 'DARI WORKSPACE'}
+        <div className={cn('whitespace-nowrap font-mono text-[9px] tracking-[0.1em]', isProjectScopedRole(member.role) ? 'text-amber' : 'text-text-muted')}>
+          {isProjectScopedRole(member.role) ? 'PROJECT-SCOPED' : 'WORKSPACE'}
         </div>
         <div className="truncate font-mono text-[9px] text-text-dim">
           {member.is_pending

@@ -10,6 +10,7 @@ import { useProjects } from '@/features/projects/hooks'
 import {
   useCancelInvitation,
   usePendingInvitations,
+  useProjectScopedMembers,
   useResendInvitation,
   useWorkspaceMembers,
 } from '@/features/workspace-members/hooks'
@@ -39,6 +40,7 @@ function WorkspaceMembersPageContent() {
   const { wsId } = useParams<{ wsId: string }>()
   const workspaceId = wsId ?? ''
   const members = useWorkspaceMembers(workspaceId)
+  const scopedMembers = useProjectScopedMembers(workspaceId)
   const invitations = usePendingInvitations(workspaceId)
   const { data: workspace } = useWorkspace(workspaceId)
   const workspaceName = workspace?.name ?? workspaceId
@@ -59,7 +61,7 @@ function WorkspaceMembersPageContent() {
     return () => registerCta(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage])
-  // selectedUserId (bukan snapshot WorkspaceMember -- ditemukan user
+  // selectedKey (bukan snapshot WorkspaceMember -- ditemukan user
   // 2026-09-15 lewat screenshot ManageWorkspaceModal, "kalau ada
   // perubahan yang harus disimpan agar dimunculkan seperti itu"): kalau
   // objek member disimpan langsung, notice hijau "tersimpan" tidak pernah
@@ -67,9 +69,12 @@ function WorkspaceMembersPageContent() {
   // lama) walau grid di baliknya sudah refetch, karena tidak ada yang
   // menyinkronkan ulang. Pola benar SAMA seperti WorkspaceListPage/
   // ManageWorkspaceModal: simpan ID saja, derive objek live dari
-  // memberList tiap render supaya ManageMemberPanel selalu lihat data
-  // TERBARU begitu query di-invalidate.
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  // combinedMembers tiap render supaya ManageMemberPanel selalu lihat data
+  // TERBARU begitu query di-invalidate. Key-nya BUKAN cuma user_id lagi
+  // (susulan project-scoped-only): satu user bisa scoped di >1 project
+  // workspace ini, jadi key digabung `${user_id}:${project_id}` untuk baris
+  // scoped_only supaya tidak tabrakan.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [fProject, setFProject] = useState('Semua')
   const [fRole, setFRole] = useState('Semua')
@@ -83,23 +88,33 @@ function WorkspaceMembersPageContent() {
   )
 
   const memberList = useMemo(() => members.data ?? [], [members.data])
+  // scopedList (susulan, dikonfirmasi user "tampil dan bisa dikelola penuh
+  // dari sini juga") -- project-scoped-only, ditandai scoped_only supaya
+  // ManageMemberPanel tahu harus routing Simpan Role/Keluarkan ke endpoint
+  // /projects/:id/members, bukan endpoint workspace member.
+  const scopedList = useMemo(
+    () => (scopedMembers.data ?? []).map((m): WorkspaceMember => ({ ...m, scoped_only: true })),
+    [scopedMembers.data],
+  )
+  const combinedMembers = useMemo(() => [...memberList, ...scopedList], [memberList, scopedList])
   const invitationList = useMemo(() => invitations.data ?? [], [invitations.data])
-  const selectedMember = memberList.find((m) => m.user_id === selectedUserId) ?? null
+  const memberRowKey = (m: WorkspaceMember) => (m.scoped_only ? `${m.user_id}:${m.project_id}` : m.user_id)
+  const selectedMember = combinedMembers.find((m) => memberRowKey(m) === selectedKey) ?? null
 
   const stats = {
-    total: memberList.length,
-    projectManager: memberList.filter((m) => m.role === 'project_manager').length,
-    editor: memberList.filter((m) => m.role === 'editor').length,
-    approver: memberList.filter((m) => m.role === 'approver').length,
+    total: combinedMembers.length,
+    projectManager: combinedMembers.filter((m) => m.role === 'project_manager').length,
+    editor: combinedMembers.filter((m) => m.role === 'editor').length,
+    approver: combinedMembers.filter((m) => m.role === 'approver').length,
     pending: invitationList.length,
   }
 
   const allRows: MemberOrInvitation[] = useMemo(
     () => [
-      ...memberList.map((data): MemberOrInvitation => ({ kind: 'member', data })),
+      ...combinedMembers.map((data): MemberOrInvitation => ({ kind: 'member', data })),
       ...invitationList.map((data): MemberOrInvitation => ({ kind: 'invitation', data })),
     ],
-    [memberList, invitationList],
+    [combinedMembers, invitationList],
   )
 
   const q = query.trim().toLowerCase()
@@ -239,11 +254,11 @@ function WorkspaceMembersPageContent() {
               )}
               {paged.map((row) => (
                 <MemberRow
-                  key={row.kind === 'member' ? row.data.user_id : row.data.id}
+                  key={row.kind === 'member' ? memberRowKey(row.data) : row.data.id}
                   row={row}
                   workspaceId={workspaceId}
                   canManage={canManage}
-                  onManage={(member) => setSelectedUserId(member.user_id)}
+                  onManage={(member) => setSelectedKey(memberRowKey(member))}
                 />
               ))}
               {matched.length > 0 && totalPages > 1 && (
@@ -293,7 +308,7 @@ function WorkspaceMembersPageContent() {
         workspaceId={workspaceId}
         workspaceName={workspaceName}
         target={selectedMember}
-        onClose={() => setSelectedUserId(null)}
+        onClose={() => setSelectedKey(null)}
       />
       <InviteMemberModal
         workspaceId={workspaceId}

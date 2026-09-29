@@ -2,10 +2,18 @@ import { apiClient } from '@/lib/api'
 
 import type { CreateInvitationsResult, PendingInvitation, WorkspaceMember, WorkspaceMemberCandidate } from './types'
 
-export function listWorkspaceMembers(workspaceId: string) {
-  return apiClient
-    .get<{ workspace_members: WorkspaceMember[] }>(`/api/v1/workspaces/${workspaceId}/members`)
-    .then((res) => res.workspace_members)
+// listWorkspaceMembersResponse -- respons LENGKAP GET .../members, dua
+// array: workspace_members (member biasa) + project_scoped_members
+// (susulan, dikonfirmasi user "tampil dan bisa dikelola penuh dari sini
+// juga": PM/editor/approver/viewer TANPA baris workspace_members). Bentuk
+// objek kedua array SAMA (WorkspaceMember) -- baris project_scoped_members
+// dikelola lewat endpoint /projects/:id/members, bukan endpoint di bawah
+// (lihat useUpdateMemberRole/useRemoveMember vs useUpdateProjectMemberRole/
+// useRemoveProjectMember, WorkspaceMembersPage).
+export function listWorkspaceMembersResponse(workspaceId: string) {
+  return apiClient.get<{ workspace_members: WorkspaceMember[]; project_scoped_members: WorkspaceMember[] }>(
+    `/api/v1/workspaces/${workspaceId}/members`,
+  )
 }
 
 export function updateMemberRole(workspaceId: string, userId: string, role: string, projectId?: string) {
