@@ -32,6 +32,8 @@ import {
   getTaskVersions,
   getWorkspaceStatuses,
   handoffTaskPic,
+  listProjectDependencies,
+  listProjectStatusSessions,
   moveStatus,
   rejectTimeEntry,
   reorderTask,
@@ -66,6 +68,8 @@ export const taskKeys = {
   picHistory: (taskId: string) => [...taskKeys.all, 'pic-history', taskId] as const,
   dependencies: (taskId: string) => [...taskKeys.all, 'dependencies', taskId] as const,
   statusSessions: (taskId: string) => [...taskKeys.all, 'status-sessions', taskId] as const,
+  projectStatusSessions: (projectId: string) => [...taskKeys.all, 'project-status-sessions', projectId] as const,
+  projectDependencies: (projectId: string) => [...taskKeys.all, 'project-dependencies', projectId] as const,
   versions: (taskId: string) => [...taskKeys.all, 'versions', taskId] as const,
   activity: (taskId: string, page: number) => [...taskKeys.all, 'activity', taskId, page] as const,
   timeEntries: (taskId: string) => [...taskKeys.all, 'time-entries', taskId] as const,
@@ -496,6 +500,25 @@ export function useTaskStatusSessions(taskId: string | null) {
     queryKey: taskKeys.statusSessions(taskId ?? ''),
     queryFn: () => getTaskStatusSessions(taskId ?? ''),
     enabled: taskId !== null,
+  })
+}
+
+// useProjectStatusSessions/useProjectDependencies -- menu Board tab Gantt
+// (US-039/H22-24): bulk per-project, dipakai GanttChart hitung bar ACTUAL +
+// panah dependency SELURUH baris sekaligus.
+export function useProjectStatusSessions(projectId: string) {
+  return useQuery({
+    queryKey: taskKeys.projectStatusSessions(projectId),
+    queryFn: () => listProjectStatusSessions(projectId),
+    enabled: projectId !== '',
+  })
+}
+
+export function useProjectDependencies(projectId: string) {
+  return useQuery({
+    queryKey: taskKeys.projectDependencies(projectId),
+    queryFn: () => listProjectDependencies(projectId),
+    enabled: projectId !== '',
   })
 }
 
