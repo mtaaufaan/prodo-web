@@ -83,15 +83,20 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
   }, [sessionsQuery.data])
 
   const today = dayFloorUTC(Date.now())
+  // dated -- cuma dipakai menghitung rentang timeline (pStart/nDays) supaya
+  // task TANPA tanggal tidak ikut meregangkan grid harian. Daftar baris yang
+  // ditampilkan (taskRows) tetap SEMUA task project -- diminta user: task
+  // tanpa tanggal harus tetap terlihat di grid (bukan hilang begitu saja)
+  // supaya PM sadar dan bisa melengkapinya langsung dari sini.
   const dated = useMemo(() => tasks.filter((t) => t.start_date && t.due_date), [tasks])
 
   const sprintNames = useMemo(() => {
     const names = new Set<string>()
-    dated.forEach((t) => { if (t.sprint_name) names.add(t.sprint_name) })
+    tasks.forEach((t) => { if (t.sprint_name) names.add(t.sprint_name) })
     return Array.from(names)
-  }, [dated])
+  }, [tasks])
 
-  const taskRows = sprintFilter === 'Semua' ? dated : dated.filter((t) => t.sprint_name === sprintFilter)
+  const taskRows = sprintFilter === 'Semua' ? tasks : tasks.filter((t) => t.sprint_name === sprintFilter)
 
   // ---- rentang tanggal project (lebar piksel/hari tetap) ----
   const { pStart, nDays } = useMemo(() => {
@@ -177,8 +182,16 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
   // ---- baris PLAN vs ACTUAL ----
   const geo = new Map<string, { left: number; width: number }>()
   const rows = taskRows.map((t) => {
-    const start = parseDateOnly(t.start_date)!
-    const due = parseDateOnly(t.due_date)!
+    const start = parseDateOnly(t.start_date)
+    const due = parseDateOnly(t.due_date)
+    const status = statusColorClasses(t.status_color)
+    const isLate = Boolean(t.due_date && t.due_date < today.toISOString().slice(0, 10) && t.status_name !== 'DONE')
+    const lockTag = t.is_blocked ? '⛔' : ''
+
+    if (!start || !due) {
+      return { task: t, hasDates: false as const, status, isLate, lockTag }
+    }
+
     const shift = drag?.taskId === t.id ? drag.days : 0
     const planLeft = xOf(start) + shift * DAY_W
     const planWidth = Math.max(DAY_W * 0.6, xOf(due) + DAY_W - xOf(start))
@@ -218,15 +231,16 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
 
     return {
       task: t,
+      hasDates: true as const,
       planLeft,
       planWidth,
       actLeft,
       actWidth,
       actColorCls,
       actLabel,
-      status: statusColorClasses(t.status_color),
-      isLate: Boolean(t.due_date && t.due_date < today.toISOString().slice(0, 10) && t.status_name !== 'DONE'),
-      lockTag: t.is_blocked ? '⛔' : '',
+      status,
+      isLate,
+      lockTag,
     }
   })
 
@@ -273,7 +287,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
 
   return (
     <div className="flex min-h-0 flex-1 flex-col border border-line">
-      <div className="flex flex-wrap items-center gap-2 border-b border-line bg-raised-1 px-3.5 py-2.5">
+      <div className="flex flex-col gap-2 border-b border-line bg-raised-1 px-3.5 py-2.5">
         <div className="flex flex-wrap gap-1.5">
           {['Semua', ...sprintNames].map((n) => (
             <button
@@ -289,19 +303,21 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={() => setDepsOn((v) => !v)}
-          className={cn(
-            'border px-2 py-1 font-mono text-[8.5px]',
-            depsOn ? 'border-destructive bg-destructive/10 text-destructive' : 'border-line-strong text-text-muted',
-          )}
-        >
-          GARIS DEPENDENCY · {depsOn ? 'AKTIF' : 'NONAKTIF'}
-        </button>
-        <span className="font-mono text-[8px] text-text-dim">
-          {edges.length ? `${edges.length} GARIS · ${depHeld} MASIH MENAHAN` : 'TIDAK ADA DEPENDENCY'}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setDepsOn((v) => !v)}
+            className={cn(
+              'border px-2 py-1 font-mono text-[8.5px]',
+              depsOn ? 'border-destructive bg-destructive/10 text-destructive' : 'border-line-strong text-text-muted',
+            )}
+          >
+            GARIS DEPENDENCY · {depsOn ? 'AKTIF' : 'NONAKTIF'}
+          </button>
+          <span className="font-mono text-[8px] text-text-dim">
+            {edges.length ? `${edges.length} GARIS · ${depHeld} MASIH MENAHAN` : 'TIDAK ADA DEPENDENCY'}
+          </span>
+        </div>
       </div>
 
       {isLoading && <p className="p-4 text-sm text-text-muted">Memuat data Gantt...</p>}
@@ -309,7 +325,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
       {!isLoading && (
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
           {rows.length === 0 ? (
-            <p className="p-7 font-mono text-[10px] text-text-dim">Tidak ada task bertanggal (isi Start Date dan Due Date pada task untuk tampil di Gantt).</p>
+            <p className="p-7 font-mono text-[10px] text-text-dim">Tidak ada task pada filter ini.</p>
           ) : (
             <div style={{ position: 'relative', width: 396 + timelineW }}>
               <div className="sticky top-0 z-[8] flex border-b border-line-strong bg-raised-1">
@@ -383,27 +399,39 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
                         </div>
                       </div>
                       <div className="flex flex-col justify-center gap-0.5 border-l border-line px-2.5 font-mono text-[9px] leading-tight">
-                        <span className="text-text-muted">{fmtShort(parseDateOnly(r.task.start_date)!)}</span>
+                        <span className="text-text-muted">{r.task.start_date ? fmtShort(parseDateOnly(r.task.start_date)!) : '—'}</span>
                       </div>
                       <div className="flex flex-col justify-center gap-0.5 border-l border-line px-2.5 font-mono text-[9px] leading-tight">
-                        <span className={cn(r.isLate ? 'text-destructive' : 'text-text-muted')}>{fmtShort(parseDateOnly(r.task.due_date)!)}</span>
+                        <span className={cn(r.isLate ? 'text-destructive' : 'text-text-muted')}>{r.task.due_date ? fmtShort(parseDateOnly(r.task.due_date)!) : '—'}</span>
                       </div>
                     </div>
                     <div className="relative flex-shrink-0" style={{ width: timelineW, backgroundImage: `repeating-linear-gradient(90deg, var(--color-line, #333) 0 1px, transparent 1px ${DAY_W}px)` }}>
-                      <div
-                        title={`PLAN · ${r.task.task_code} · ${fmtShort(parseDateOnly(r.task.start_date)!)} → ${fmtShort(parseDateOnly(r.task.due_date)!)} · tarik untuk menggeser jadwal`}
-                        onMouseDown={handleBarMouseDown(r.task)}
-                        className="absolute top-[9px] h-[11px] cursor-grab border bg-text-dim/30 border-text-dim active:cursor-grabbing"
-                        style={{ left: r.planLeft, width: r.planWidth }}
-                      />
-                      <div
-                        title={`AKTUAL · ${r.actLabel}`}
-                        className={cn('absolute top-[25px] h-[11px] overflow-hidden border', r.actColorCls)}
-                        style={{ left: r.actLeft, width: r.actWidth }}
-                      />
-                      <span className="absolute top-[23px] whitespace-nowrap font-mono text-[7.5px] tracking-[0.04em] text-text-dim" style={{ left: r.actLeft + r.actWidth + 6 }}>
-                        {r.actLabel}
-                      </span>
+                      {r.hasDates ? (
+                        <>
+                          <div
+                            title={`PLAN · ${r.task.task_code} · ${fmtShort(parseDateOnly(r.task.start_date)!)} → ${fmtShort(parseDateOnly(r.task.due_date)!)} · tarik untuk menggeser jadwal`}
+                            onMouseDown={handleBarMouseDown(r.task)}
+                            className="absolute top-[9px] h-[11px] cursor-grab border bg-text-dim/30 border-text-dim active:cursor-grabbing"
+                            style={{ left: r.planLeft, width: r.planWidth }}
+                          />
+                          <div
+                            title={`AKTUAL · ${r.actLabel}`}
+                            className={cn('absolute top-[25px] h-[11px] overflow-hidden border', r.actColorCls)}
+                            style={{ left: r.actLeft, width: r.actWidth }}
+                          />
+                          <span className="absolute top-[23px] whitespace-nowrap font-mono text-[7.5px] tracking-[0.04em] text-text-dim" style={{ left: r.actLeft + r.actWidth + 6 }}>
+                            {r.actLabel}
+                          </span>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onOpenTask(r.task.id)}
+                          className="absolute top-[13px] left-2 whitespace-nowrap font-mono text-[8px] uppercase tracking-[0.04em] text-amber underline decoration-dotted"
+                        >
+                          Belum ada tanggal · klik untuk isi
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
