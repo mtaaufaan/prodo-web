@@ -6,6 +6,7 @@ import KanbanBoard from '@/components/tasks/KanbanBoard'
 import TaskDetailModal from '@/components/tasks/TaskDetailModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
+import GanttChart from '@/features/views/GanttChart'
 import { useProjects } from '@/features/projects/hooks'
 import { useProjectSprints, useProjectStatuses, useProjectTasks } from '@/features/tasks/hooks'
 
@@ -77,7 +78,9 @@ function ProjectBoardPageContent() {
         />
       )}
       {tab === 'Daftar' && <p className="font-mono text-[10.5px] text-text-dim">Tampilan Daftar menyusul.</p>}
-      {tab === 'Gantt' && <p className="font-mono text-[10.5px] text-text-dim">Tampilan Gantt menyusul.</p>}
+      {tab === 'Gantt' && tasks.data && sprints.data && (
+        <GanttChart projectId={pid} tasks={tasks.data} sprints={sprints.data} onOpenTask={setDetailTaskId} />
+      )}
       {tab === 'Riwayat' && <p className="font-mono text-[10.5px] text-text-dim">Riwayat pergerakan board menyusul.</p>}
 
       <AddTaskModal

@@ -161,6 +161,22 @@ export interface TaskStatusSession {
   triggered_by: string | null
 }
 
+// TaskDependencyEdge (menu Board tab Gantt, panah dependency -- US-039/
+// S7-13) -- SATU edge dependency dengan KEDUA sisinya sekaligus (beda dari
+// TaskDependency di atas yang satu sisi/task, dipakai tab Dependency Task
+// Detail). Diambil sekali per project (`GET /projects/:id/dependencies`),
+// dipakai gambar SEMUA panah Gantt tanpa fetch per-task.
+export interface TaskDependencyEdge {
+  predecessor_id: string
+  predecessor_code: string | null
+  predecessor_title: string
+  predecessor_status: string
+  successor_id: string
+  successor_code: string | null
+  successor_title: string
+  successor_status: string
+}
+
 // TaskVersionSnapshot (IG-97, tab RIWAYAT VERSI) -- snapshot judul+deskripsi
 // SEBELUM tiap perubahan tersimpan, terurut terbaru dulu. `trigger` field
 // tambahan (di luar DATABASE_SCHEMA.md §5.19 asli) -- alasan singkat versi
