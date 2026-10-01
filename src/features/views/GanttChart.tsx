@@ -17,13 +17,19 @@ import {
   buildElbowPoints,
 } from './ganttMath'
 
-// GanttChart (menu Board tab Gantt, US-039/H22-24) -- port LENGKAP dari
-// desain otoritatif "PM Board.dc.html" (Claude Design), dibaca langsung via
-// DesignSync setelah user menjalankan /design-login (bukan dari teks
-// sprint_backlog.md S7-11-15 yang ternyata jauh lebih sederhana dari desain
-// sungguhan -- lihat implementation_gaps.md IG-110). Dikonfirmasi user:
-// (1) 2 mode penuh (PER TASK + TIMELINE SPRINT), (2) custom-rendered
-// (div/CSS + SVG panah), BUKAN ECharts seperti teks backlog lama.
+// GanttChart (menu Board tab Gantt, US-039/H22-24) -- port dari desain
+// otoritatif "PM Board.dc.html" (Claude Design), dibaca langsung via
+// DesignSync setelah user menjalankan /design-login. Lihat
+// implementation_gaps.md IG-110/IG-111: laporan awal IG-110 menyebut desain
+// punya 2 mode (PER TASK + TIMELINE SPRINT) berdasarkan keberadaan kode
+// `ganttMode`/`ganttModes` di source desain -- KELIRU, ditemukan user lewat
+// screenshot: kode itu masih ada tapi `ganttModes` (daftar tombol toggle)
+// TIDAK PERNAH dirender di markup manapun (cuma didefinisikan sekali, tidak
+// dipakai sc-for), jadi mode 'Sprint' adalah kode mati yang tidak bisa
+// dijangkau user di desain sungguhan. Toggle mode + render TIMELINE SPRINT
+// (sebelumnya ada di sini) dihapus menyusul koreksi ini -- cuma PER TASK
+// (PLAN vs ACTUAL) yang dipertahankan, sesuai satu-satunya tampilan yang
+// benar-benar bisa diakses di desain.
 //
 // Beda sengaja dari prototype (didokumentasikan, bukan kelalaian):
 // - Panah dependency: satu <polyline> SVG per edge, bukan tumpukan div
@@ -33,18 +39,10 @@ import {
 //   tingkat rasio sub-task (subDone/subCount), TIDAK diikutkan karena data
 //   itu baru tersedia per-task (bukan bulk per-project), butuh endpoint
 //   baru lagi di luar cakupan sesi ini.
-// - Layout TANPA pengukuran DOM (ResizeObserver dsb): mode PER TASK pakai
-//   lebar piksel/hari TETAP (scroll horizontal), mode TIMELINE SPRINT pakai
-//   persentase relatif container (lebar browser yang mengurus konversi
-//   piksel) -- prototype mengukur DOM karena constraint arsitekturnya
-//   sendiri, di sini tidak perlu.
 
 const DAY_W = 28
 const ROW_H = 46
 const TAIL_PX = 170
-
-type GanttMode = 'Task' | 'Sprint'
-type GanttZoom = 'Harian' | 'Mingguan' | 'Bulanan'
 
 interface GanttChartProps {
   projectId: string
@@ -68,9 +66,6 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
   const dependenciesQuery = useProjectDependencies(projectId)
   const updateTask = useUpdateTask(projectId)
 
-  const [mode, setMode] = useState<GanttMode>('Task')
-  const [zoom, setZoom] = useState<GanttZoom>('Mingguan')
-  const [panOffset, setPanOffset] = useState<number | null>(null)
   const [sprintFilter, setSprintFilter] = useState('Semua')
   const [depsOn, setDepsOn] = useState(true)
   const [drag, setDrag] = useState<{ taskId: string; days: number } | null>(null)
@@ -98,7 +93,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
 
   const taskRows = sprintFilter === 'Semua' ? dated : dated.filter((t) => t.sprint_name === sprintFilter)
 
-  // ---- rentang tanggal project (mode PER TASK, lebar piksel/hari tetap) ----
+  // ---- rentang tanggal project (lebar piksel/hari tetap) ----
   const { pStart, nDays } = useMemo(() => {
     const bounds: Date[] = [today]
     dated.forEach((t) => {
@@ -130,11 +125,11 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
     scrolledOnceRef.current = false
   }, [projectId])
   useEffect(() => {
-    if (mode !== 'Task' || scrolledOnceRef.current || !scrollRef.current) return
+    if (scrolledOnceRef.current || !scrollRef.current) return
     scrolledOnceRef.current = true
     scrollRef.current.scrollLeft = Math.max(0, xOf(today) - 260)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- cuma sekali, dependensi xOf/today stabil per render
-  }, [mode, pStart, nDays])
+  }, [pStart, nDays])
 
   // ---- hari (grid harian) + bulan (header atas) ----
   const days = useMemo(() => {
@@ -274,179 +269,44 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
     document.addEventListener('mouseup', up)
   }
 
-  // ---- mode TIMELINE SPRINT (zoom + pan, layout persentase) ----
-  const sprintView = useMemo(() => {
-    const spanDays = zoom === 'Harian' ? 14 : zoom === 'Mingguan' ? 56 : 0
-    const bounds: Date[] = [today]
-    dated.forEach((t) => {
-      const a = parseDateOnly(t.start_date)
-      const b = parseDateOnly(t.due_date)
-      if (a) bounds.push(a)
-      if (b) bounds.push(b)
-    })
-    sprints.forEach((s) => {
-      const a = parseDateOnly(s.start_date)
-      const b = parseDateOnly(s.end_date)
-      if (a) bounds.push(a)
-      if (b) bounds.push(b)
-    })
-    const minMs = Math.min(...bounds.map((d) => d.getTime()))
-    const maxMs = Math.max(...bounds.map((d) => d.getTime()))
-    const fullStart = dayFloorUTC(minMs - dayFloorUTC(minMs).getUTCDay() * DAY_MS)
-    const maxD = dayFloorUTC(maxMs)
-    const fullEnd = addDaysUTC(maxD, 7 - maxD.getUTCDay())
-    let startD = fullStart
-    let endD = fullEnd
-    const maxOff = spanDays ? Math.max(0, diffDays(fullStart, fullEnd) - spanDays) : 0
-    if (spanDays) {
-      let off = panOffset
-      if (off == null) off = Math.max(0, diffDays(fullStart, today) - Math.floor(spanDays / 3))
-      off = Math.max(0, Math.min(maxOff, off))
-      startD = addDaysUTC(fullStart, off)
-      endD = addDaysUTC(startD, spanDays)
-      if (endD > fullEnd && maxOff === 0) endD = fullEnd
-    }
-    const totalMs = Math.max(DAY_MS, endD.getTime() - startD.getTime())
-    const pos = (d: Date) => Math.max(0, Math.min(100, ((d.getTime() - startD.getTime()) / totalMs) * 100))
-    const curOff = spanDays ? diffDays(fullStart, startD) : 0
-    const ticks: string[] = []
-    if (zoom === 'Harian') {
-      for (let c = new Date(startD); c < endD; c = addDaysUTC(c, 1)) ticks.push(String(c.getUTCDate()).padStart(2, '0'))
-    } else if (zoom === 'Bulanan') {
-      for (let c = new Date(Date.UTC(startD.getUTCFullYear(), startD.getUTCMonth(), 1)); c < endD; c = new Date(Date.UTC(c.getUTCFullYear(), c.getUTCMonth() + 1, 1)))
-        ticks.push(MONTHS_ID[c.getUTCMonth()] + ' ' + String(c.getUTCFullYear()).slice(2))
-    } else {
-      for (let c = new Date(startD); c < endD; c = addDaysUTC(c, 7)) ticks.push(fmtShort(c))
-    }
-    return { startD, endD, pos, ticks, spanDays, curOff, maxOff, panStep: spanDays ? Math.max(1, Math.round(spanDays / 2)) : 0 }
-  }, [zoom, panOffset, dated, sprints, today])
-
-  const sprintRows = sprints.map((s) => {
-    const a = parseDateOnly(s.start_date)
-    const b = parseDateOnly(s.end_date)
-    const inSprint = dated.filter((t) => t.sprint_name === s.name)
-    const done = inSprint.filter((t) => t.status_name === 'DONE').length
-    const left = a ? sprintView.pos(a) : 0
-    const width = a && b ? Math.max(1.5, sprintView.pos(b) - left) : 1.5
-    return {
-      sprint: s,
-      left,
-      width,
-      label: `${s.status.toUpperCase()} · ${done}/${inSprint.length} SELESAI`,
-      tasks: inSprint.map((t) => {
-        const ta = parseDateOnly(t.start_date)
-        const tb = parseDateOnly(t.due_date)
-        const tl = ta ? sprintView.pos(ta) : 0
-        const tw = ta && tb ? Math.max(1, sprintView.pos(tb) - tl) : 1
-        return { task: t, left: tl, width: tw, status: statusColorClasses(t.status_color) }
-      }),
-    }
-  })
-
   const isLoading = sessionsQuery.isLoading || dependenciesQuery.isLoading
 
   return (
     <div className="flex min-h-0 flex-1 flex-col border border-line">
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-raised-1 px-3.5 py-2.5">
-        <div className="flex gap-1.5">
-          {(['Task', 'Sprint'] as const).map((m) => (
+        <div className="flex flex-wrap gap-1.5">
+          {['Semua', ...sprintNames].map((n) => (
             <button
-              key={m}
+              key={n}
               type="button"
-              onClick={() => setMode(m)}
+              onClick={() => setSprintFilter(n)}
               className={cn(
-                'border px-2.5 py-1.5 font-mono text-[9px] uppercase tracking-[0.06em]',
-                mode === m ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
+                'border px-2 py-1 font-mono text-[8.5px]',
+                sprintFilter === n ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
               )}
             >
-              {m === 'Task' ? 'PER TASK' : 'TIMELINE SPRINT'}
+              {n === 'Semua' ? 'SEMUA SPRINT' : n.toUpperCase()}
             </button>
           ))}
         </div>
-
-        {mode === 'Task' && (
-          <>
-            <div className="flex flex-wrap gap-1.5">
-              {['Semua', ...sprintNames].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setSprintFilter(n)}
-                  className={cn(
-                    'border px-2 py-1 font-mono text-[8.5px]',
-                    sprintFilter === n ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
-                  )}
-                >
-                  {n === 'Semua' ? 'SEMUA SPRINT' : n.toUpperCase()}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={() => setDepsOn((v) => !v)}
-              className={cn(
-                'border px-2 py-1 font-mono text-[8.5px]',
-                depsOn ? 'border-destructive bg-destructive/10 text-destructive' : 'border-line-strong text-text-muted',
-              )}
-            >
-              GARIS DEPENDENCY · {depsOn ? 'AKTIF' : 'NONAKTIF'}
-            </button>
-            <span className="font-mono text-[8px] text-text-dim">
-              {edges.length ? `${edges.length} GARIS · ${depHeld} MASIH MENAHAN` : 'TIDAK ADA DEPENDENCY'}
-            </span>
-          </>
-        )}
-
-        {mode === 'Sprint' && (
-          <>
-            <div className="flex gap-1.5">
-              {(['Harian', 'Mingguan', 'Bulanan'] as const).map((z) => (
-                <button
-                  key={z}
-                  type="button"
-                  onClick={() => { setZoom(z); setPanOffset(null) }}
-                  className={cn(
-                    'border px-2 py-1 font-mono text-[8.5px] uppercase',
-                    zoom === z ? 'border-signal bg-signal/10 text-signal' : 'border-line-strong text-text-muted',
-                  )}
-                >
-                  {z}
-                </button>
-              ))}
-            </div>
-            {sprintView.spanDays > 0 && (
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  disabled={sprintView.curOff <= 0}
-                  onClick={() => setPanOffset(Math.max(0, sprintView.curOff - sprintView.panStep))}
-                  className="border border-line-strong px-2 py-1 font-mono text-[9px] text-text-muted disabled:opacity-35"
-                >
-                  ◄
-                </button>
-                <button type="button" onClick={() => setPanOffset(null)} className="border border-line-strong px-2 py-1 font-mono text-[8.5px] text-text-muted">
-                  HARI INI
-                </button>
-                <button
-                  type="button"
-                  disabled={sprintView.curOff >= sprintView.maxOff}
-                  onClick={() => setPanOffset(Math.min(sprintView.maxOff, sprintView.curOff + sprintView.panStep))}
-                  className="border border-line-strong px-2 py-1 font-mono text-[9px] text-text-muted disabled:opacity-35"
-                >
-                  ►
-                </button>
-              </div>
-            )}
-            <span className="font-mono text-[8px] text-text-dim">
-              {fmtShort(sprintView.startD)} – {fmtShort(sprintView.endD)}
-            </span>
-          </>
-        )}
+        <button
+          type="button"
+          onClick={() => setDepsOn((v) => !v)}
+          className={cn(
+            'border px-2 py-1 font-mono text-[8.5px]',
+            depsOn ? 'border-destructive bg-destructive/10 text-destructive' : 'border-line-strong text-text-muted',
+          )}
+        >
+          GARIS DEPENDENCY · {depsOn ? 'AKTIF' : 'NONAKTIF'}
+        </button>
+        <span className="font-mono text-[8px] text-text-dim">
+          {edges.length ? `${edges.length} GARIS · ${depHeld} MASIH MENAHAN` : 'TIDAK ADA DEPENDENCY'}
+        </span>
       </div>
 
       {isLoading && <p className="p-4 text-sm text-text-muted">Memuat data Gantt...</p>}
 
-      {!isLoading && mode === 'Task' && (
+      {!isLoading && (
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
           {rows.length === 0 ? (
             <p className="p-7 font-mono text-[10px] text-text-dim">Tidak ada task bertanggal (isi Start Date dan Due Date pada task untuk tampil di Gantt).</p>
@@ -593,69 +453,19 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
         </div>
       )}
 
-      {!isLoading && mode === 'Sprint' && (
-        <div className="min-h-0 flex-1 overflow-auto">
-          {sprintRows.length === 0 && <p className="p-7 font-mono text-[10px] text-text-dim">Project ini belum punya sprint.</p>}
-          {sprintRows.map((s) => (
-            <div key={s.sprint.id} className="flex flex-col gap-2 border-t border-line p-3.5">
-              <div className="flex items-center gap-0">
-                <div className="w-[206px] flex-shrink-0 pr-3.5 leading-[1.35]">
-                  <div className="truncate text-[12px] font-semibold text-text-bone">{s.sprint.name}</div>
-                  <div className="mt-1 truncate font-mono text-[8px] text-text-dim">
-                    {s.sprint.start_date ? fmtShort(parseDateOnly(s.sprint.start_date)!) : '—'} → {s.sprint.end_date ? fmtShort(parseDateOnly(s.sprint.end_date)!) : '—'}
-                  </div>
-                  <div className="mt-1 font-mono text-[8px] text-text-muted">{s.label}</div>
-                </div>
-                <div className="relative h-6 flex-1 bg-panel">
-                  <div className="absolute bottom-0 top-0 w-px bg-destructive" style={{ left: `${sprintView.pos(today)}%` }} />
-                  <div
-                    title={s.sprint.name}
-                    className={cn('absolute bottom-[3px] top-[3px] border', s.sprint.status === 'active' ? 'border-mint bg-mint/15' : s.sprint.status === 'done' ? 'border-text-dim bg-transparent' : 'border-blue bg-blue/10')}
-                    style={{ left: `${s.left}%`, width: `${s.width}%` }}
-                  />
-                </div>
-              </div>
-              <div className="flex gap-0">
-                <span className="w-[206px] flex-shrink-0" />
-                <div className="flex flex-1 flex-col gap-1">
-                  {s.tasks.length === 0 && <div className="font-mono text-[8px] text-text-dim">TIDAK ADA TASK DI SPRINT INI</div>}
-                  {s.tasks.map((row) => (
-                    <div key={row.task.id} className="relative h-3">
-                      <div
-                        onClick={() => onOpenTask(row.task.id)}
-                        title={row.task.title}
-                        className={cn('absolute bottom-px top-px cursor-pointer', row.status.dot)}
-                        style={{ left: `${row.left}%`, width: `${row.width}%` }}
-                      />
-                      <span className="absolute inset-y-0 flex items-center whitespace-nowrap pl-1.5 font-mono text-[7.5px] text-text-dim" style={{ left: `calc(${row.left + row.width}% + 2px)` }}>
-                        {row.task.task_code}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {mode === 'Task' && (
-        <div className="flex flex-wrap items-center gap-4 border-t border-line bg-raised-1 px-3.5 py-2.5 font-mono text-[8.5px] uppercase tracking-[0.06em] text-text-muted">
-          <span className="text-text-dim tracking-[0.14em]">LEGENDA</span>
-          <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-text-dim bg-text-dim/30" />PLAN</span>
-          <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-mint bg-mint/25" />TEPAT WAKTU</span>
-          <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-destructive bg-destructive/25" />DELAY</span>
-          <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-blue bg-blue/25" />IN PROGRESS</span>
-          <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-amber bg-amber/25" />BLOCKED</span>
-          <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-dashed border-text-dim" />BELUM MULAI</span>
-          <span className="flex items-center gap-1.5"><span className="block h-2.5 w-2.5 rotate-45 bg-amber" />MILESTONE</span>
-          <span className="flex items-center gap-1.5"><span className="block h-3 w-0 border-l border-dashed border-destructive" />HARI INI</span>
-        </div>
-      )}
+      <div className="flex flex-wrap items-center gap-4 border-t border-line bg-raised-1 px-3.5 py-2.5 font-mono text-[8.5px] uppercase tracking-[0.06em] text-text-muted">
+        <span className="text-text-dim tracking-[0.14em]">LEGENDA</span>
+        <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-text-dim bg-text-dim/30" />PLAN</span>
+        <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-mint bg-mint/25" />TEPAT WAKTU</span>
+        <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-destructive bg-destructive/25" />DELAY</span>
+        <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-blue bg-blue/25" />IN PROGRESS</span>
+        <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-amber bg-amber/25" />BLOCKED</span>
+        <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-dashed border-text-dim" />BELUM MULAI</span>
+        <span className="flex items-center gap-1.5"><span className="block h-2.5 w-2.5 rotate-45 bg-amber" />MILESTONE</span>
+        <span className="flex items-center gap-1.5"><span className="block h-3 w-0 border-l border-dashed border-destructive" />HARI INI</span>
+      </div>
       <div className="border-t border-line bg-panel px-3.5 py-2.5 font-mono text-[8.5px] leading-relaxed text-text-muted">
-        {mode === 'Sprint'
-          ? 'Bar luar adalah rentang sprint; bar tipis di bawahnya adalah task di dalamnya, diposisikan pada tanggal sebenarnya. Bar task yang keluar dari kotak sprint berarti jadwalnya tidak sejalan dan perlu dipindahkan atau dijadwal ulang.'
-          : 'Batang PLAN (atas) = Start Date → Due Date. Batang AKTUAL (bawah) dihitung dari Waktu Status sungguhan -- mulai saat masuk IN PROGRESS, berakhir saat DONE/BLOCKED. Tarik batang PLAN untuk menggeser jadwal; perubahan tersimpan dan tercatat di Audit Trail.'}
+        Batang PLAN (atas) = Start Date → Due Date. Batang AKTUAL (bawah) dihitung dari Waktu Status sungguhan -- mulai saat masuk IN PROGRESS, berakhir saat DONE/BLOCKED. Tarik batang PLAN untuk menggeser jadwal; perubahan tersimpan dan tercatat di Audit Trail.
       </div>
     </div>
   )
