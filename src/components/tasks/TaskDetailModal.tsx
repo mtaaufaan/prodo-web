@@ -38,7 +38,7 @@ import {
   useUpdateChecklistItem,
   useUpdateTask,
 } from '@/features/tasks/hooks'
-import { FIBONACCI_STORY_POINTS, statusColorClasses, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
+import { autoFillTaskDates, FIBONACCI_STORY_POINTS, statusColorClasses, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -275,6 +275,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
+  const [startDate, setStartDate] = useState('')
   const [dueDate, setDueDate] = useState('')
   const [estimatedHours, setEstimatedHours] = useState('')
   const [storyPoints, setStoryPoints] = useState<number | null>(null)
@@ -326,6 +327,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
       setTitle(task.data.title)
       setDescription(typeof task.data.description === 'string' ? task.data.description : '')
       setPriority(task.data.priority)
+      setStartDate(task.data.start_date ?? '')
       setDueDate(task.data.due_date ?? '')
       setEstimatedHours(task.data.estimated_hours != null ? String(task.data.estimated_hours) : '')
       setStoryPoints(task.data.story_points)
@@ -372,6 +374,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
     (title.trim() !== task.data.title ||
       description !== (typeof task.data.description === 'string' ? task.data.description : '') ||
       priority !== task.data.priority ||
+      startDate !== (task.data.start_date ?? '') ||
       dueDate !== (task.data.due_date ?? '') ||
       estimatedHours !== (task.data.estimated_hours != null ? String(task.data.estimated_hours) : '') ||
       storyPoints !== task.data.story_points ||
@@ -386,6 +389,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
       setTitle(task.data.title)
       setDescription(typeof task.data.description === 'string' ? task.data.description : '')
       setPriority(task.data.priority)
+      setStartDate(task.data.start_date ?? '')
       setDueDate(task.data.due_date ?? '')
       setEstimatedHours(task.data.estimated_hours != null ? String(task.data.estimated_hours) : '')
       setStoryPoints(task.data.story_points)
@@ -393,6 +397,21 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
     }
     setFieldEditing(false)
     setSaveError('')
+  }
+
+  // handleDateFieldChange -- diminta user: isi 2 dari 3 (start_date/
+  // due_date/estimasi jam) -> yang ketiga (kalau masih kosong) otomatis
+  // terisi. autoFillTaskDates murni (features/tasks/types.ts), dipakai
+  // sama persis di AddTaskModal.
+  const handleDateFieldChange = (patch: Partial<{ start_date: string; due_date: string; estimated_hours: string }>) => {
+    const next = { start_date: startDate, due_date: dueDate, estimated_hours: estimatedHours, ...patch }
+    setStartDate(next.start_date)
+    setDueDate(next.due_date)
+    setEstimatedHours(next.estimated_hours)
+    const derived = autoFillTaskDates(next)
+    if (derived.start_date !== undefined) setStartDate(derived.start_date)
+    if (derived.due_date !== undefined) setDueDate(derived.due_date)
+    if (derived.estimated_hours !== undefined) setEstimatedHours(derived.estimated_hours)
   }
 
   // onSaveField -- SATU chokepoint PUT /tasks/:id, SATU tombol Simpan
@@ -408,6 +427,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
           title: title.trim(),
           description: description.trim() || undefined,
           priority,
+          start_date: startDate,
           due_date: dueDate,
           estimated_hours: estimatedHours ? parseFloat(estimatedHours) : null,
           story_points: storyPoints,
@@ -965,11 +985,20 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                             </div>
                           </div>
                           <div className="w-[160px]">
+                            <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">START DATE</label>
+                            <input
+                              type="date"
+                              value={startDate}
+                              onChange={(e) => handleDateFieldChange({ start_date: e.target.value })}
+                              className="w-full border border-line-strong bg-panel px-2.5 py-2 font-mono text-[11px] text-text-bone outline-none focus-visible:border-signal"
+                            />
+                          </div>
+                          <div className="w-[160px]">
                             <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">DUE DATE</label>
                             <input
                               type="date"
                               value={dueDate}
-                              onChange={(e) => setDueDate(e.target.value)}
+                              onChange={(e) => handleDateFieldChange({ due_date: e.target.value })}
                               className="w-full border border-line-strong bg-panel px-2.5 py-2 font-mono text-[11px] text-text-bone outline-none focus-visible:border-signal"
                             />
                           </div>
@@ -977,11 +1006,14 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                             <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">ESTIMASI (JAM)</label>
                             <input
                               value={estimatedHours}
-                              onChange={(e) => setEstimatedHours(e.target.value.replace(/[^0-9.]/g, ''))}
+                              onChange={(e) => handleDateFieldChange({ estimated_hours: e.target.value.replace(/[^0-9.]/g, '') })}
                               className="w-full border border-line-strong bg-panel px-2.5 py-2 font-mono text-[11px] text-text-bone outline-none focus-visible:border-signal"
                             />
                           </div>
                         </div>
+                        <p className="-mt-1 font-mono text-[8px] leading-relaxed text-text-dim">
+                          Isi 2 dari 3 (Start Date/Due Date/Estimasi) -- sisanya otomatis terhitung.
+                        </p>
                         <div>
                           <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">STORY POINT · SKALA FIBONACCI</label>
                           <div className="flex flex-wrap gap-1.5">

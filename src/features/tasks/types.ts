@@ -100,6 +100,7 @@ export interface Task {
   description: unknown
   priority: TaskPriority
   completeness: 'complete' | 'incomplete' | null
+  start_date: string | null
   due_date: string | null
   estimated_hours: number | null
   story_points: number | null
@@ -218,6 +219,7 @@ export interface TaskFormValues {
   title: string
   description?: string
   priority: TaskPriority
+  start_date: string
   due_date: string
   estimated_hours: number | null
   story_points: number | null
@@ -226,6 +228,63 @@ export interface TaskFormValues {
 }
 
 export const FIBONACCI_STORY_POINTS = [1, 2, 3, 5, 8, 13] as const
+
+// HOURS_PER_DAY -- start_date/due_date cuma DATE (tanpa komponen jam),
+// estimasi (jam) dikonversi kelipatan 24, dibulatkan ke hari terdekat.
+const HOURS_PER_DAY = 24
+
+// parseDateOnly/formatDateOnly -- pakai UTC murni (bukan Date biasa, yang
+// menafsirkan "YYYY-MM-DD" di local time lalu bisa mundur/maju satu hari
+// saat diformat balik via toISOString di timezone non-UTC) supaya aritmetika
+// tanggal (tambah/kurang hari) tidak pernah drift akibat timezone browser.
+function parseDateOnly(s: string): Date | null {
+  if (!s) return null
+  const [y, m, d] = s.split('-').map(Number)
+  if (!y || !m || !d) return null
+  const date = new Date(Date.UTC(y, m - 1, d))
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function formatDateOnly(d: Date): string {
+  return d.toISOString().slice(0, 10)
+}
+
+// TaskDateFields -- 3 field AddTaskModal/TaskDetailModal yang saling
+// mengisi (diminta user): start_date (perkiraan mulai), due_date
+// (perkiraan selesai), estimated_hours (jam, string mentah dari input).
+export interface TaskDateFields {
+  start_date: string
+  due_date: string
+  estimated_hours: string
+}
+
+// autoFillTaskDates -- isi 2 dari 3 field tanggal/estimasi -> yang ketiga
+// (KALAU MASIH KOSONG) otomatis dihitung. Cuma mengisi field yang kosong,
+// TIDAK PERNAH menimpa nilai yang sudah diisi (manual atau hasil auto-fill
+// sebelumnya) -- user bisa override kapan saja, auto-fill cuma membantu
+// langkah pertama.
+export function autoFillTaskDates(fields: TaskDateFields): Partial<TaskDateFields> {
+  const { start_date, due_date, estimated_hours } = fields
+  const start = parseDateOnly(start_date)
+  const due = parseDateOnly(due_date)
+  const hours = estimated_hours ? parseFloat(estimated_hours) : null
+
+  if (!due_date && start && hours != null && hours >= 0) {
+    const result = new Date(start)
+    result.setUTCDate(result.getUTCDate() + Math.round(hours / HOURS_PER_DAY))
+    return { due_date: formatDateOnly(result) }
+  }
+  if (!start_date && due && hours != null && hours >= 0) {
+    const result = new Date(due)
+    result.setUTCDate(result.getUTCDate() - Math.round(hours / HOURS_PER_DAY))
+    return { start_date: formatDateOnly(result) }
+  }
+  if (!estimated_hours && start && due) {
+    const days = Math.round((due.getTime() - start.getTime()) / 86400000)
+    return { estimated_hours: String(Math.max(days, 0) * HOURS_PER_DAY) }
+  }
+  return {}
+}
 
 // TaskChecklistItem (SUB-TASK, "PM Task Detail.dc.html", IG-97 susulan).
 export interface TaskChecklistItem {
