@@ -9,6 +9,7 @@ import type {
   TaskActivityEntry,
   TaskChecklistItem,
   TaskDependency,
+  TaskDependencyEdge,
   TaskFormValues,
   TaskPicPhase,
   TaskStatusSession,
@@ -204,6 +205,17 @@ export function startWork(taskId: string) {
 
 export function getTaskStatusSessions(taskId: string) {
   return apiClient.get<TaskStatusSession[]>(`/api/v1/tasks/${taskId}/status-sessions`)
+}
+
+// listProjectStatusSessions/listProjectDependencies (menu Board tab Gantt,
+// US-039/H22-24) -- bulk per-project, dipakai hitung bar ACTUAL + panah
+// dependency SELURUH baris Gantt sekaligus (bukan fetch per-task/N+1).
+export function listProjectStatusSessions(projectId: string) {
+  return apiClient.get<TaskStatusSession[]>(`/api/v1/projects/${projectId}/status-sessions`)
+}
+
+export function listProjectDependencies(projectId: string) {
+  return apiClient.get<TaskDependencyEdge[]>(`/api/v1/projects/${projectId}/dependencies`)
 }
 
 // getTaskVersions -- IG-97, tab RIWAYAT VERSI (task_version_snapshots).
