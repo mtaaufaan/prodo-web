@@ -277,16 +277,39 @@ export interface TaskDateFields {
   estimated_hours: string
 }
 
-// autoFillTaskDates -- isi 2 dari 3 field tanggal/estimasi -> yang ketiga
-// (KALAU MASIH KOSONG) otomatis dihitung. Cuma mengisi field yang kosong,
-// TIDAK PERNAH menimpa nilai yang sudah diisi (manual atau hasil auto-fill
-// sebelumnya) -- user bisa override kapan saja, auto-fill cuma membantu
-// langkah pertama.
-export function autoFillTaskDates(fields: TaskDateFields): Partial<TaskDateFields> {
+// autoFillTaskDates -- 3 field saling terikat: isi 2 dari 3 -> yang ketiga
+// otomatis dihitung (start+estimasi->due, due+estimasi->start, start+due->
+// estimasi). Tanpa `changed` hanya mengisi field yang KOSONG. Dengan `changed`
+// (field yang baru diedit user) ketiganya tetap sinkron saat semuanya sudah
+// terisi: ubah tanggal -> estimasi dihitung ulang (tanggal tetap seperti yang
+// diketik); ubah estimasi -> due_date digeser dari start_date (atau start_date
+// dari due_date kalau start kosong).
+export function autoFillTaskDates(fields: TaskDateFields, changed?: keyof TaskDateFields): Partial<TaskDateFields> {
   const { start_date, due_date, estimated_hours } = fields
   const start = parseDateOnly(start_date)
   const due = parseDateOnly(due_date)
   const hours = estimated_hours ? parseFloat(estimated_hours) : null
+
+  if ((changed === 'start_date' || changed === 'due_date') && start && due) {
+    const days = Math.round((due.getTime() - start.getTime()) / 86400000)
+    return { estimated_hours: String(Math.max(days, 0) * HOURS_PER_DAY) }
+  }
+  if (changed === 'estimated_hours') {
+    // Dikosongkan user (mau ketik ulang) -- jangan langsung diisi balik.
+    if (hours == null || Number.isNaN(hours) || hours < 0) return {}
+    const offset = Math.round(hours / HOURS_PER_DAY)
+    if (start) {
+      const result = new Date(start)
+      result.setUTCDate(result.getUTCDate() + offset)
+      return { due_date: formatDateOnly(result) }
+    }
+    if (due) {
+      const result = new Date(due)
+      result.setUTCDate(result.getUTCDate() - offset)
+      return { start_date: formatDateOnly(result) }
+    }
+    return {}
+  }
 
   if (!due_date && start && hours != null && hours >= 0) {
     const result = new Date(start)
