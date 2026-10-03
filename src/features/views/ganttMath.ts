@@ -130,6 +130,13 @@ export function buildElbowPoints(x1: number, y1: number, x2: number, y2: number,
   ]
 }
 
+// milestoneLabel -- label ringkas penanda akhir sprint di baris MILESTONE
+// (desain: nama dipotong di pemisah " · " / " - ", awalan "SPRINT" -> "M"):
+// "Sprint 0 - Fondation" -> "M 0".
+export function milestoneLabel(sprintName: string): string {
+  return sprintName.replace(/\s+[-·–—]\s+.*$/, '').toUpperCase().replace(/^SPRINT\s*/, 'M ')
+}
+
 // sprintEndFor -- tanggal akhir sprint tempat task ini berada, dipakai
 // computeActualBar kind='blocked' (bar BLOCKED berhenti di akhir sprint,
 // bukan molor tanpa batas).
