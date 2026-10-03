@@ -4,6 +4,7 @@ import PicPickerModal from '@/components/tasks/PicPickerModal'
 import { useProjectMembers } from '@/features/project-members/hooks'
 import { useBulkSetTaskStatus, useReorderTask, useSetTaskStatus } from '@/features/tasks/hooks'
 import type { CustomStatus, Task, TaskPriority } from '@/features/tasks/types'
+import { formatDateDMY } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -281,7 +282,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
                       )}
                       <div className="flex items-center justify-between font-mono text-[9px] text-text-muted">
                         <span className="truncate">{t.assignees[0] ? t.assignees[0].display_name || t.assignees[0].email : '—'}</span>
-                        <span>{t.due_date ?? '—'}</span>
+                        <span>{formatDateDMY(t.due_date)}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <span className="border border-line-strong px-1.5 py-0.5 font-mono text-[8.5px] text-text-dim">SP {t.story_points ?? '?'}</span>

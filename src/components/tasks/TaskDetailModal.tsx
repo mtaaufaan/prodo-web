@@ -39,6 +39,7 @@ import {
   useUpdateTask,
 } from '@/features/tasks/hooks'
 import { autoFillTaskDates, FIBONACCI_STORY_POINTS, statusColorClasses, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
+import { formatDateDMY } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -820,10 +821,10 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                   {task.data.priority}
                 </span>
                 <span className="border border-line-strong px-2 py-1 font-mono text-[9px] text-text-muted">
-                  START {task.data.start_date ?? '—'}
+                  START {formatDateDMY(task.data.start_date)}
                 </span>
                 <span className={cn('border px-2 py-1 font-mono text-[9px]', isOverdue ? 'border-destructive text-destructive' : 'border-line-strong text-text-muted')}>
-                  DUE {task.data.due_date ?? '—'}
+                  DUE {formatDateDMY(task.data.due_date)}
                 </span>
                 <span className={cn('border px-2 py-1 font-mono text-[9px]', isOverEstimate ? 'border-destructive text-destructive' : 'border-line-strong text-text-muted')}>
                   {loggedHours.toFixed(1)}/{task.data.estimated_hours ?? '—'} JAM
