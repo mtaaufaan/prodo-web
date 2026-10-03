@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildElbowPoints, computeActualBar, parseDateOnly } from './ganttMath'
+import { buildElbowPoints, computeActualBar, milestoneLabel, parseDateOnly } from './ganttMath'
 import type { TaskStatusSession } from '@/features/tasks/types'
 
 function session(partial: Partial<TaskStatusSession>): TaskStatusSession {
@@ -85,5 +85,16 @@ describe('buildElbowPoints', () => {
     expect(pts[0]).toEqual({ x: 50, y: 10 })
     expect(pts[pts.length - 1]).toEqual({ x: 60, y: 50 })
     expect(pts.length).toBe(6)
+  })
+})
+
+describe('milestoneLabel', () => {
+  it.each([
+    ['Sprint 0 - Fondation', 'M 0'],
+    ['Sprint 1 · Article List', 'M 1'],
+    ['Sprint 10', 'M 10'],
+    ['Rilis Beta', 'RILIS BETA'],
+  ])('%s -> %s', (name, want) => {
+    expect(milestoneLabel(name)).toBe(want)
   })
 })
