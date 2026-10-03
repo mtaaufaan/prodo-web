@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
 
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import type { GroupAdminOutletContext } from '@/components/GroupAdminLayout'
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,66 +23,43 @@ import {
 } from '@/features/account-settings/hooks'
 import { SessionsPanel } from '@/pages/SessionsPage'
 
-// GA Pengaturan Akun (Track S4G, desain "GA Pengaturan Akun.dc.html") --
-// dijadwalkan tapi tidak pernah dibangun (lihat catatan di
-// GroupAdminLayout.tsx dan implementation_gaps.md IG-59). Halaman standalone
-// dengan tab strip sendiri (bukan bagian dari sidebar GroupAdminLayout),
-// dibuka lewat tombol ⚙ topbar (GroupAdminLayout) -- pola sama
-// SessionsPage/tombol lain yang berdiri sendiri di luar shell nav utama.
+// Pengaturan Akun (desain "User Pengaturan Akun.dc.html" role workspace,
+// "GA Pengaturan Akun.dc.html" Group Admin).
 //
 // Field "ZONA WAKTU TAMPILAN" pada desain SENGAJA tidak dibangun -- tidak
 // ada kolom backend maupun pipeline render tanggal/waktu ber-timezone di
 // mana pun pada konsol GA saat ini (IG-30 sengaja membatasi cakupan i18n ke
 // Platform Admin saja), jadi kontrol itu akan murni kosmetik. Dicatat di
 // implementation_gaps.md IG-59, bukan dihilangkan diam-diam.
-const TABS = ['Profil', 'Keamanan', 'Sesi & Perangkat', 'Notifikasi'] as const
-// Mode embedded (di dalam WorkspaceLayout, desain "User Pengaturan Akun.dc.html"):
-// 5 tab dengan "Workspace & Role", tab-nya dirender topbar kerangka dan
-// dibaca dari outlet context `view`.
+//
+// Selalu dirender di dalam kerangka aplikasi (mode `embedded` desain): sub-tab di
+// topbar kerangka, dibaca dari outlet context `view`; TIDAK ada halaman berdiri
+// sendiri lagi (implementation_gaps.md IG-115/IG-116). Dua mode, dibedakan oleh
+// :wsId di URL:
+// - workspace (/workspaces/:wsId/account, WorkspaceLayout): 5 tab termasuk
+//   "Workspace & Role", teks versi Admin Workspace, 6 jenis notifikasi workspace.
+// - group (/account-settings, GroupAdminLayout): 4 tab, kartu GRUP · TIER, teks
+//   versi Platform Admin, 5 jenis notifikasi Group Admin.
 const WORKSPACE_TABS = ['Profil', 'Workspace & Role', 'Keamanan', 'Sesi & Perangkat', 'Notifikasi'] as const
+const GROUP_TABS = ['Profil', 'Keamanan', 'Sesi & Perangkat', 'Notifikasi'] as const
 type Tab = (typeof WORKSPACE_TABS)[number]
 
 function AccountSettingsPageContent() {
-  const outlet = useOutletContext<WorkspaceOutletContext | null>()
-  const embedded = !!outlet
-  const [tab, setTab] = useState<Tab>('Profil')
-  const activeTab: Tab = embedded ? (WORKSPACE_TABS.find((t) => t === outlet.view) ?? 'Profil') : tab
-
-  const body = (
-    <>
-      {activeTab === 'Profil' && <ProfilTab embedded={embedded} />}
-      {activeTab === 'Workspace & Role' && <WorkspaceRoleTab />}
-      {activeTab === 'Keamanan' && <KeamananTab workspaceMode={embedded} />}
-      {activeTab === 'Sesi & Perangkat' && <SessionsPanel />}
-      {activeTab === 'Notifikasi' && <NotifikasiTab />}
-    </>
-  )
-
-  if (embedded) return <div className="flex flex-col gap-4 p-6">{body}</div>
+  const { wsId } = useParams<{ wsId: string }>()
+  const workspaceMode = !!wsId
+  // Tanpa outlet context (mis. Platform Admin membuka rute ini langsung -- tidak
+  // ada tautannya) tab tetap di Profil, tidak error.
+  const outlet = useOutletContext<WorkspaceOutletContext | GroupAdminOutletContext | null>()
+  const tabs: readonly Tab[] = workspaceMode ? WORKSPACE_TABS : GROUP_TABS
+  const activeTab: Tab = tabs.find((t) => t === outlet?.view) ?? 'Profil'
 
   return (
-    <div className="min-h-screen bg-bg-deep">
-      <div className="mx-auto max-w-4xl space-y-6 p-6">
-        <h1 className="font-mono text-[11px] uppercase tracking-[0.14em] text-signal">Pengaturan Akun</h1>
-
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={cn(
-                'border px-[15px] py-[9px] font-mono text-[10px] uppercase tracking-[0.08em]',
-                tab === t ? 'border-signal bg-signal text-bg-deep' : 'border-line text-text-muted hover:border-line-strong',
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-
-        {body}
-      </div>
+    <div className="flex flex-col gap-4 p-6">
+      {activeTab === 'Profil' && <ProfilTab workspaceMode={workspaceMode} />}
+      {activeTab === 'Workspace & Role' && <WorkspaceRoleTab />}
+      {activeTab === 'Keamanan' && <KeamananTab workspaceMode={workspaceMode} />}
+      {activeTab === 'Sesi & Perangkat' && <SessionsPanel />}
+      {activeTab === 'Notifikasi' && <NotifikasiTab workspaceMode={workspaceMode} />}
     </div>
   )
 }
@@ -129,10 +107,12 @@ function useActiveWorkspaceIdentity() {
   }
 }
 
-function ProfilTab({ embedded }: { embedded: boolean }) {
+function ProfilTab({ workspaceMode }: { workspaceMode: boolean }) {
   const { data: profile, isLoading } = useProfile()
   const updateProfile = useUpdateProfile()
   const identity = useActiveWorkspaceIdentity()
+  const groupCtx = useOutletContext<GroupAdminOutletContext | null>()
+  const tier = groupCtx?.tierName ?? '—'
   const showToast = useUIStore((s) => s.showToast)
   const [form, setForm] = useState<{ displayName: string; phone: string; title: string; locale: string } | null>(null)
 
@@ -182,32 +162,32 @@ function ProfilTab({ embedded }: { embedded: boolean }) {
         <div className="flex flex-wrap gap-[22px]">
           <div>
             <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-muted">ROLE</div>
-            <div className="mt-[5px] font-mono text-[12px] text-signal">{embedded ? identity.role : 'GROUP ADMIN'}</div>
+            <div className="mt-[5px] font-mono text-[12px] text-signal">{workspaceMode ? identity.role : 'GROUP ADMIN'}</div>
           </div>
-          {embedded && (
-            <div>
-              <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-muted">WORKSPACE AKTIF</div>
-              <div className="mt-[5px] font-mono text-[12px] text-mint">
-                {identity.wsName} · {identity.orgName}
-              </div>
+          <div>
+            <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-muted">{workspaceMode ? 'WORKSPACE AKTIF' : 'GRUP · TIER'}</div>
+            <div className="mt-[5px] font-mono text-[12px] text-mint">
+              {workspaceMode
+                ? `${identity.wsName} · ${identity.orgName}`
+                : `${groupCtx?.groupName ?? '—'} · ${tier.charAt(0).toUpperCase()}${tier.slice(1)}`}
             </div>
-          )}
+          </div>
         </div>
       </div>
 
       <SectionCard
         title="DATA PRIBADI"
         note={
-          embedded
+          workspaceMode
             ? 'Nama, telepon, dan jabatan dapat Anda ubah sendiri. Email login dan role workspace ditetapkan Admin Workspace -- hubungi admin workspace Anda untuk perubahannya.'
-            : 'Nama, telepon, dan jabatan dapat Anda ubah sendiri. Email login ditetapkan Platform Admin -- hubungi tim PRODO untuk perubahannya.'
+            : 'Nama, telepon, dan jabatan dapat Anda ubah sendiri. Email login, nama grup, dan tier ditetapkan Platform Admin -- hubungi tim PRODO untuk perubahannya.'
         }
       >
         <div className="flex flex-wrap gap-3.5">
           <Field label="Nama Lengkap">
             <Input value={current.displayName} onChange={(e) => setForm({ ...current, displayName: e.target.value })} />
           </Field>
-          <Field label={embedded ? 'Email Login · Dikelola Admin Workspace' : 'Email Login · Dikelola Platform Admin'}>
+          <Field label={workspaceMode ? 'Email Login · Dikelola Admin Workspace' : 'Email Login · Dikelola Platform Admin'}>
             <Input value={profile.email} readOnly disabled />
           </Field>
         </div>
@@ -556,16 +536,27 @@ function MfaSection({ mfaEnabled, workspaceMode }: { mfaEnabled: boolean; worksp
   )
 }
 
-const NOTIF_DEFS: { key: string; label: string; note: string }[] = [
+// Kunci event = backend (repository.GroupAdminNotificationEvents /
+// WorkspaceNotificationEvents); label+catatan dari desain.
+const GROUP_NOTIF_DEFS: { key: string; label: string; note: string }[] = [
   { key: 'org.storage_quota_threshold', label: 'Ambang kuota storage organisasi', note: 'Peringatan 80% dan kritis 95% per organisasi' },
   { key: 'webhook.delivery_failed', label: 'Kegagalan webhook', note: 'Seluruh 3 retry gagal dalam 30 menit' },
   { key: 'retention.deletion_scheduled', label: 'Jadwal penghapusan data', note: 'Peringatan H-60 dan pengingat final H-80' },
   { key: 'csv_import.completed', label: 'Hasil import CSV', note: 'Ringkasan baris berhasil dan dilewati' },
   { key: 'account.security_activity', label: 'Aktivitas keamanan akun', note: 'Login perangkat baru, ganti password, reset MFA' },
 ]
+const WORKSPACE_NOTIF_DEFS: { key: string; label: string; note: string }[] = [
+  { key: 'comment.mention', label: 'Mention pada komentar', note: 'Saat nama Anda di-tag @; tunduk pada cooldown mention workspace' },
+  { key: 'task.pic_assigned', label: 'Penunjukan PIC & permintaan acknowledge', note: 'Saat Anda dipilih sebagai PIC fase berikutnya' },
+  { key: 'task.assigned', label: 'Task ditugaskan ke saya', note: 'Assignee baru atau perubahan assignee pada task Anda' },
+  { key: 'task.due_date', label: 'Due date & keterlambatan', note: 'Pengingat H-1 dan saat task melewati due date' },
+  { key: 'approval.pending', label: 'Antrean approval', note: 'Task masuk ke tahap yang menunggu keputusan Anda' },
+  { key: 'account.security_activity', label: 'Aktivitas keamanan akun', note: 'Login perangkat baru, ganti password, perubahan MFA' },
+]
 
-function NotifikasiTab() {
-  const { data: prefs, isLoading } = useNotificationPreferences()
+function NotifikasiTab({ workspaceMode }: { workspaceMode: boolean }) {
+  const { data: prefs, isLoading } = useNotificationPreferences(workspaceMode ? 'workspace' : 'group')
+  const defs = workspaceMode ? WORKSPACE_NOTIF_DEFS : GROUP_NOTIF_DEFS
   const update = useUpdateNotificationPreference()
   const showToast = useUIStore((s) => s.showToast)
 
@@ -583,10 +574,14 @@ function NotifikasiTab() {
   return (
     <SectionCard
       title="KANAL NOTIFIKASI SAYA"
-      note="Group Admin menerima notifikasi level grup: ambang kuota storage, kegagalan webhook, jadwal penghapusan data, dan hasil import. In-app selalu aktif."
+      note={
+        workspaceMode
+          ? 'Notifikasi mengikuti task dan workspace tempat Anda bekerja. In-app selalu aktif dan tidak dapat dimatikan.'
+          : 'Group Admin menerima notifikasi level grup: ambang kuota storage, kegagalan webhook, jadwal penghapusan data, dan hasil import. In-app selalu aktif.'
+      }
     >
       <div className="flex flex-col">
-        {NOTIF_DEFS.map((def) => {
+        {defs.map((def) => {
           const p = prefs.find((x) => x.event_type === def.key)
           return (
             <div key={def.key} className="flex flex-wrap items-center gap-3.5 border-t border-line py-3.5 first:border-t-0">
@@ -624,7 +619,7 @@ function NotifikasiTab() {
         })}
       </div>
       <div className="font-mono text-[9px] leading-relaxed text-text-muted">
-        Perubahan preferensi tersimpan otomatis dan tercatat di Audit Trail.
+        Push notification hanya berlaku untuk mobile client. Perubahan preferensi tersimpan otomatis dan tercatat di Audit Trail.
       </div>
     </SectionCard>
   )

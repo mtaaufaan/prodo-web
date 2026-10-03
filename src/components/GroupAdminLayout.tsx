@@ -123,6 +123,22 @@ export interface GroupAdminOutletContext {
   registerCta: (handler: (() => void) | null) => void
   groupId: string
   query: string
+  // Kartu profil Pengaturan Akun ("GRUP · TIER") -- grup yang sedang aktif.
+  groupName: string
+  tierName: string
+}
+
+// Pengaturan Akun di dalam kerangka (desain "GA Pengaturan Akun.dc.html" mode
+// embedded: 4 sub-tab di topbar) -- dibuka dari ⚙ rail/menu profil, BUKAN item
+// sidebar, jadi tidak ada di NAV_ITEMS. Halaman: AccountSettingsPage.
+const ACCOUNT_TABS = ['Profil', 'Keamanan', 'Sesi & Perangkat', 'Notifikasi']
+const ACCOUNT_NAV: (typeof NAV_ITEMS)[number] = {
+  key: 'akun',
+  icon: '⚙',
+  label: 'Pengaturan Akun',
+  to: '/account-settings',
+  tabs: ACCOUNT_TABS,
+  cta: null,
 }
 
 function GroupAdminNavItem({ icon, label, to }: { icon: string; label: string; to: string | null }) {
@@ -174,7 +190,18 @@ export default function GroupAdminLayout() {
   const [query, setQuery] = useState('')
   const { i18n } = useTranslation()
 
-  const activeNav = useMemo(() => NAV_ITEMS.find((n) => n.to && location.pathname.startsWith(n.to)) ?? null, [location.pathname])
+  const isAccountPath = location.pathname.startsWith('/account-settings')
+  const activeNav = useMemo(
+    () => NAV_ITEMS.find((n) => n.to && location.pathname.startsWith(n.to)) ?? (isAccountPath ? ACCOUNT_NAV : null),
+    [location.pathname, isAccountPath],
+  )
+
+  // Masuk Pengaturan Akun -> sub-tab mulai dari Profil; keluar -> buang sub-tab
+  // akun dari `view` supaya halaman lain tidak menerima nilai asing.
+  useEffect(() => {
+    if (isAccountPath) setView('Profil')
+    else setView((v) => (ACCOUNT_TABS.includes(v) ? 'Semua' : v))
+  }, [isAccountPath])
   // Cuma Workspace + Members yang disambungkan ke pencarian topbar (sumber
   // desain "Master UI Group Admin.dc.html": query CUMA dialirkan ke dc-import
   // "GA Workspaces"/"GA Members Roles", SENGAJA tidak ke "GA Organizations").
@@ -445,7 +472,9 @@ export default function GroupAdminLayout() {
           )}
 
           <div className="min-h-0 flex-1 overflow-auto bg-content">
-            <Outlet context={{ view, registerCta, groupId: activeGroup?.id ?? '', query } satisfies GroupAdminOutletContext} />
+            <Outlet
+              context={{ view, registerCta, groupId: activeGroup?.id ?? '', query, groupName, tierName: group?.tier ?? '—' } satisfies GroupAdminOutletContext}
+            />
           </div>
         </main>
       </div>

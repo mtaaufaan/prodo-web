@@ -26,8 +26,10 @@ export function regenerateBackupCodes() {
   return apiClient.post<{ backup_codes: string[] }>('/api/v1/auth/mfa/backup-codes/regenerate')
 }
 
-export function listNotificationPreferences() {
-  return apiClient.get<NotificationPreference[]>('/api/v1/users/me/notification-preferences')
+export type NotificationScope = 'group' | 'workspace'
+
+export function listNotificationPreferences(scope: NotificationScope) {
+  return apiClient.get<NotificationPreference[]>('/api/v1/users/me/notification-preferences', { params: { scope } })
 }
 
 export function updateNotificationPreference(body: { event_type: string; push: boolean; email: boolean }) {

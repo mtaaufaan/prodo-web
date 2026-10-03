@@ -83,15 +83,10 @@ export default function AppRouter() {
         <Route path="/" element={<Home />} />
         {/* TODO S1: /dashboard, /tasks, /projects */}
         <Route path="/settings/sessions" element={<SessionsPage />} />{/* S1-31 */}
-        {/* Pengaturan Akun (desain "GA Pengaturan Akun.dc.html"/"User
-            Pengaturan Akun.dc.html", implementation_gaps.md IG-59/IG-87):
-            self-service, tidak ber-gate organisasi/grup/workspace -- backend
-            /users/me* selalu beroperasi atas akun pemanggil sendiri dari JWT.
-            Dipindah 2026-09-20 (IG-87) dari dalam blok RoleGuard GA/PA --
-            AW/PM/Editor/Approver/Viewer juga berhak akses halaman ini
-            (ditemukan user via 403 saat menguji tombol ⚙ WorkspaceLayout),
-            sama pola /settings/sessions di atas. */}
-        <Route path="/account-settings" element={<AccountSettingsPage />} />
+        {/* Pengaturan Akun TIDAK lagi berdiri sendiri (IG-115/IG-116): role
+            workspace -> /workspaces/:wsId/account (di dalam WorkspaceLayout),
+            Group Admin -> /account-settings (di dalam GroupAdminLayout), sesuai
+            desain "User/GA Pengaturan Akun.dc.html" mode embedded. */}
         {/* WorkspaceLayout (2026-08-30, US-012): kerangka Master UI User --
             diekstrak dari desain "Master UI User.dc.html" -- dibangun
             karena 5 halaman member/workspace sudah berjalan tanpa shell
@@ -240,9 +235,9 @@ export default function AppRouter() {
                 grup ini saja, READ-ONLY di atas audit_logs yang sudah ada
                 (implementation_gaps.md IG-45). */}
             <Route path="/audit-trail" element={<GroupAuditTrailPage />} />
-            {/* Pengaturan Akun -- dipindah ke luar blok RoleGuard ini
-                2026-09-20 (IG-87), lihat rute /account-settings di atas
-                dekat /settings/sessions. */}
+            {/* Pengaturan Akun Group Admin dalam kerangka GA (IG-116) --
+                role workspace memakai /workspaces/:wsId/account. */}
+            <Route path="/account-settings" element={<AccountSettingsPage />} />
             {/* S3-28, US-009c: sama gate -- backend GET .../cross-org-memberships
                 (S3-25/27) PA/GA saja. */}
             <Route path="/groups/:groupId/cross-org-memberships" element={<CrossOrgMembershipsPage />} />
