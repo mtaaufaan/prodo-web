@@ -221,6 +221,15 @@ function pmNavItems(workspaceId: string, activeProjectId: string | null): Worksp
   ]
 }
 
+// Pengaturan Akun di dalam kerangka (desain "Master UI User.dc.html": nav
+// 'akun' dengan 5 sub-tab, BUKAN item sidebar -- dibuka dari ⚙ rail/menu
+// profil, jadi tidak ada di `items`). Halaman: AccountSettingsPage (mode
+// embedded, membaca `view` dari outlet context).
+const ACCOUNT_TABS = ['Profil', 'Workspace & Role', 'Keamanan', 'Sesi & Perangkat', 'Notifikasi']
+function accountNavItem(workspaceId: string): WorkspaceNavItemDef {
+  return { key: 'akun', icon: '⚙', label: 'Pengaturan Akun', to: `/workspaces/${workspaceId}/account`, tabs: ACCOUNT_TABS, cta: null }
+}
+
 function WorkspaceNavItem({ icon, label, to }: { icon: string; label: string; to: string | null }) {
   if (!to) {
     return (
@@ -314,7 +323,20 @@ export default function WorkspaceLayout() {
     () => (isPM ? pmNavItems(workspaceId, activeProjectId || null) : awNavItems(workspaceId)),
     [isPM, workspaceId, activeProjectId],
   )
-  const activeNav = useMemo(() => items.find((n) => n.to && location.pathname.startsWith(n.to)) ?? null, [items, location.pathname])
+  const accountItem = useMemo(() => accountNavItem(workspaceId), [workspaceId])
+  const isAccountPath = location.pathname.startsWith(accountItem.to ?? '')
+  const activeNav = useMemo(
+    () => items.find((n) => n.to && location.pathname.startsWith(n.to)) ?? (isAccountPath ? accountItem : null),
+    [items, location.pathname, isAccountPath, accountItem],
+  )
+
+  // Masuk Pengaturan Akun -> sub-tab mulai dari Profil; keluar -> buang sub-tab
+  // akun dari `view` supaya halaman lain tidak menerima nilai asing (mis.
+  // 'Keamanan' sebagai filter Sprint).
+  useEffect(() => {
+    if (isAccountPath) setView('Profil')
+    else setView((v) => (ACCOUNT_TABS.includes(v) ? 'Semua' : v))
+  }, [isAccountPath])
 
   // query (IG-88, pola PERSIS GroupAdminLayout/ac25985): topbar
   // WorkspaceLayout dulu punya input search disabled, dihapus 2026-09-13
@@ -385,7 +407,7 @@ export default function WorkspaceLayout() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/account-settings')}
+            onClick={() => navigate(`/workspaces/${workspaceId}/account`)}
             title="Pengaturan akun"
             className="flex h-[38px] w-[38px] items-center justify-center border-l-2 border-transparent font-mono text-[15px] text-text-dim hover:text-signal"
           >
@@ -584,7 +606,7 @@ export default function WorkspaceLayout() {
                 type="button"
                 onClick={() => {
                   setProfileMenuOpen(false)
-                  navigate('/account-settings')
+                  navigate(`/workspaces/${workspaceId}/account`)
                 }}
                 className="w-full border-t border-line p-2 text-left font-mono text-[11px] text-text-muted hover:text-signal"
               >
