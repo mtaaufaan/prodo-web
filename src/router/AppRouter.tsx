@@ -15,6 +15,7 @@ import AwWebhookPage from '@/pages/AwWebhookPage'
 import CooldownMentionPage from '@/pages/CooldownMentionPage'
 import CrossOrgMembershipsPage from '@/pages/CrossOrgMembershipsPage'
 import CustomStatusPage from '@/pages/CustomStatusPage'
+import ProjectPicGroupPage from '@/pages/ProjectPicGroupPage'
 import ProjectStatusSettingsPage from '@/pages/ProjectStatusSettingsPage'
 import ProjectRuleAutomationPage from '@/pages/ProjectRuleAutomationPage'
 import DesignPage from '@/pages/DesignPage'
@@ -117,6 +118,7 @@ export default function AppRouter() {
               Status.dc.html") -- status level project, salinan independen
               dari template workspace. */}
           <Route path="/workspaces/:wsId/projects/:projectId/statuses" element={<ProjectStatusSettingsPage />} />
+          <Route path="/workspaces/:wsId/projects/:projectId/pic-groups" element={<ProjectPicGroupPage />} />{/* US-017b, IG-117 */}
           {/* Track S5B ("Rule Builder.dc.html") -- rule automation level
               project, berdampingan dengan rule workspace AW di bawah. */}
           <Route path="/workspaces/:wsId/projects/:projectId/rules" element={<ProjectRuleAutomationPage />} />
