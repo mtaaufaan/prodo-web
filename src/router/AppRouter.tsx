@@ -99,6 +99,10 @@ export default function AppRouter() {
             child route begitu task-nya selesai, sama pola PlatformAdminLayout. */}
         <Route element={<WorkspaceLayout />}>
           <Route path="/workspaces/:wsId/members" element={<WorkspaceMembersPage />} />{/* S2-07/08 */}
+          {/* Pengaturan Akun dalam kerangka workspace (desain "User Pengaturan
+              Akun.dc.html" mode embedded) -- /account-settings di atas tetap
+              dipakai konsol Group Admin (halaman berdiri sendiri). */}
+          <Route path="/workspaces/:wsId/account" element={<AccountSettingsPage />} />
           <Route path="/workspaces/:wsId/projects" element={<ProjectListPage />} />{/* S4-04, US-012 */}
           {/* Task Management Core Phase 1 (forward-pull, desain "PM
               Board.dc.html" disederhanakan -- lihat komentar
