@@ -156,8 +156,9 @@ function awNavItems(workspaceId: string): WorkspaceNavItemDef[] {
 // lihat ProjectStatusSettingsPage.tsx), dan 'rule' (Track S5B, "Rule
 // Builder.dc.html" -- rule level PROJECT, berdampingan/aditif dengan Rule
 // Automation AW level workspace, lihat ProjectRuleAutomationPage.tsx)
-// sudah py halaman sungguhan. 4 sisanya "SEGERA": picgroup -> S5B lanjutan,
-// import -> S5C, board (List/Gantt/Riwayat) -> S5D, analytics -> S5E.
+// sudah py halaman sungguhan, begitu juga 'picgroup' (US-017b, IG-117,
+// "PM PIC Group.dc.html" -- ProjectPicGroupPage.tsx). Sisanya "SEGERA":
+// import -> S5C, analytics -> S5E.
 // 'docs' (level PROJECT, beda dari AW Documents yang workspace-wide) dan
 // 'audit' (Audit Trail PM, beda dari Audit Trail Workspace AW) BELUM py
 // task Sprint 5 sama sekali (IG-90), perlu dikonfirmasi cakupannya ke user
@@ -205,7 +206,14 @@ function pmNavItems(workspaceId: string, activeProjectId: string | null): Worksp
       tabs: ['Status Project'],
       cta: '+ Status',
     },
-    { key: 'picgroup', icon: '◈', label: 'PIC Group per Status', to: null, tabs: ['Konfigurasi'], cta: null },
+    {
+      key: 'picgroup',
+      icon: '◈',
+      label: 'PIC Group per Status',
+      to: p ? `/workspaces/${workspaceId}/projects/${p}/pic-groups` : null,
+      tabs: ['Konfigurasi'],
+      cta: null,
+    },
     {
       key: 'rule',
       icon: '⌗',
