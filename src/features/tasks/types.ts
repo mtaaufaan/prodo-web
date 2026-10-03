@@ -114,7 +114,8 @@ export interface Task {
   position: number
   assignees: TaskAssignee[]
   active_pics: TaskPicPhase[]
-  logged_minutes: number
+  // Hanya ada di respons DETAIL task (GET /tasks/:id), TIDAK di daftar task.
+  logged_minutes?: number
 }
 
 // TaskPicPhase (Phase 2, US-017 Phase PIC Handoff) -- satu baris per PIC

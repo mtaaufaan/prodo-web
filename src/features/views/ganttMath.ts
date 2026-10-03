@@ -130,6 +130,24 @@ export function buildElbowPoints(x1: number, y1: number, x2: number, y2: number,
   ]
 }
 
+// progressPct -- persen bar AKTUAL "sedang berjalan" (5..95): jam tercatat /
+// estimasi kalau KEDUANYA tersedia, selain itu rasio waktu berlalu / rentang
+// bar. loggedMinutes hanya dikirim endpoint DETAIL task, TIDAK di daftar task
+// yang dipakai Gantt -- undefined (bukan 0) harus jatuh ke rasio waktu, bukan
+// NaN.
+export function progressPct(
+  estimatedHours: number | null | undefined,
+  loggedMinutes: number | null | undefined,
+  startMs: number,
+  endMs: number,
+  nowMs: number,
+): number {
+  const span = Math.max(DAY_MS, endMs + DAY_MS - startMs)
+  const ratio =
+    estimatedHours && estimatedHours > 0 && loggedMinutes != null ? loggedMinutes / 60 / estimatedHours : (nowMs - startMs) / span
+  return Math.round(Math.max(0.05, Math.min(0.95, ratio)) * 100)
+}
+
 // milestoneLabel -- label ringkas penanda akhir sprint di baris MILESTONE
 // (desain: nama dipotong di pemisah " · " / " - ", awalan "SPRINT" -> "M"):
 // "Sprint 0 - Fondation" -> "M 0".

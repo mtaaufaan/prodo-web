@@ -13,6 +13,7 @@ import {
   milestoneLabel,
   MONTHS_ID,
   parseDateOnly,
+  progressPct,
   sprintEndFor,
   WEEKDAY_ID,
   buildElbowPoints,
@@ -234,11 +235,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
       } else {
         actEndTxt = 'BERJALAN'
         actTextCls = 'text-blue'
-        const estH = t.estimated_hours
-        const loggedH = t.logged_minutes / 60
-        const span = Math.max(DAY_MS, actual.aEnd.getTime() + DAY_MS - aS.getTime())
-        const ratio = estH && estH > 0 ? loggedH / estH : (Date.now() - aS.getTime()) / span
-        const pct = Math.round(Math.max(0.05, Math.min(0.95, ratio)) * 100)
+        const pct = progressPct(t.estimated_hours, t.logged_minutes, aS.getTime(), actual.aEnd.getTime(), Date.now())
         actColorCls = 'bg-blue/25 border-blue'
         actLabel = `${pct}% BERJALAN`
       }
