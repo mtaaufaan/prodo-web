@@ -30,4 +30,12 @@ describe('autoFillTaskDates', () => {
   it('cuma 1 field terisi -- belum cukup untuk menghitung apa pun', () => {
     expect(autoFillTaskDates({ start_date: '2026-01-01', due_date: '', estimated_hours: '' })).toEqual({})
   })
+
+  // <input type="date"> memicu onChange di tiap digit tahun yang diketik
+  // (0002 -> 0020 -> 0202 -> 2026) -- tahun belum 4 digit TIDAK boleh
+  // memicu auto-fill, kalau tidak tanggal turunan terkunci dengan tahun salah.
+  it.each(['0002-10-05', '0020-10-05', '0202-10-05'])('tahun belum lengkap (%s) tidak memicu auto-fill', (partial) => {
+    expect(autoFillTaskDates({ start_date: partial, due_date: '', estimated_hours: '48' })).toEqual({})
+    expect(autoFillTaskDates({ start_date: '', due_date: partial, estimated_hours: '48' })).toEqual({})
+  })
 })

@@ -256,7 +256,10 @@ const HOURS_PER_DAY = 24
 function parseDateOnly(s: string): Date | null {
   if (!s) return null
   const [y, m, d] = s.split('-').map(Number)
-  if (!y || !m || !d) return null
+  // y < 1000: tahun masih setengah diketik di <input type="date"> (onChange
+  // menembak tiap digit: 0002, 0020, 0202, 2026). Date.UTC juga memetakan
+  // tahun 0-99 ke 1900-an -- tolak keduanya supaya auto-fill menunggu 4 digit.
+  if (!y || y < 1000 || !m || !d) return null
   const date = new Date(Date.UTC(y, m - 1, d))
   return Number.isNaN(date.getTime()) ? null : date
 }
