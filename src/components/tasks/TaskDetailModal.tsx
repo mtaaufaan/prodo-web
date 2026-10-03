@@ -39,6 +39,7 @@ import {
   useUpdateTask,
 } from '@/features/tasks/hooks'
 import { autoFillTaskDates, FIBONACCI_STORY_POINTS, statusColorClasses, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
+import { formatDateDMY } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -362,6 +363,24 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sinkron SEKALI saat task berganti (by id), bukan tiap refetch
   }, [task.data?.id, taskId])
 
+  // Sinkron ulang draft FIELD TASK tiap task.data berubah (refetch setelah
+  // modal dibuka dari cache lama, jadwal digeser di Gantt, dst) -- effect di
+  // atas cuma jalan saat id task berganti, jadi form tersisa basi (Start/Due
+  // Date lama). Dilewati selama editor terbuka supaya ketikan tidak tertimpa;
+  // task.data referensinya stabil kalau isinya sama (structural sharing).
+  useEffect(() => {
+    const t = task.data
+    if (!t || fieldEditing) return
+    setTitle(t.title)
+    setDescription(typeof t.description === 'string' ? t.description : '')
+    setPriority(t.priority)
+    setStartDate(t.start_date ?? '')
+    setDueDate(t.due_date ?? '')
+    setEstimatedHours(t.estimated_hours != null ? String(t.estimated_hours) : '')
+    setStoryPoints(t.story_points)
+    setSprintId(t.sprint_id)
+  }, [task.data, fieldEditing])
+
   if (!taskId) return null
 
   // fieldDirty -- judul/deskripsi/priority/due/estimasi/SP SEKARANG satu
@@ -408,7 +427,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
     setStartDate(next.start_date)
     setDueDate(next.due_date)
     setEstimatedHours(next.estimated_hours)
-    const derived = autoFillTaskDates(next)
+    const derived = autoFillTaskDates(next, Object.keys(patch)[0] as keyof typeof next)
     if (derived.start_date !== undefined) setStartDate(derived.start_date)
     if (derived.due_date !== undefined) setDueDate(derived.due_date)
     if (derived.estimated_hours !== undefined) setEstimatedHours(derived.estimated_hours)
@@ -801,8 +820,11 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                 <span className={cn('border px-2 py-1 font-mono text-[9px] font-semibold uppercase', PRIORITY_BADGE_TONE[task.data.priority])}>
                   {task.data.priority}
                 </span>
+                <span className="border border-line-strong px-2 py-1 font-mono text-[9px] text-text-muted">
+                  START {formatDateDMY(task.data.start_date)}
+                </span>
                 <span className={cn('border px-2 py-1 font-mono text-[9px]', isOverdue ? 'border-destructive text-destructive' : 'border-line-strong text-text-muted')}>
-                  DUE {task.data.due_date ?? '—'}
+                  DUE {formatDateDMY(task.data.due_date)}
                 </span>
                 <span className={cn('border px-2 py-1 font-mono text-[9px]', isOverEstimate ? 'border-destructive text-destructive' : 'border-line-strong text-text-muted')}>
                   {loggedHours.toFixed(1)}/{task.data.estimated_hours ?? '—'} JAM

@@ -83,7 +83,7 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
     setStartDate(next.start_date)
     setDueDate(next.due_date)
     setEstimatedHours(next.estimated_hours)
-    const derived = autoFillTaskDates(next)
+    const derived = autoFillTaskDates(next, Object.keys(patch)[0] as keyof typeof next)
     if (derived.start_date !== undefined) setStartDate(derived.start_date)
     if (derived.due_date !== undefined) setDueDate(derived.due_date)
     if (derived.estimated_hours !== undefined) setEstimatedHours(derived.estimated_hours)

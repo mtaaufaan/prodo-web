@@ -10,8 +10,10 @@ import {
   DAY_MS,
   dayFloorUTC,
   fmtShort,
+  milestoneLabel,
   MONTHS_ID,
   parseDateOnly,
+  progressPct,
   sprintEndFor,
   WEEKDAY_ID,
   buildElbowPoints,
@@ -172,12 +174,15 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
           const end = parseDateOnly(s.end_date)
           if (!end) return null
           const x = xOf(end) + DAY_W
-          return { x, label: s.name.toUpperCase() }
+          return { x, label: milestoneLabel(s.name), tip: `Milestone · akhir ${s.name} · ${fmtShort(end)}` }
         })
-        .filter((m): m is { x: number; label: string } => m != null && m.x >= 0 && m.x <= timelineW + 1),
+        .filter((m): m is { x: number; label: string; tip: string } => m != null && m.x >= 0 && m.x <= timelineW + 1),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [sprints, pStart, timelineW],
   )
+
+  const todayX = xOf(today) + DAY_W / 2
+  const todayIn = today >= pStart && today < pEnd
 
   // ---- baris PLAN vs ACTUAL ----
   const geo = new Map<string, { left: number; width: number }>()
@@ -203,6 +208,10 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
     const delayDays = actual.kind === 'done' ? Math.max(0, diffDays(due, actual.aEnd)) : 0
 
     let actLeft: number, actWidth: number, actColorCls: string, actLabel: string
+    // Baris ke-2 kolom TGL MULAI/AKHIR (desain: tanggal AKTUAL di bawah PLAN).
+    // ponytail: BLOCKED menampilkan teks "BLOCKED ⛔", bukan tanggal masuk
+    // BLOCKED seperti prototype -- computeActualBar tidak mengekspos tanggal itu.
+    let actStartTxt = '—', actEndTxt = '—', actTextCls = 'text-text-dim'
     if (actual.kind === 'todo') {
       actLeft = planLeft
       actWidth = planWidth
@@ -212,18 +221,21 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
       const aS = actual.aStart ?? start
       actLeft = xOf(aS) + shift * DAY_W
       actWidth = Math.max(DAY_W * 0.6, xOf(actual.aEnd) + DAY_W - xOf(aS))
+      actStartTxt = fmtShort(aS)
       if (actual.kind === 'done') {
         actColorCls = delayDays ? 'bg-destructive/25 border-destructive' : 'bg-mint/25 border-mint'
         actLabel = delayDays ? `+${delayDays} HARI DELAY` : 'TEPAT WAKTU'
+        actEndTxt = fmtShort(actual.aEnd) + (delayDays ? ` +${delayDays}H` : '')
+        actTextCls = delayDays ? 'text-destructive' : 'text-mint'
       } else if (actual.kind === 'blocked') {
         actColorCls = 'bg-amber/25 border-amber'
         actLabel = 'BLOCKED'
+        actEndTxt = 'BLOCKED ⛔'
+        actTextCls = 'text-amber'
       } else {
-        const estH = t.estimated_hours
-        const loggedH = t.logged_minutes / 60
-        const span = Math.max(DAY_MS, actual.aEnd.getTime() + DAY_MS - aS.getTime())
-        const ratio = estH && estH > 0 ? loggedH / estH : (Date.now() - aS.getTime()) / span
-        const pct = Math.round(Math.max(0.05, Math.min(0.95, ratio)) * 100)
+        actEndTxt = 'BERJALAN'
+        actTextCls = 'text-blue'
+        const pct = progressPct(t.estimated_hours, t.logged_minutes, aS.getTime(), actual.aEnd.getTime(), Date.now())
         actColorCls = 'bg-blue/25 border-blue'
         actLabel = `${pct}% BERJALAN`
       }
@@ -238,6 +250,9 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
       actWidth,
       actColorCls,
       actLabel,
+      actStartTxt,
+      actEndTxt,
+      actTextCls,
       status,
       isLate,
       lockTag,
@@ -287,7 +302,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
 
   return (
     <div className="flex min-h-0 flex-1 flex-col border border-line">
-      <div className="flex flex-col gap-2 border-b border-line bg-raised-1 px-3.5 py-2.5">
+      <div className="flex flex-col gap-2 border-b border-line bg-raised-2 px-3.5 py-2.5">
         <div className="flex flex-wrap gap-1.5">
           {['Semua', ...sprintNames].map((n) => (
             <button
@@ -328,15 +343,17 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
             <p className="p-7 font-mono text-[10px] text-text-dim">Tidak ada task pada filter ini.</p>
           ) : (
             <div style={{ position: 'relative', width: 396 + timelineW }}>
-              <div className="sticky top-0 z-[8] flex border-b border-line-strong bg-raised-1">
+              <div className="sticky top-0 z-[8] flex border-b border-line-strong bg-raised-2">
                 <div
-                  className="sticky left-0 z-[9] grid flex-shrink-0 bg-raised-1 font-mono text-[8.5px] uppercase tracking-[0.1em] text-text-muted"
+                  className="sticky left-0 z-[9] grid flex-shrink-0 bg-raised-2 font-mono text-[8.5px] uppercase tracking-[0.1em] text-text-muted"
                   style={{ width: 396, gridTemplateColumns: '208px 94px 94px', gridTemplateRows: '20px 18px 18px' }}
                 >
                   <span className="flex items-center px-3.5 text-text-bone" style={{ gridRow: '1 / 4' }}>TASK</span>
                   <span className="flex items-center border-l border-line px-2.5">TGL MULAI</span>
                   <span className="flex items-center border-l border-line px-2.5">TGL AKHIR</span>
                   <span className="flex items-center gap-1.5 border-l border-t border-line px-2.5"><span className="h-1 w-2.5 bg-text-dim" />PLAN</span>
+                  <span className="flex items-center gap-1.5 border-l border-t border-line px-2.5"><span className="h-1 w-2.5 bg-text-dim" />PLAN</span>
+                  <span className="flex items-center gap-1.5 border-l border-t border-line px-2.5"><span className="h-1 w-2.5 bg-blue" />AKTUAL</span>
                   <span className="flex items-center gap-1.5 border-l border-t border-line px-2.5"><span className="h-1 w-2.5 bg-blue" />AKTUAL</span>
                 </div>
                 <div style={{ width: timelineW }} className="flex flex-shrink-0 flex-col">
@@ -376,11 +393,16 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
                   </div>
                   <div className="relative flex-shrink-0" style={{ width: timelineW, zIndex: 1 }}>
                     {milestones.map((m, i) => (
-                      <div key={i} title={m.label} className="absolute top-[3px] flex items-center gap-1.5" style={{ left: m.x, transform: 'translateX(-5px)' }}>
+                      <div key={i} title={m.tip} className="absolute top-[3px] flex items-center gap-1.5" style={{ left: m.x, transform: 'translateX(-5px)' }}>
                         <span className="block h-2.5 w-2.5 flex-shrink-0 rotate-45 bg-amber" />
                         <span className="whitespace-nowrap bg-panel px-1 font-mono text-[8px] tracking-[0.06em] text-amber">{m.label}</span>
                       </div>
                     ))}
+                    {todayIn && (
+                      <div className="absolute top-[16px] whitespace-nowrap bg-panel px-1 font-mono text-[7.5px] tracking-[0.08em] text-red" style={{ left: todayX, transform: 'translateX(4px)' }}>
+                        HARI INI · {fmtShort(today)}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -388,7 +410,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
                   <div key={r.task.id} className="flex border-b border-line" style={{ height: ROW_H }}>
                     <div
                       onClick={() => onOpenTask(r.task.id)}
-                      className="sticky left-0 z-[5] grid flex-shrink-0 cursor-pointer border-r border-line-strong bg-raised-1 hover:bg-panel"
+                      className="sticky left-0 z-[5] grid flex-shrink-0 cursor-pointer border-r border-line-strong bg-panel hover:bg-raised"
                       style={{ width: 396, gridTemplateColumns: '208px 94px 94px' }}
                     >
                       <div className="min-w-0 px-3.5 py-1.5 leading-[1.3]">
@@ -398,14 +420,16 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
                           {r.lockTag && <span className="text-destructive">{r.lockTag}</span>}
                         </div>
                       </div>
-                      <div className="flex flex-col justify-center gap-0.5 border-l border-line px-2.5 font-mono text-[9px] leading-tight">
+                      <div className="flex flex-col justify-center border-l border-line px-2.5 font-mono text-[9px] leading-[1.6]">
                         <span className="text-text-muted">{r.task.start_date ? fmtShort(parseDateOnly(r.task.start_date)!) : '—'}</span>
+                        {r.hasDates && <span className={r.actTextCls}>{r.actStartTxt}</span>}
                       </div>
-                      <div className="flex flex-col justify-center gap-0.5 border-l border-line px-2.5 font-mono text-[9px] leading-tight">
+                      <div className="flex flex-col justify-center border-l border-line px-2.5 font-mono text-[9px] leading-[1.6]">
                         <span className={cn(r.isLate ? 'text-destructive' : 'text-text-muted')}>{r.task.due_date ? fmtShort(parseDateOnly(r.task.due_date)!) : '—'}</span>
+                        {r.hasDates && <span className={cn('whitespace-nowrap', r.actTextCls)}>{r.actEndTxt}</span>}
                       </div>
                     </div>
-                    <div className="relative flex-shrink-0" style={{ width: timelineW, backgroundImage: `repeating-linear-gradient(90deg, var(--color-line, #333) 0 1px, transparent 1px ${DAY_W}px)` }}>
+                    <div className="relative flex-shrink-0" style={{ width: timelineW, backgroundImage: `repeating-linear-gradient(90deg, oklch(0.235 0.008 60) 0 1px, transparent 1px ${DAY_W}px)` }}>
                       {r.hasDates ? (
                         <>
                           <div
@@ -435,6 +459,15 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
                     </div>
                   </div>
                 ))}
+                {/* Garis vertikal milestone (akhir sprint) + HARI INI -- desain:
+                    overlay tinggi penuh, menumpang area timeline (396px = lebar
+                    panel kiri), di bawah panel kiri yang sticky (z-5). */}
+                <div className="pointer-events-none absolute bottom-0 top-0 z-[1]" style={{ left: 396, width: timelineW }}>
+                  {milestones.map((m, i) => (
+                    <div key={i} className="absolute bottom-0 top-0 border-l border-dashed" style={{ left: m.x, borderColor: 'oklch(0.72 0.13 200 / 0.9)' }} />
+                  ))}
+                  {todayIn && <div className="absolute bottom-0 top-0 border-l border-dashed border-red" style={{ left: todayX }} />}
+                </div>
                 {depsOn && edges.length > 0 && (
                   <svg
                     className="pointer-events-none absolute left-[396px] top-[31px]"
@@ -481,7 +514,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-4 border-t border-line bg-raised-1 px-3.5 py-2.5 font-mono text-[8.5px] uppercase tracking-[0.06em] text-text-muted">
+      <div className="flex flex-wrap items-center gap-4 border-t border-line bg-raised-2 px-3.5 py-2.5 font-mono text-[8.5px] uppercase tracking-[0.06em] text-text-muted">
         <span className="text-text-dim tracking-[0.14em]">LEGENDA</span>
         <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-text-dim bg-text-dim/30" />PLAN</span>
         <span className="flex items-center gap-1.5"><span className="block h-2.5 w-4 border border-mint bg-mint/25" />TEPAT WAKTU</span>
