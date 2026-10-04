@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildElbowPoints, computeActualBar, milestoneLabel, parseDateOnly, progressPct } from './ganttMath'
-import type { TaskStatusSession } from '@/features/tasks/types'
+import { buildElbowPoints, computeActualBar, milestoneLabel, parseDateOnly, progressPct, sortTasksBySprintTimeline } from './ganttMath'
+import type { Sprint, Task, TaskStatusSession } from '@/features/tasks/types'
 
 function session(partial: Partial<TaskStatusSession>): TaskStatusSession {
   return {
@@ -117,5 +117,44 @@ describe('progressPct', () => {
   it('tanpa estimasi -> rasio waktu, dijepit 5..95', () => {
     expect(progressPct(null, 0, start, end, start - 10 * DAY)).toBe(5)
     expect(progressPct(null, 0, start, end, start + 30 * DAY)).toBe(95)
+  })
+})
+
+describe('sortTasksBySprintTimeline', () => {
+  const sp = (id: string, name: string, start: string | null, end: string | null) => ({ id, name, start_date: start, end_date: end }) as Sprint
+  const sprints = [
+    sp('s1', 'Sprint 1', '2026-10-05', '2026-10-16'),
+    sp('s0', 'Sprint 0', '2026-09-28', '2026-10-05'),
+    sp('sx', 'Sprint Tanpa Tanggal', null, null),
+  ]
+  const t = (code: string, sprintId: string | null, start: string | null, due: string | null) =>
+    ({ task_code: code, sprint_id: sprintId, sprint_name: null, start_date: start, due_date: due }) as Task
+
+  it('sprint timeline terkecil dulu, lalu task timeline terkecil di dalam sprint', () => {
+    const sorted = sortTasksBySprintTimeline(
+      [t('A', 's1', '2026-10-07', '2026-10-09'), t('B', 's0', '2026-10-04', '2026-10-06'), t('C', 's0', '2026-10-01', '2026-10-03'), t('D', 's1', '2026-10-06', '2026-10-08')],
+      sprints,
+    )
+    expect(sorted.map((x) => x.task_code)).toEqual(['C', 'B', 'D', 'A'])
+  })
+
+  it('task tanpa tanggal paling akhir di sprintnya', () => {
+    const sorted = sortTasksBySprintTimeline([t('U', 's0', null, null), t('A', 's0', '2026-10-01', '2026-10-02')], sprints)
+    expect(sorted.map((x) => x.task_code)).toEqual(['A', 'U'])
+  })
+
+  it('sprint tanpa tanggal setelah sprint bertanggal, task tanpa sprint paling akhir', () => {
+    const sorted = sortTasksBySprintTimeline(
+      [t('N', null, '2026-09-01', '2026-09-02'), t('X', 'sx', '2026-09-01', '2026-09-02'), t('A', 's1', '2026-10-07', '2026-10-09')],
+      sprints,
+    )
+    expect(sorted.map((x) => x.task_code)).toEqual(['A', 'X', 'N'])
+  })
+
+  it('seri start_date diurutkan due_date lalu kode; input tidak diubah', () => {
+    const input = [t('B', 's0', '2026-10-01', '2026-10-05'), t('A', 's0', '2026-10-01', '2026-10-03'), t('C', 's0', '2026-10-01', '2026-10-03')]
+    const sorted = sortTasksBySprintTimeline(input, sprints)
+    expect(sorted.map((x) => x.task_code)).toEqual(['A', 'C', 'B'])
+    expect(input.map((x) => x.task_code)).toEqual(['B', 'A', 'C'])
   })
 })
