@@ -14,6 +14,7 @@ import {
   useStartSprint,
 } from '@/features/tasks/hooks'
 import type { Sprint, Task } from '@/features/tasks/types'
+import { formatDateDMY } from '@/lib/date'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 10
@@ -25,9 +26,6 @@ function isOverdue(t: Task) {
   return t.due_date != null && t.due_date < new Date().toISOString().slice(0, 10) && t.status_name !== 'DONE'
 }
 
-function formatDate(iso: string | null) {
-  return iso ? new Date(iso).toLocaleDateString('id-ID') : '—'
-}
 
 function SprintCard({ sprint, tasksInSprint, onManage }: { sprint: Sprint; tasksInSprint: Task[]; onManage: () => void }) {
   const startSprint = useStartSprint(sprint.project_id)
@@ -60,7 +58,7 @@ function SprintCard({ sprint, tasksInSprint, onManage }: { sprint: Sprint; tasks
             {sprint.name}
           </button>
           <div className="mt-1 font-mono text-[8.5px] text-text-dim">
-            {formatDate(sprint.start_date)} → {formatDate(sprint.end_date)} · {total} TASK
+            {formatDateDMY(sprint.start_date)} → {formatDateDMY(sprint.end_date)} · {total} TASK
           </div>
           {sprint.goal && <div className="mt-1.5 text-[11.5px] text-text-muted">{sprint.goal}</div>}
         </div>

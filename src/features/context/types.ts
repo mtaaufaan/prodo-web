@@ -8,6 +8,8 @@ export interface WorkspaceMembership {
   name: string
   org_name: string
   role: string
+  // YYYY-MM-DD (UTC) -- tab "Workspace & Role" Pengaturan Akun.
+  joined_at: string
 }
 
 // ProjectScopedProject (susulan, ditemukan user: project-scoped member --

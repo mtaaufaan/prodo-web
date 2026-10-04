@@ -131,6 +131,11 @@ export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): Au
       return { text: `Role member project "${targetOf(entry)}" diubah`, scope: 'MEMBER PROJECT' }
     case 'project_member.removed':
       return { text: `Member "${targetOf(entry)}" dikeluarkan dari project`, scope: 'MEMBER PROJECT' }
+    case 'pic_group.updated':
+      return {
+        text: `PIC Group status "${metaString(entry, 'status_name')}" pada project "${metaString(entry, 'project_name', targetOf(entry))}" diperbarui`,
+        scope: 'PIC GROUP',
+      }
     case 'sprint.created':
       return { text: `Sprint "${targetOf(entry)}" dibuat`, scope: 'SPRINT' }
     case 'sprint.updated':

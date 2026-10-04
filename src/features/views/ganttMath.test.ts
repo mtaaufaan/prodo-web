@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildElbowPoints, computeActualBar, parseDateOnly } from './ganttMath'
+import { buildElbowPoints, computeActualBar, milestoneLabel, parseDateOnly, progressPct } from './ganttMath'
 import type { TaskStatusSession } from '@/features/tasks/types'
 
 function session(partial: Partial<TaskStatusSession>): TaskStatusSession {
@@ -85,5 +85,37 @@ describe('buildElbowPoints', () => {
     expect(pts[0]).toEqual({ x: 50, y: 10 })
     expect(pts[pts.length - 1]).toEqual({ x: 60, y: 50 })
     expect(pts.length).toBe(6)
+  })
+})
+
+describe('milestoneLabel', () => {
+  it.each([
+    ['Sprint 0 - Fondation', 'M 0'],
+    ['Sprint 1 · Article List', 'M 1'],
+    ['Sprint 10', 'M 10'],
+    ['Rilis Beta', 'RILIS BETA'],
+  ])('%s -> %s', (name, want) => {
+    expect(milestoneLabel(name)).toBe(want)
+  })
+})
+
+describe('progressPct', () => {
+  const DAY = 86400000
+  const start = Date.UTC(2026, 9, 3)
+  const end = Date.UTC(2026, 9, 6)
+
+  it('jam tercatat / estimasi kalau keduanya ada', () => {
+    expect(progressPct(10, 300, start, end, start)).toBe(50) // 5 jam / 10 jam
+  })
+
+  it('logged_minutes undefined (daftar task) -> rasio waktu, BUKAN NaN', () => {
+    const pct = progressPct(72, undefined, start, end, start + 2 * DAY)
+    expect(Number.isNaN(pct)).toBe(false)
+    expect(pct).toBe(50) // 2 hari dari rentang 4 hari
+  })
+
+  it('tanpa estimasi -> rasio waktu, dijepit 5..95', () => {
+    expect(progressPct(null, 0, start, end, start - 10 * DAY)).toBe(5)
+    expect(progressPct(null, 0, start, end, start + 30 * DAY)).toBe(95)
   })
 })

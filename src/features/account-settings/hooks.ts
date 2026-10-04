@@ -4,6 +4,7 @@ import {
   changePassword,
   getProfile,
   listNotificationPreferences,
+  type NotificationScope,
   regenerateBackupCodes,
   setupSelfMFA,
   updateNotificationPreference,
@@ -13,7 +14,10 @@ import {
 import type { Profile } from './types'
 
 export const profileKeys = { all: ['account-profile'] as const }
-export const notificationPreferenceKeys = { all: ['account-notification-preferences'] as const }
+export const notificationPreferenceKeys = {
+  all: ['account-notification-preferences'] as const,
+  scope: (scope: NotificationScope) => ['account-notification-preferences', scope] as const,
+}
 
 export function useProfile() {
   return useQuery({ queryKey: profileKeys.all, queryFn: getProfile })
@@ -47,8 +51,8 @@ export function useRegenerateBackupCodes() {
   return useMutation({ mutationFn: regenerateBackupCodes })
 }
 
-export function useNotificationPreferences() {
-  return useQuery({ queryKey: notificationPreferenceKeys.all, queryFn: listNotificationPreferences })
+export function useNotificationPreferences(scope: NotificationScope) {
+  return useQuery({ queryKey: notificationPreferenceKeys.scope(scope), queryFn: () => listNotificationPreferences(scope) })
 }
 
 export function useUpdateNotificationPreference() {
