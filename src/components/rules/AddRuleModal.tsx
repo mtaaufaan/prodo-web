@@ -153,6 +153,7 @@ export default function AddRuleModal({ open, onClose, workspaceId, workspaceName
     create.mutate(
       {
         name: trimmedName,
+        template_key: template?.key,
         trigger: { event: trigger, status_id: needsStatus ? statusId : undefined, days: needsDays ? Number(days) : undefined },
         condition,
         action: {

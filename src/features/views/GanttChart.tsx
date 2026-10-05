@@ -43,6 +43,12 @@ import {
 //   itu baru tersedia per-task (bukan bulk per-project), butuh endpoint
 //   baru lagi di luar cakupan sesi ini.
 
+// CANCELED: batang abu-abu bergaris miring merah (\) sepanjang batang.
+const CANCELED_STRIPE = {
+  backgroundImage:
+    'repeating-linear-gradient(45deg, oklch(var(--red)) 0 2px, oklch(var(--text-dim) / 0.55) 2px 7px)',
+} as const
+
 const DAY_W = 28
 const ROW_H = 46
 const TAIL_PX = 170
@@ -212,6 +218,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
     const delayDays = actual.kind === 'done' ? Math.max(0, diffDays(due, actual.aEnd)) : 0
 
     let actLeft: number, actWidth: number, actColorCls: string, actLabel: string
+    let actStripe = false
     // Baris ke-2 kolom TGL MULAI/AKHIR (desain: tanggal AKTUAL di bawah PLAN).
     // ponytail: BLOCKED menampilkan teks "BLOCKED ⛔", bukan tanggal masuk
     // BLOCKED seperti prototype -- computeActualBar tidak mengekspos tanggal itu.
@@ -232,7 +239,8 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
         actEndTxt = fmtShort(actual.aEnd) + (delayDays ? ` +${delayDays}H` : '')
         actTextCls = delayDays ? 'text-destructive' : 'text-mint'
       } else if (actual.kind === 'canceled') {
-        actColorCls = 'bg-text-dim/20 border-text-dim'
+        actColorCls = 'border-text-dim'
+        actStripe = true
         actLabel = 'DIBATALKAN'
         actEndTxt = fmtShort(actual.aEnd)
         actTextCls = 'text-text-dim'
@@ -258,6 +266,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
       actLeft,
       actWidth,
       actColorCls,
+      actStripe,
       actLabel,
       actStartTxt,
       actEndTxt,
@@ -454,7 +463,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
                           <div
                             title={`AKTUAL · ${r.actLabel}`}
                             className={cn('absolute top-[25px] h-[11px] overflow-hidden border', r.actColorCls)}
-                            style={{ left: r.actLeft, width: r.actWidth }}
+                            style={{ left: r.actLeft, width: r.actWidth, ...(r.actStripe ? CANCELED_STRIPE : null) }}
                           />
                           <span className="absolute top-[23px] whitespace-nowrap font-mono text-[7.5px] tracking-[0.04em] text-text-dim" style={{ left: r.actLeft + r.actWidth + 6 }}>
                             {r.actLabel}
