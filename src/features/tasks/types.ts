@@ -8,6 +8,8 @@ export interface CustomStatus {
   is_system: boolean
   is_undefined: boolean
   require_start_confirmation: boolean
+  // require_pic -- wajib menetapkan PIC saat task masuk status ini; DONE/CANCELED default false.
+  require_pic: boolean
   // task_count (S4W-05, US-021) -- jumlah task yang sedang memakai status
   // ini, ditampilkan di panel Kelola sebelum AW menjadikannya UNDEFINED.
   task_count: number

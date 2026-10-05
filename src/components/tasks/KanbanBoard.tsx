@@ -91,8 +91,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
     if (src.status_id !== target.status_id) {
       const targetStatus = sortedStatuses.find((s) => s.id === target.status_id)
       if (!targetStatus) return
-      setPending({ kind: 'single', taskId: src.id, statusId: targetStatus.id, statusName: targetStatus.name })
-      setPendingError('')
+      requestMove({ kind: 'single', taskId: src.id, statusId: targetStatus.id, statusName: targetStatus.name })
       return
     }
     reorder.mutate({ taskId: src.id, targetTaskId: target.id, placeBefore: overSide === 'before' })
@@ -106,16 +105,16 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
     if (!srcId) return
     const src = tasks.find((t) => t.id === srcId)
     if (!src || src.status_id === status.id) return
-    setPending({ kind: 'single', taskId: src.id, statusId: status.id, statusName: status.name })
-    setPendingError('')
+    requestMove({ kind: 'single', taskId: src.id, statusId: status.id, statusName: status.name })
   }
 
-  const confirmPending = (picIds: string[]) => {
-    if (!pending) return
+  // runMove -- eksekusi pindah status; picIds kosong dipakai untuk status
+  // tujuan require_pic=false (DONE/CANCELED default) tanpa dialog PIC.
+  const runMove = (move: PendingMove, picIds: string[]) => {
     setPendingError('')
-    if (pending.kind === 'single') {
+    if (move.kind === 'single') {
       setStatus.mutate(
-        { taskId: pending.taskId, statusId: pending.statusId, picIds },
+        { taskId: move.taskId, statusId: move.statusId, picIds },
         {
           onSuccess: () => setPending(null),
           onError: (err: unknown) => setPendingError(describeMoveError(err)),
@@ -123,7 +122,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
       )
     } else {
       bulkSetStatus.mutate(
-        { taskIds: selected, statusId: pending.statusId, picIds },
+        { taskIds: selected, statusId: move.statusId, picIds },
         {
           onSuccess: (result) => {
             setPending(null)
@@ -136,6 +135,21 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
         },
       )
     }
+  }
+
+  const confirmPending = (picIds: string[]) => {
+    if (pending) runMove(pending, picIds)
+  }
+
+  // requestMove -- status tujuan require_pic=false langsung dieksekusi,
+  // selain itu buka dialog PIC.
+  const requestMove = (move: PendingMove) => {
+    setPendingError('')
+    if (sortedStatuses.find((s) => s.id === move.statusId)?.require_pic === false) {
+      runMove(move, [])
+      return
+    }
+    setPending(move)
   }
 
   const quickMoves = (task: Task) => {
@@ -185,10 +199,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
               <button
                 key={s.id}
                 type="button"
-                onClick={() => {
-                  setPending({ kind: 'bulk', statusId: s.id, statusName: s.name })
-                  setPendingError('')
-                }}
+                onClick={() => requestMove({ kind: 'bulk', statusId: s.id, statusName: s.name })}
                 className="border border-line-strong px-2 py-1 font-mono text-[9px] text-text-muted hover:border-signal hover:text-signal"
               >
                 → {s.name}
@@ -290,10 +301,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
                           <button
                             key={m.statusId}
                             type="button"
-                            onClick={() => {
-                              setPending({ kind: 'single', taskId: t.id, statusId: m.statusId, statusName: m.statusName })
-                              setPendingError('')
-                            }}
+                            onClick={() => requestMove({ kind: 'single', taskId: t.id, statusId: m.statusId, statusName: m.statusName })}
                             className="border border-line-strong px-1.5 py-0.5 font-mono text-[8px] text-text-dim hover:border-signal hover:text-signal"
                           >
                             {m.label}
@@ -308,6 +316,15 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
           </div>
         ))}
       </div>
+
+      {pending === null && pendingError && (
+        <div className="fixed bottom-4 right-4 z-50 flex max-w-[360px] items-start gap-3 border border-destructive bg-bg-deep px-3.5 py-3 font-mono text-[10px] leading-relaxed text-destructive">
+          <span>⚠ {pendingError}</span>
+          <button type="button" onClick={() => setPendingError('')} className="text-text-muted hover:text-text">
+            ✕
+          </button>
+        </div>
+      )}
 
       <PicPickerModal
         open={pending !== null}

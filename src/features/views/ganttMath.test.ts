@@ -63,6 +63,16 @@ describe('computeActualBar', () => {
     expect(r.aEnd.toISOString().slice(0, 10)).toBe('2026-01-20')
   })
 
+  it('canceled -- bar berhenti di tanggal masuk CANCELED', () => {
+    const sessions = [
+      session({ status_name: 'IN PROGRESS', entered_at: '2026-01-02T00:00:00Z', work_started_at: '2026-01-02T00:00:00Z' }),
+      session({ status_name: 'CANCELED', entered_at: '2026-01-04T00:00:00Z' }),
+    ]
+    const r = computeActualBar({ status_name: 'CANCELED', due_date: '2026-01-15' }, sessions, null, today)
+    expect(r.kind).toBe('canceled')
+    expect(r.aEnd.toISOString().slice(0, 10)).toBe('2026-01-04')
+  })
+
   it('BACKLOG/DONE auto-fill work_started_at (S4-67) TIDAK dianggap mulai mengerjakan', () => {
     // Sesi BACKLOG py work_started_at terisi (auto-fill backend), tapi status
     // sekarang masih BACKLOG -- harus tetap 'todo', bukan salah kena 'prog'.

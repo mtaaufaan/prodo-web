@@ -194,7 +194,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
     const start = parseDateOnly(t.start_date)
     const due = parseDateOnly(t.due_date)
     const status = statusColorClasses(t.status_color)
-    const isLate = Boolean(t.due_date && t.due_date < today.toISOString().slice(0, 10) && t.status_name !== 'DONE')
+    const isLate = Boolean(t.due_date && t.due_date < today.toISOString().slice(0, 10) && t.status_name !== 'DONE' && t.status_name !== 'CANCELED')
     const lockTag = t.is_blocked ? '⛔' : ''
 
     if (!start || !due) {
@@ -231,6 +231,11 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
         actLabel = delayDays ? `+${delayDays} HARI DELAY` : 'TEPAT WAKTU'
         actEndTxt = fmtShort(actual.aEnd) + (delayDays ? ` +${delayDays}H` : '')
         actTextCls = delayDays ? 'text-destructive' : 'text-mint'
+      } else if (actual.kind === 'canceled') {
+        actColorCls = 'bg-text-dim/20 border-text-dim'
+        actLabel = 'DIBATALKAN'
+        actEndTxt = fmtShort(actual.aEnd)
+        actTextCls = 'text-text-dim'
       } else if (actual.kind === 'blocked') {
         actColorCls = 'bg-amber/25 border-amber'
         actLabel = 'BLOCKED'

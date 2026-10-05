@@ -43,10 +43,10 @@ export function fmtShort(d: Date): string {
 // komentar TaskDetailModal -- murni tampilan per-komponen, bukan util
 // bersama) supaya kedua tempat tidak diam-diam saling mempengaruhi.
 export function isUntrackedStatusTime(statusName: string): boolean {
-  return statusName === 'BACKLOG' || statusName === 'DONE'
+  return statusName === 'BACKLOG' || statusName === 'DONE' || statusName === 'CANCELED'
 }
 
-export type ActualBarKind = 'todo' | 'prog' | 'done' | 'blocked'
+export type ActualBarKind = 'todo' | 'prog' | 'done' | 'blocked' | 'canceled'
 
 export interface ActualBar {
   kind: ActualBarKind
@@ -76,12 +76,16 @@ export function computeActualBar(
 
   let kind: ActualBarKind = 'todo'
   if (task.status_name === 'DONE') kind = 'done'
+  else if (task.status_name === 'CANCELED') kind = 'canceled'
   else if (task.status_name === 'BLOCKED') kind = 'blocked'
   else if (task.status_name !== 'BACKLOG' && aStartMs != null) kind = 'prog'
 
   const aStart = aStartMs != null ? dayFloorUTC(aStartMs) : null
   let aEnd: Date
-  if (kind === 'done') {
+  if (kind === 'canceled') {
+    const canceledSession = [...sessions].reverse().find((s) => s.status_name === 'CANCELED')
+    aEnd = dayFloorUTC(canceledSession ? new Date(canceledSession.entered_at).getTime() : today.getTime())
+  } else if (kind === 'done') {
     const doneSession = sessions.find((s) => s.status_name === 'DONE')
     aEnd = dayFloorUTC(doneSession ? new Date(doneSession.entered_at).getTime() : today.getTime())
   } else if (kind === 'prog') {

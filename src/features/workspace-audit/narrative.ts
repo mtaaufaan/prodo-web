@@ -81,6 +81,8 @@ export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): Au
       return { text: `Status kustom "${targetOf(entry)}" dipulihkan`, scope: 'CUSTOM STATUS' }
     case 'custom_status.start_confirmation_changed':
       return { text: `Konfirmasi mulai pengerjaan status "${targetOf(entry)}" diubah`, scope: 'CUSTOM STATUS' }
+    case 'custom_status.pic_requirement_changed':
+      return { text: `Kewajiban PIC status "${targetOf(entry)}" diubah`, scope: 'CUSTOM STATUS' }
     case 'rule.created':
       return { text: `Rule otomatisasi "${targetOf(entry)}" dibuat`, scope: 'RULE AUTOMATION' }
     case 'rule.deleted':

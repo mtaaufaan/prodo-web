@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { ApiError } from '@/lib/api'
 import {
   useRestoreProjectStatus,
+  useSetProjectStatusPicRequirement,
   useSetProjectStatusStartConfirmation,
   useUndefineProjectStatus,
   useUpdateProjectStatusAppearance,
@@ -14,10 +15,10 @@ import {
 import { CUSTOM_STATUS_COLORS, normalizeStatusColor, statusColorClasses, type CustomStatus, type CustomStatusColorToken } from '@/features/tasks/types'
 import { cn } from '@/lib/utils'
 
-// UNTRACKED -- BACKLOG/DONE/BLOCKED bukan status kerja aktif, konfirmasi
+// UNTRACKED -- BACKLOG/DONE/BLOCKED/CANCELED bukan status kerja aktif, konfirmasi
 // "Mulai Pengerjaan" tidak berlaku (sama konstanta dengan backend
 // customStatusUntracked, dan ManageStatusPanel versi AW).
-const UNTRACKED = ['BACKLOG', 'DONE', 'BLOCKED']
+const UNTRACKED = ['BACKLOG', 'DONE', 'BLOCKED', 'CANCELED']
 
 // ManageProjectStatusPanel (Track S5B, US-019, "PM Custom Status.dc.html")
 // -- versi project dari ManageStatusPanel.tsx (AW): status di sini adalah
@@ -38,6 +39,7 @@ export default function ManageProjectStatusPanel({ projectId, status, onClose }:
 
   const updateAppearance = useUpdateProjectStatusAppearance(projectId)
   const setStartConfirmation = useSetProjectStatusStartConfirmation(projectId)
+  const setPicRequirement = useSetProjectStatusPicRequirement(projectId)
   const undefineStatus = useUndefineProjectStatus(projectId)
   const restoreStatus = useRestoreProjectStatus(projectId)
 
@@ -58,6 +60,7 @@ export default function ManageProjectStatusPanel({ projectId, status, onClose }:
   const dirty = (!status.is_system && name.trim().toUpperCase() !== status.name) || color !== normalizeStatusColor(status.color_token)
   const trackable = !status.is_system || !UNTRACKED.includes(status.name)
   const startOn = status.require_start_confirmation
+  const picOn = status.require_pic
 
   const handleSave = () => {
     setError('')
@@ -76,6 +79,17 @@ export default function ManageProjectStatusPanel({ projectId, status, onClose }:
       { statusId: status.id, require: !startOn },
       {
         onSuccess: () => setNotice(`Konfirmasi mulai status ${status.name} ${!startOn ? 'diaktifkan' : 'dimatikan'}. Tercatat di Audit Trail.`),
+        onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal mengubah setting.'),
+      },
+    )
+  }
+
+  const handleTogglePic = () => {
+    setError('')
+    setPicRequirement.mutate(
+      { statusId: status.id, require: !picOn },
+      {
+        onSuccess: () => setNotice(`Kewajiban PIC status ${status.name} ${!picOn ? 'diaktifkan' : 'dimatikan'}. Tercatat di Audit Trail.`),
         onError: (err) => setError(err instanceof ApiError ? err.message : 'Gagal mengubah setting.'),
       },
     )
@@ -175,7 +189,7 @@ export default function ManageProjectStatusPanel({ projectId, status, onClose }:
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="max-w-[360px] font-mono text-[9.5px] leading-relaxed text-text-muted">
                 {!trackable
-                  ? 'BACKLOG, DONE, dan BLOCKED tidak dilacak waktunya -- task di status ini menunggu keputusan, bukan sedang dikerjakan.'
+                  ? 'BACKLOG, DONE, BLOCKED, dan CANCELED tidak dilacak waktunya -- task di status ini menunggu keputusan, bukan sedang dikerjakan.'
                   : startOn
                     ? 'Aktif: task pada status ini menampilkan tombol "Mulai Pengerjaan". Queue Time dan Active Time dicatat terpisah.'
                     : 'Nonaktif: waktu mulai otomatis sama dengan waktu masuk status.'}
@@ -196,10 +210,30 @@ export default function ManageProjectStatusPanel({ projectId, status, onClose }:
           </div>
 
           <div className="flex flex-col gap-2.5 border-t border-line pt-4">
+            <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">Penetapan PIC</div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="max-w-[360px] font-mono text-[9.5px] leading-relaxed text-text-muted">
+                {picOn
+                  ? 'Wajib: memindahkan task ke status ini meminta PIC fase.'
+                  : 'Tidak wajib: task masuk status ini tanpa PIC; PIC aktif sebelumnya dilepas (riwayat tetap tersimpan).'}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={setPicRequirement.isPending}
+                onClick={handleTogglePic}
+                className={cn('flex-shrink-0 font-mono text-[10px] uppercase tracking-[0.06em]', picOn ? 'border-amber text-amber' : 'border-mint text-mint')}
+              >
+                {picOn ? 'Jadikan Tidak Wajib' : 'Jadikan Wajib'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2.5 border-t border-line pt-4">
             <div className="font-mono text-[9px] uppercase tracking-[0.14em] text-destructive">Zona Berbahaya</div>
             {status.is_system ? (
               <p className="border border-line-strong p-3 font-mono text-[9.5px] leading-relaxed text-text-muted">
-                Lima status sistem (BACKLOG, IN PROGRESS, UNDER REVIEW, DONE, BLOCKED) wajib ada di project ini dan
+                Enam status sistem (BACKLOG, IN PROGRESS, UNDER REVIEW, DONE, BLOCKED, CANCELED) wajib ada di project ini dan
                 tidak dapat dihapus.
               </p>
             ) : status.is_undefined ? (

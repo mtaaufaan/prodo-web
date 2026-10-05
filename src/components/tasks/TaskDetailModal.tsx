@@ -482,17 +482,21 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
     setPicError('')
   }
 
+  // pendingNeedsPic -- status tujuan require_pic=false (DONE/CANCELED
+  // default): panel tidak meminta PIC, backend melepas PIC aktif.
+  const pendingNeedsPic = statuses.find((st) => st.id === pendingStatusId)?.require_pic !== false
+
   const onConfirmMove = () => {
     if (!pendingStatusId) return
-    if (picSelection.length === 0) {
+    if (pendingNeedsPic && picSelection.length === 0) {
       setPicError('Pilih minimal satu PIC untuk fase status baru ini.')
       return
     }
     setStatus.mutate(
-      { taskId, statusId: pendingStatusId, picIds: picSelection },
+      { taskId, statusId: pendingStatusId, picIds: pendingNeedsPic ? picSelection : [] },
       {
         onSuccess: () => {
-          setNotice('Status task diperbarui dan PIC fase baru ditetapkan.')
+          setNotice(pendingNeedsPic ? 'Status task diperbarui dan PIC fase baru ditetapkan.' : 'Status task diperbarui.')
           setPendingStatusId(null)
           setPicSelection([])
         },
@@ -713,7 +717,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   // "ACTIVE TIME" akan salah menghitung waktu tunggu di BACKLOG/idle di DONE
   // sebagai pengerjaan aktual. Filter ini MURNI tampilan tab ini (queueMs/
   // activeMs/statusTotals lokal ke komponen, tidak dipakai halaman lain).
-  const isUntrackedStatusTime = (statusName: string) => statusName === 'BACKLOG' || statusName === 'DONE'
+  const isUntrackedStatusTime = (statusName: string) => statusName === 'BACKLOG' || statusName === 'DONE' || statusName === 'CANCELED'
 
   const statusColorByName = (statusName: string, statusId: string) => {
     const st = statuses.find((s) => s.id === statusId) ?? statuses.find((s) => s.name === statusName)
@@ -770,7 +774,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   // yang menegakkan" di seluruh modal ini).
   const timerRunningHere = activeTimer.data != null
 
-  const isOverdue = Boolean(task.data?.due_date && task.data.due_date < new Date().toISOString().slice(0, 10) && task.data.status_name !== 'DONE')
+  const isOverdue = Boolean(task.data?.due_date && task.data.due_date < new Date().toISOString().slice(0, 10) && task.data.status_name !== 'DONE' && task.data.status_name !== 'CANCELED')
   const loggedHours = (task.data?.logged_minutes ?? 0) / 60
   const isOverEstimate = Boolean(task.data?.estimated_hours && loggedHours > task.data.estimated_hours)
 
@@ -1227,8 +1231,11 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
 
                     {pendingStatusId && (
                       <div className="mt-3 border border-amber bg-amber/5 p-3">
-                        <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-amber">PILIH PIC FASE</div>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-amber">{pendingNeedsPic ? 'PILIH PIC FASE' : 'KONFIRMASI PINDAH STATUS'}</div>
+                        {!pendingNeedsPic && (
+                          <p className="text-[10.5px] text-text-muted">Status ini tidak memerlukan PIC. PIC fase aktif akan dilepas (riwayat PIC tetap tersimpan).</p>
+                        )}
+                        <div className={cn('flex flex-wrap gap-1.5', !pendingNeedsPic && 'hidden')}>
                           {(members.data ?? []).map((m) => {
                             const on = picSelection.includes(m.user_id)
                             return (
@@ -1255,7 +1262,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                             disabled={setStatus.isPending}
                             className="border border-amber px-3 py-1.5 font-mono text-[9.5px] font-bold uppercase text-amber"
                           >
-                            Pindahkan &amp; Tetapkan PIC
+                            {pendingNeedsPic ? 'Pindahkan & Tetapkan PIC' : 'Pindahkan'}
                           </button>
                           <button
                             type="button"
