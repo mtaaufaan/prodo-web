@@ -482,17 +482,21 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
     setPicError('')
   }
 
+  // pendingNeedsPic -- status tujuan require_pic=false (DONE/CANCELED
+  // default): panel tidak meminta PIC, backend melepas PIC aktif.
+  const pendingNeedsPic = statuses.find((st) => st.id === pendingStatusId)?.require_pic !== false
+
   const onConfirmMove = () => {
     if (!pendingStatusId) return
-    if (picSelection.length === 0) {
+    if (pendingNeedsPic && picSelection.length === 0) {
       setPicError('Pilih minimal satu PIC untuk fase status baru ini.')
       return
     }
     setStatus.mutate(
-      { taskId, statusId: pendingStatusId, picIds: picSelection },
+      { taskId, statusId: pendingStatusId, picIds: pendingNeedsPic ? picSelection : [] },
       {
         onSuccess: () => {
-          setNotice('Status task diperbarui dan PIC fase baru ditetapkan.')
+          setNotice(pendingNeedsPic ? 'Status task diperbarui dan PIC fase baru ditetapkan.' : 'Status task diperbarui.')
           setPendingStatusId(null)
           setPicSelection([])
         },
@@ -694,7 +698,9 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   const dependencyCandidates = (projectTasks.data ?? [])
     .filter((t) => !linkedTaskIds.has(t.id))
     .filter((t) => !depSearchLower || t.title.toLowerCase().includes(depSearchLower) || (t.task_code ?? '').toLowerCase().includes(depSearchLower))
-  const activeBlockers = predecessors.filter((p) => p.status !== 'DONE')
+  // Predecessor DONE atau CANCELED sama-sama melepas blokir (IG-118).
+  const isReleasedPredecessor = (status: string) => status === 'DONE' || status === 'CANCELED'
+  const activeBlockers = predecessors.filter((p) => !isReleasedPredecessor(p.status))
   const depEffectNote =
     activeBlockers.length > 0
       ? `Efek saat ini: task ini ditahan dan hanya boleh berada di BACKLOG atau BLOCKED sampai ${activeBlockers.map((b) => b.task_code ?? b.title).join(', ')} berstatus DONE. Percobaan memindahkan status ditolak dan tercatat di Audit Trail.`
@@ -713,7 +719,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   // "ACTIVE TIME" akan salah menghitung waktu tunggu di BACKLOG/idle di DONE
   // sebagai pengerjaan aktual. Filter ini MURNI tampilan tab ini (queueMs/
   // activeMs/statusTotals lokal ke komponen, tidak dipakai halaman lain).
-  const isUntrackedStatusTime = (statusName: string) => statusName === 'BACKLOG' || statusName === 'DONE'
+  const isUntrackedStatusTime = (statusName: string) => statusName === 'BACKLOG' || statusName === 'DONE' || statusName === 'CANCELED'
 
   const statusColorByName = (statusName: string, statusId: string) => {
     const st = statuses.find((s) => s.id === statusId) ?? statuses.find((s) => s.name === statusName)
@@ -770,7 +776,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   // yang menegakkan" di seluruh modal ini).
   const timerRunningHere = activeTimer.data != null
 
-  const isOverdue = Boolean(task.data?.due_date && task.data.due_date < new Date().toISOString().slice(0, 10) && task.data.status_name !== 'DONE')
+  const isOverdue = Boolean(task.data?.due_date && task.data.due_date < new Date().toISOString().slice(0, 10) && task.data.status_name !== 'DONE' && task.data.status_name !== 'CANCELED')
   const loggedHours = (task.data?.logged_minutes ?? 0) / 60
   const isOverEstimate = Boolean(task.data?.estimated_hours && loggedHours > task.data.estimated_hours)
 
@@ -1227,8 +1233,11 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
 
                     {pendingStatusId && (
                       <div className="mt-3 border border-amber bg-amber/5 p-3">
-                        <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-amber">PILIH PIC FASE</div>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-amber">{pendingNeedsPic ? 'PILIH PIC FASE' : 'KONFIRMASI PINDAH STATUS'}</div>
+                        {!pendingNeedsPic && (
+                          <p className="text-[10.5px] text-text-muted">Status ini tidak memerlukan PIC. PIC fase aktif akan dilepas (riwayat PIC tetap tersimpan).</p>
+                        )}
+                        <div className={cn('flex flex-wrap gap-1.5', !pendingNeedsPic && 'hidden')}>
                           {(members.data ?? []).map((m) => {
                             const on = picSelection.includes(m.user_id)
                             return (
@@ -1255,7 +1264,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                             disabled={setStatus.isPending}
                             className="border border-amber px-3 py-1.5 font-mono text-[9.5px] font-bold uppercase text-amber"
                           >
-                            Pindahkan &amp; Tetapkan PIC
+                            {pendingNeedsPic ? 'Pindahkan & Tetapkan PIC' : 'Pindahkan'}
                           </button>
                           <button
                             type="button"
@@ -1274,14 +1283,14 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
               {activeTab === 'deps' && (
                 <div className="flex flex-col gap-4">
                   <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
-                    Dependency Finish-to-Start: task yang memblokir harus DONE sebelum task ini boleh masuk status berjalan. Rule automation dan Gantt memakai keterkaitan yang sama. Keterkaitan yang membentuk lingkaran ditolak sistem dan dicatat di Audit Trail.
+                    Dependency Finish-to-Start: task yang memblokir harus DONE (atau dibatalkan/CANCELED) sebelum task ini boleh masuk status berjalan. Rule automation dan Gantt memakai keterkaitan yang sama. Keterkaitan yang membentuk lingkaran ditolak sistem dan dicatat di Audit Trail.
                   </p>
 
                   <div className="flex flex-col gap-2">
                     {predecessors.map((p) => (
                       <div key={p.task_id} className="flex items-center gap-3 border border-line-strong bg-input-bg p-2.5">
-                        <span className={cn('flex-shrink-0 whitespace-nowrap border px-2 py-0.5 font-mono text-[9px] tracking-[0.06em]', p.status === 'DONE' ? 'border-mint text-mint' : 'border-destructive text-destructive')}>
-                          {p.status === 'DONE' ? 'SUDAH DONE' : 'MENAHAN'}
+                        <span className={cn('flex-shrink-0 whitespace-nowrap border px-2 py-0.5 font-mono text-[9px] tracking-[0.06em]', isReleasedPredecessor(p.status) ? 'border-mint text-mint' : 'border-destructive text-destructive')}>
+                          {p.status === 'DONE' ? 'SUDAH DONE' : p.status === 'CANCELED' ? 'DIBATALKAN' : 'MENAHAN'}
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-[12.5px] text-text-bone">{p.task_code ?? '—'} · {p.title}</div>

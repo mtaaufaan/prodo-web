@@ -41,6 +41,7 @@ import {
   removeTaskPic,
   reopenSprint,
   restoreStatus,
+  setStatusPicRequirement,
   setStatusStartConfirmation,
   setTaskCompleteness,
   setTaskStatus,
@@ -190,6 +191,22 @@ export function useRestoreProjectStatus(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (statusId: string) => restoreStatus(statusId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.projectStatuses(projectId) }),
+  })
+}
+
+export function useSetStatusPicRequirement(workspaceId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ statusId, require }: { statusId: string; require: boolean }) => setStatusPicRequirement(statusId, require),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.statuses(workspaceId) }),
+  })
+}
+
+export function useSetProjectStatusPicRequirement(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ statusId, require }: { statusId: string; require: boolean }) => setStatusPicRequirement(statusId, require),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.projectStatuses(projectId) }),
   })
 }

@@ -22,7 +22,9 @@ export function buildRows(statuses: CustomStatus[], groups: PicGroupMember[]): P
     if (list) list.push(g)
     else byStatus.set(g.status_id, [g])
   }
-  return [...statuses]
+  // Status require_pic=false (DONE/CANCELED default) tidak punya PIC fase -> tidak ada PIC Group.
+  return statuses
+    .filter((s) => s.require_pic !== false)
     .sort((a, b) => a.position - b.position)
     .map((s) => {
       const members = (byStatus.get(s.id) ?? []).map((g) => ({ userId: g.user_id, name: g.user_name || g.user_email }))

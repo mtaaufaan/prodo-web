@@ -23,16 +23,20 @@ const STATUS_RANK: Record<Sprint['status'], number> = { active: 0, backlog: 1, d
 const VIEW_TO_STATUS: Record<string, Sprint['status'] | null> = { Semua: null, Aktif: 'active', Backlog: 'backlog', Selesai: 'done' }
 
 function isOverdue(t: Task) {
-  return t.due_date != null && t.due_date < new Date().toISOString().slice(0, 10) && t.status_name !== 'DONE'
+  return t.due_date != null && t.due_date < new Date().toISOString().slice(0, 10) && t.status_name !== 'DONE' && t.status_name !== 'CANCELED'
 }
 
 
-function SprintCard({ sprint, tasksInSprint, onManage }: { sprint: Sprint; tasksInSprint: Task[]; onManage: () => void }) {
+// Task CANCELED tidak dihitung di statistik sprint (konsisten Summary backend, IG-118).
+const notCanceled = (tasks: Task[]) => tasks.filter((t) => t.status_name !== 'CANCELED')
+
+function SprintCard({ sprint, tasksInSprint: allTasksInSprint, onManage }: { sprint: Sprint; tasksInSprint: Task[]; onManage: () => void }) {
   const startSprint = useStartSprint(sprint.project_id)
   const completeSprint = useCompleteSprint(sprint.project_id)
   const reopenSprint = useReopenSprint(sprint.project_id)
   const summary = useSprintSummary(sprint.id)
 
+  const tasksInSprint = notCanceled(allTasksInSprint)
   const total = tasksInSprint.length
   const done = tasksInSprint.filter((t) => t.status_name === 'DONE').length
   const blocked = tasksInSprint.filter((t) => t.status_name === 'BLOCKED').length
@@ -220,7 +224,7 @@ function SprintPageContent() {
   }
 
   const activeSprint = (sprints.data ?? []).find((s) => s.status === 'active') ?? null
-  const activeTasks = activeSprint ? (tasksBySprintId.get(activeSprint.id) ?? []) : []
+  const activeTasks = activeSprint ? notCanceled(tasksBySprintId.get(activeSprint.id) ?? []) : []
   const stats = [
     { label: 'SPRINT', value: String((sprints.data ?? []).length), note: 'DI PROJECT INI' },
     { label: 'SPRINT AKTIF', value: activeSprint ? '1' : '0', note: activeSprint ? activeSprint.name.toUpperCase() : 'TIDAK ADA YANG BERJALAN' },

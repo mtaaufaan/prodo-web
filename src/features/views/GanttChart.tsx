@@ -14,6 +14,7 @@ import {
   MONTHS_ID,
   parseDateOnly,
   progressPct,
+  sortTasksBySprintTimeline,
   sprintEndFor,
   WEEKDAY_ID,
   buildElbowPoints,
@@ -98,7 +99,10 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
     return Array.from(names)
   }, [tasks])
 
-  const taskRows = sprintFilter === 'Semua' ? tasks : tasks.filter((t) => t.sprint_name === sprintFilter)
+  const taskRows = useMemo(
+    () => sortTasksBySprintTimeline(sprintFilter === 'Semua' ? tasks : tasks.filter((t) => t.sprint_name === sprintFilter), sprints),
+    [tasks, sprints, sprintFilter],
+  )
 
   // ---- rentang tanggal project (lebar piksel/hari tetap) ----
   const { pStart, nDays } = useMemo(() => {
@@ -190,7 +194,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
     const start = parseDateOnly(t.start_date)
     const due = parseDateOnly(t.due_date)
     const status = statusColorClasses(t.status_color)
-    const isLate = Boolean(t.due_date && t.due_date < today.toISOString().slice(0, 10) && t.status_name !== 'DONE')
+    const isLate = Boolean(t.due_date && t.due_date < today.toISOString().slice(0, 10) && t.status_name !== 'DONE' && t.status_name !== 'CANCELED')
     const lockTag = t.is_blocked ? '⛔' : ''
 
     if (!start || !due) {
@@ -227,6 +231,11 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
         actLabel = delayDays ? `+${delayDays} HARI DELAY` : 'TEPAT WAKTU'
         actEndTxt = fmtShort(actual.aEnd) + (delayDays ? ` +${delayDays}H` : '')
         actTextCls = delayDays ? 'text-destructive' : 'text-mint'
+      } else if (actual.kind === 'canceled') {
+        actColorCls = 'bg-text-dim/20 border-text-dim'
+        actLabel = 'DIBATALKAN'
+        actEndTxt = fmtShort(actual.aEnd)
+        actTextCls = 'text-text-dim'
       } else if (actual.kind === 'blocked') {
         actColorCls = 'bg-amber/25 border-amber'
         actLabel = 'BLOCKED'
@@ -265,7 +274,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rowIndex diturunkan dari taskRows tiap render, taskRows cukup sbg dep
     [dependenciesQuery.data, taskRows],
   )
-  const depHeld = edges.filter((e) => e.predecessor_status !== 'DONE').length
+  const depHeld = edges.filter((e) => e.predecessor_status !== 'DONE' && e.predecessor_status !== 'CANCELED').length
 
   const handleBarMouseDown = (task: Task) => (e: React.MouseEvent) => {
     if (e.button !== 0) return
@@ -417,6 +426,10 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
                         <div className="truncate text-[11.5px] text-text-bone">{r.task.title}</div>
                         <div className="mt-1 flex items-center gap-1 truncate font-mono text-[8px] text-text-dim">
                           {r.task.task_code} · <span className={r.status.text}>{r.task.status_name}</span>
+                          <span className="truncate" title={r.task.sprint_name ?? 'Backlog (tanpa sprint)'}>
+                            {' · '}
+                            {r.task.sprint_name ?? 'Backlog'}
+                          </span>
                           {r.lockTag && <span className="text-destructive">{r.lockTag}</span>}
                         </div>
                       </div>
@@ -493,7 +506,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
                       const x2 = to.left
                       const y1 = j * ROW_H + ROW_H / 2
                       const y2 = k * ROW_H + ROW_H / 2
-                      const open = e.predecessor_status !== 'DONE'
+                      const open = e.predecessor_status !== 'DONE' && e.predecessor_status !== 'CANCELED'
                       const points = buildElbowPoints(x1, y1, x2, y2)
                       return (
                         <polyline
