@@ -14,6 +14,7 @@ import {
   MONTHS_ID,
   parseDateOnly,
   progressPct,
+  sortTasksBySprintTimeline,
   sprintEndFor,
   WEEKDAY_ID,
   buildElbowPoints,
@@ -98,7 +99,10 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
     return Array.from(names)
   }, [tasks])
 
-  const taskRows = sprintFilter === 'Semua' ? tasks : tasks.filter((t) => t.sprint_name === sprintFilter)
+  const taskRows = useMemo(
+    () => sortTasksBySprintTimeline(sprintFilter === 'Semua' ? tasks : tasks.filter((t) => t.sprint_name === sprintFilter), sprints),
+    [tasks, sprints, sprintFilter],
+  )
 
   // ---- rentang tanggal project (lebar piksel/hari tetap) ----
   const { pStart, nDays } = useMemo(() => {
@@ -417,6 +421,10 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
                         <div className="truncate text-[11.5px] text-text-bone">{r.task.title}</div>
                         <div className="mt-1 flex items-center gap-1 truncate font-mono text-[8px] text-text-dim">
                           {r.task.task_code} · <span className={r.status.text}>{r.task.status_name}</span>
+                          <span className="truncate" title={r.task.sprint_name ?? 'Backlog (tanpa sprint)'}>
+                            {' · '}
+                            {r.task.sprint_name ?? 'Backlog'}
+                          </span>
                           {r.lockTag && <span className="text-destructive">{r.lockTag}</span>}
                         </div>
                       </div>

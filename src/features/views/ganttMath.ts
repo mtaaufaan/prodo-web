@@ -148,6 +148,41 @@ export function progressPct(
   return Math.round(Math.max(0.05, Math.min(0.95, ratio)) * 100)
 }
 
+function cmp(a: number, b: number): number {
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
+// sortTasksBySprintTimeline -- urutan baris Gantt: sprint dengan timeline
+// (tanggal mulai) TERKECIL dulu, dan di dalam satu sprint task dengan timeline
+// (start_date) terkecil dulu. Sprint tanpa tanggal setelah sprint bertanggal;
+// task tanpa sprint (backlog) paling akhir; task tanpa start_date paling akhir
+// di sprintnya. Seri: end_date lalu nama sprint (supaya task satu sprint tetap
+// berurutan berdekatan), due_date lalu kode task.
+export function sortTasksBySprintTimeline(tasks: Task[], sprints: Sprint[]): Task[] {
+  const byId = new Map(sprints.map((s) => [s.id, s]))
+  const time = (d: string | null | undefined) => parseDateOnly(d)?.getTime() ?? Number.POSITIVE_INFINITY
+  const key = (t: Task) => {
+    const sp = t.sprint_id ? byId.get(t.sprint_id) : undefined
+    const spStart = time(sp?.start_date)
+    // 0 = sprint bertanggal, 1 = sprint tanpa tanggal, 2 = tanpa sprint
+    const group = !sp ? 2 : spStart === Number.POSITIVE_INFINITY ? 1 : 0
+    return { group, spStart, spEnd: time(sp?.end_date), spName: sp?.name ?? t.sprint_name ?? '', start: time(t.start_date), due: time(t.due_date) }
+  }
+  return [...tasks].sort((a, b) => {
+    const ka = key(a)
+    const kb = key(b)
+    return (
+      cmp(ka.group, kb.group) ||
+      cmp(ka.spStart, kb.spStart) ||
+      cmp(ka.spEnd, kb.spEnd) ||
+      ka.spName.localeCompare(kb.spName) ||
+      cmp(ka.start, kb.start) ||
+      cmp(ka.due, kb.due) ||
+      (a.task_code ?? '').localeCompare(b.task_code ?? '')
+    )
+  })
+}
+
 // milestoneLabel -- label ringkas penanda akhir sprint di baris MILESTONE
 // (desain: nama dipotong di pemisah " · " / " - ", awalan "SPRINT" -> "M"):
 // "Sprint 0 - Fondation" -> "M 0".
