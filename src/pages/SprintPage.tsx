@@ -23,7 +23,7 @@ const STATUS_RANK: Record<Sprint['status'], number> = { active: 0, backlog: 1, d
 const VIEW_TO_STATUS: Record<string, Sprint['status'] | null> = { Semua: null, Aktif: 'active', Backlog: 'backlog', Selesai: 'done' }
 
 function isOverdue(t: Task) {
-  return t.due_date != null && t.due_date < new Date().toISOString().slice(0, 10) && t.status_name !== 'DONE'
+  return t.due_date != null && t.due_date < new Date().toISOString().slice(0, 10) && t.status_name !== 'DONE' && t.status_name !== 'CANCELED'
 }
 
 

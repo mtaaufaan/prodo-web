@@ -13,6 +13,7 @@ const status = (id: string, name: string, position: number): CustomStatus => ({
   is_system: false,
   is_undefined: false,
   require_start_confirmation: false,
+  require_pic: true,
   task_count: 0,
 })
 

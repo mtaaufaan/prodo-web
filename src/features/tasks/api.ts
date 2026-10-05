@@ -63,6 +63,10 @@ export function setStatusStartConfirmation(statusId: string, require: boolean) {
   return apiClient.put<{ id: string; require_start_confirmation: boolean }>(`/api/v1/statuses/${statusId}`, { require_start_confirmation: require })
 }
 
+export function setStatusPicRequirement(statusId: string, require: boolean) {
+  return apiClient.put<{ id: string; require_pic: boolean }>(`/api/v1/statuses/${statusId}/pic-requirement`, { require_pic: require })
+}
+
 export function getProjectSprints(projectId: string) {
   return apiClient.get<Sprint[]>(`/api/v1/projects/${projectId}/sprints`)
 }

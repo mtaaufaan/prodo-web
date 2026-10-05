@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 
 // UNTRACKED -- sama konstanta dengan ManageStatusPanel/backend
 // customStatusUntracked.
-const UNTRACKED = ['BACKLOG', 'DONE', 'BLOCKED']
+const UNTRACKED = ['BACKLOG', 'DONE', 'BLOCKED', 'CANCELED']
 type Filter = 'Semua' | 'Sistem' | 'Kustom' | 'Per Project'
 
 function MetricCard({ label, value }: { label: string; value: string }) {
