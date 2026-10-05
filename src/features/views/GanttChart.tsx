@@ -274,7 +274,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rowIndex diturunkan dari taskRows tiap render, taskRows cukup sbg dep
     [dependenciesQuery.data, taskRows],
   )
-  const depHeld = edges.filter((e) => e.predecessor_status !== 'DONE').length
+  const depHeld = edges.filter((e) => e.predecessor_status !== 'DONE' && e.predecessor_status !== 'CANCELED').length
 
   const handleBarMouseDown = (task: Task) => (e: React.MouseEvent) => {
     if (e.button !== 0) return
@@ -506,7 +506,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
                       const x2 = to.left
                       const y1 = j * ROW_H + ROW_H / 2
                       const y2 = k * ROW_H + ROW_H / 2
-                      const open = e.predecessor_status !== 'DONE'
+                      const open = e.predecessor_status !== 'DONE' && e.predecessor_status !== 'CANCELED'
                       const points = buildElbowPoints(x1, y1, x2, y2)
                       return (
                         <polyline
