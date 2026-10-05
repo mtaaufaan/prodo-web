@@ -223,15 +223,15 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
             onDragLeave={() => setOverColumnId((v) => (v === status.id ? null : v))}
             onDrop={onColumnDrop(status)}
             className={cn(
-              'flex min-h-[120px] min-w-[220px] flex-col gap-2 border bg-raised-2 p-2.5',
+              'flex min-h-[120px] w-[320px] min-w-[320px] flex-col gap-2.5 border bg-raised-2 p-3',
               overColumnId === status.id && dragTaskId ? 'border-signal' : 'border-line',
             )}
           >
             <div className="flex items-center justify-between px-1">
-              <span className="font-mono text-[9.5px] font-semibold uppercase text-text-bone">{status.name}</span>
-              <span className="font-mono text-[9px] text-text-dim">{cards.length}</span>
+              <span className="font-mono text-[11px] font-semibold uppercase text-text-bone">{status.name}</span>
+              <span className="font-mono text-[10.5px] text-text-dim">{cards.length}</span>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2.5">
               {cards
                 .filter((t) => !mineOnly || isMine(t))
                 .map((t) => {
@@ -255,7 +255,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
                       }}
                       onDrop={onCardDrop(t)}
                       className={cn(
-                        'flex cursor-grab flex-col gap-1.5 border bg-panel p-3 transition-shadow',
+                        'flex cursor-grab flex-col gap-2 border bg-panel p-3.5 transition-shadow',
                         dragTaskId === t.id ? 'opacity-45' : 'opacity-100',
                         overCardId === t.id && dragTaskId && dragTaskId !== t.id
                           ? overSide === 'before'
@@ -265,44 +265,46 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
                       )}
                     >
                       <div className="flex items-center gap-1.5">
-                        <button type="button" onClick={() => toggleSelect(t.id)} className="font-mono text-[10px] text-text-muted hover:text-signal">
+                        <button type="button" onClick={() => toggleSelect(t.id)} className="font-mono text-[13px] text-text-muted hover:text-signal">
                           {selected.includes(t.id) ? '☑' : '☐'}
                         </button>
-                        <span className="flex min-w-0 items-center gap-1 truncate font-mono text-[8.5px] text-text-dim">
+                        <span className="flex min-w-0 items-center gap-1 truncate font-mono text-[10.5px] text-text-dim">
                           {t.is_blocked && <span title="Diblokir -- ada predecessor yang belum selesai">🔒</span>}
                           {t.task_code} · {t.sprint_name ?? 'Backlog'}
                         </span>
                         {isMine(t) && (
-                          <span className="border border-mint px-1 py-0.5 font-mono text-[7.5px] font-semibold text-mint">SAYA</span>
+                          <span className="border border-mint px-1.5 py-0.5 font-mono text-[9px] font-semibold text-mint">SAYA</span>
                         )}
-                        <span className={cn('ml-auto border px-1.5 py-0.5 font-mono text-[8px] font-semibold uppercase', PRIORITY_TONE[t.priority])}>
+                        <span className={cn('ml-auto border px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase', PRIORITY_TONE[t.priority])}>
                           {t.priority}
                         </span>
                       </div>
-                      <div onClick={() => onOpenTask(t.id)} className="cursor-pointer text-[12px] leading-snug text-text-bone hover:text-signal">
+                      <div onClick={() => onOpenTask(t.id)} className="cursor-pointer text-[14px] font-medium leading-snug text-text-bone hover:text-signal">
                         {t.title}
                       </div>
                       {t.completeness === 'incomplete' && (
-                        <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[8px] text-amber">BELUM LENGKAP · STATUS TERKUNCI</div>
+                        <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[9.5px] text-amber">BELUM LENGKAP · STATUS TERKUNCI</div>
                       )}
                       {t.status_name === 'BACKLOG' && !(t.sprint_id != null && t.sprint_id === activeSprintId) && (
-                        <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[8px] text-amber">BUKAN SPRINT AKTIF · STATUS TERKUNCI</div>
+                        <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[9.5px] text-amber">BUKAN SPRINT AKTIF · STATUS TERKUNCI</div>
                       )}
                       {t.regression_count > 0 && (
-                        <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[8px] text-amber">↩ {t.regression_count}× regresi</div>
+                        <div className="w-fit border border-amber px-1.5 py-0.5 font-mono text-[9.5px] text-amber">↩ {t.regression_count}× regresi</div>
                       )}
-                      <div className="flex items-center justify-between font-mono text-[9px] text-text-muted">
-                        <span className="truncate">{t.assignees[0] ? t.assignees[0].display_name || t.assignees[0].email : '—'}</span>
-                        <span>{formatDateDMY(t.due_date)}</span>
+                      <div className="flex items-start justify-between gap-2 font-mono text-[11px] text-text-muted">
+                        <span className="min-w-0 break-words">
+                          {t.assignees.length > 0 ? t.assignees.map((a) => a.display_name || a.email).join(', ') : '—'}
+                        </span>
+                        <span className="flex-shrink-0">{formatDateDMY(t.due_date)}</span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="border border-line-strong px-1.5 py-0.5 font-mono text-[8.5px] text-text-dim">SP {t.story_points ?? '?'}</span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="border border-line-strong px-1.5 py-0.5 font-mono text-[10px] text-text-dim">SP {t.story_points ?? '?'}</span>
                         {moves.map((m) => (
                           <button
                             key={m.statusId}
                             type="button"
                             onClick={() => requestMove({ kind: 'single', taskId: t.id, statusId: m.statusId, statusName: m.statusName })}
-                            className="border border-line-strong px-1.5 py-0.5 font-mono text-[8px] text-text-dim hover:border-signal hover:text-signal"
+                            className="border border-line-strong px-1.5 py-0.5 font-mono text-[10px] text-text-dim hover:border-signal hover:text-signal"
                           >
                             {m.label}
                           </button>
@@ -311,7 +313,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
                     </div>
                   )
                 })}
-              {cards.length === 0 && <p className="border border-dashed border-line-strong p-4 text-center font-mono text-[8.5px] text-text-dim">Tidak ada task.</p>}
+              {cards.length === 0 && <p className="border border-dashed border-line-strong p-4 text-center font-mono text-[10.5px] text-text-dim">Tidak ada task.</p>}
             </div>
           </div>
         ))}

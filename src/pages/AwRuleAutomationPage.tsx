@@ -9,6 +9,8 @@ import { useDeleteRule, useRuleExecutions, useRules, useToggleRuleActive } from 
 import { RULE_ACTION_LABELS, RULE_CONDITION_LABELS, RULE_TEMPLATES, RULE_TRIGGER_LABELS } from '@/features/rules/types'
 import type { Rule, RuleExecution, RuleTemplate } from '@/features/rules/types'
 import { useWorkspace } from '@/features/workspaces/hooks'
+import { countRecentFailures, ruleSummary } from '@/features/rules/summary'
+import { useWorkspaceStatuses } from '@/features/tasks/hooks'
 import { cn } from '@/lib/utils'
 
 function triggerDownload(blob: Blob, filename: string) {
@@ -41,20 +43,20 @@ function StatCard({ label, value, note, tone }: { label: string; value: string; 
   )
 }
 
-function ruleSummary(rule: Rule) {
-  const triggerText =
-    rule.trigger_config.event === 'status_changed'
-      ? `STATUS BERUBAH`
-      : rule.trigger_config.event === 'due_date_approaching'
-        ? `DUE DATE H-${rule.trigger_config.days ?? 1}`
-        : RULE_TRIGGER_LABELS[rule.trigger_config.event].toUpperCase()
-  const conditionText = rule.condition_config ? RULE_CONDITION_LABELS[rule.condition_config.type] : 'tanpa kondisi'
-  const actionText = RULE_ACTION_LABELS[rule.action_config.type]
-  return { triggerText, conditionText, actionText }
-}
-
-function RuleRow({ rule, onToggle, onDelete, toggling }: { rule: Rule; onToggle: () => void; onDelete: () => void; toggling: boolean }) {
-  const { triggerText, conditionText, actionText } = ruleSummary(rule)
+function RuleRow({
+  rule,
+  onToggle,
+  onDelete,
+  toggling,
+  statusName,
+}: {
+  rule: Rule
+  onToggle: () => void
+  onDelete: () => void
+  toggling: boolean
+  statusName: (id?: string) => string | undefined
+}) {
+  const { triggerText, conditionText, actionText } = ruleSummary(rule, statusName)
   const statusLabel = rule.is_active ? 'ACTIVE' : rule.inactive_reason ? 'INACTIVE' : 'NONAKTIF'
   const statusTone = rule.is_active ? 'text-mint border-mint' : rule.inactive_reason ? 'text-destructive border-destructive' : 'text-text-dim border-line-strong'
 
@@ -159,7 +161,9 @@ function AwRuleAutomationPageContent() {
   const [exportNotice, setExportNotice] = useState('')
 
   const rules = useRules(workspaceId)
-  const executions = useRuleExecutions(workspaceId, logStatus)
+  const executions = useRuleExecutions(workspaceId, '')
+  const statuses = useWorkspaceStatuses(workspaceId)
+  const statusName = (id?: string) => (id ? statuses.data?.find((st) => st.id === id)?.name : undefined)
   const toggle = useToggleRuleActive(workspaceId)
   const remove = useDeleteRule(workspaceId)
 
@@ -180,11 +184,9 @@ function AwRuleAutomationPageContent() {
     return { total: rows.length, active, inactiveAuto }
   }, [rows])
 
-  const logRows = executions.data ?? []
-  const failed7d = logRows.filter((l) => {
-    const days = (Date.now() - new Date(l.executed_at).getTime()) / 86400000
-    return l.status === 'failed' && days <= 7
-  }).length
+  const allLogs = executions.data ?? []
+  const logRows = logStatus ? allLogs.filter((l) => l.status === logStatus) : allLogs
+  const failed7d = countRecentFailures(allLogs, Date.now())
 
   useEffect(() => {
     if (!exportNotice) return
@@ -233,6 +235,7 @@ function AwRuleAutomationPageContent() {
             <RuleRow
               key={rule.id}
               rule={rule}
+              statusName={statusName}
               toggling={toggle.isPending}
               onToggle={() => toggle.mutate({ ruleId: rule.id, active: !rule.is_active })}
               onDelete={() => setConfirmDelete(rule)}
