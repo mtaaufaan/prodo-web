@@ -3,13 +3,14 @@ import { useOutletContext, useParams } from 'react-router-dom'
 
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import GridPager from '@/components/shared/GridPager'
 import AddProjectRuleModal from '@/components/rules/AddProjectRuleModal'
 import { exportProjectRuleExecutionsCSV } from '@/features/rules/api'
 import { useDeleteProjectRule, useProjectRuleExecutions, useProjectRules, useToggleProjectRuleActive } from '@/features/rules/hooks'
 import { RULE_ACTION_LABELS, RULE_CONDITION_LABELS, RULE_TEMPLATES, RULE_TRIGGER_LABELS } from '@/features/rules/types'
 import type { Rule, RuleExecution, RuleTemplate } from '@/features/rules/types'
 import { useProjects } from '@/features/projects/hooks'
-import { countRecentFailures, ruleSummary } from '@/features/rules/summary'
+import { countRecentFailures, executionDetail, ruleSummary } from '@/features/rules/summary'
 import { useProjectStatuses } from '@/features/tasks/hooks'
 import { cn } from '@/lib/utils'
 
@@ -49,12 +50,14 @@ function RuleRow({
   onDelete,
   toggling,
   statusName,
+  inherited,
 }: {
   rule: Rule
   onToggle: () => void
   onDelete: () => void
   toggling: boolean
   statusName: (id?: string) => string | undefined
+  inherited: boolean
 }) {
   const { triggerText, conditionText, actionText } = ruleSummary(rule, statusName)
   const statusLabel = rule.is_active ? 'ACTIVE' : rule.inactive_reason ? 'INACTIVE' : 'NONAKTIF'
@@ -66,7 +69,7 @@ function RuleRow({
         <div className="min-w-0 flex-1">
           <div className={cn('text-[13.5px] font-semibold', rule.is_active ? 'text-text-bone' : 'text-text-muted')}>{rule.name}</div>
           <div className="mt-1 font-mono text-[8.5px] text-text-dim">
-            LEVEL PROJECT · DIBUAT {new Date(rule.created_at).toLocaleDateString('id-ID')} · {rule.runs} EKSEKUSI
+            {rule.scope_type === 'project' ? 'LEVEL PROJECT' : 'LEVEL WORKSPACE'} · DIBUAT {(rule.created_by_name || '—').toUpperCase()} · {rule.runs} EKSEKUSI
           </div>
         </div>
         <span className={cn('whitespace-nowrap border px-2 py-0.5 font-mono text-[9px] font-semibold', statusTone)}>{statusLabel}</span>
@@ -81,6 +84,11 @@ function RuleRow({
           dikirim ke pembuat rule.
         </div>
       )}
+      {inherited ? (
+        <div className="font-mono text-[9px] leading-[1.7] text-text-muted">
+          🔒 DIWARISI DARI WORKSPACE · hanya Admin Workspace dapat mengubah atau menghapus rule ini
+        </div>
+      ) : (
       <div className="flex flex-wrap gap-3.5">
         <button
           type="button"
@@ -94,11 +102,12 @@ function RuleRow({
           ⊘ HAPUS
         </button>
       </div>
+      )}
     </div>
   )
 }
 
-function TemplateRow({ template, onUse }: { template: RuleTemplate; onUse: () => void }) {
+function TemplateRow({ template, onUse, used }: { template: RuleTemplate; onUse: () => void; used: number }) {
   return (
     <div className="flex flex-col gap-2.5 border-t border-line px-4 py-3.5">
       <div className="flex items-start gap-3">
@@ -113,9 +122,12 @@ function TemplateRow({ template, onUse }: { template: RuleTemplate; onUse: () =>
         <span className="text-amber">DAN</span> {template.conditionType && template.conditionType !== 'project' ? RULE_CONDITION_LABELS[template.conditionType] : 'tanpa kondisi'} ·{' '}
         <span className="text-mint">MAKA</span> {RULE_ACTION_LABELS[template.actionType].toLowerCase()}
       </div>
-      <button type="button" onClick={onUse} className="self-start font-mono text-[10px] text-signal hover:underline">
-        → GUNAKAN TEMPLATE
-      </button>
+      <div className="flex flex-wrap items-center gap-3.5">
+        <button type="button" onClick={onUse} className="font-mono text-[10px] text-signal hover:underline">
+          → GUNAKAN TEMPLATE
+        </button>
+        <span className="font-mono text-[9px] text-text-dim">DIPAKAI {used} RULE DI PROJECT INI</span>
+      </div>
     </div>
   )
 }
@@ -135,6 +147,7 @@ function ExecutionRow({ execution }: { execution: RuleExecution }) {
         <span className="text-[12px] font-semibold text-text-bone">{execution.rule_name}</span>
         <span className="ml-auto whitespace-nowrap font-mono text-[9px] text-text-dim">{new Date(execution.executed_at).toLocaleString('id-ID')}</span>
       </div>
+      <div className="mt-1.5 font-mono text-[9px] leading-[1.8] text-text-muted">{executionDetail(execution)}</div>
       {execution.error_message && <div className="mt-1.5 font-mono text-[9px] leading-relaxed text-destructive">⚠ {execution.error_message}</div>}
     </div>
   )
@@ -159,6 +172,8 @@ function ProjectRuleAutomationPageContent() {
   const [addOpen, setAddOpen] = useState(false)
   const [templateForNew, setTemplateForNew] = useState<RuleTemplate | null>(null)
   const [logStatus, setLogStatus] = useState('')
+  const [rulePage, setRulePage] = useState(1)
+  const [rulePerPage, setRulePerPage] = useState(10)
   const [confirmDelete, setConfirmDelete] = useState<Rule | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportNotice, setExportNotice] = useState('')
@@ -180,6 +195,9 @@ function ProjectRuleAutomationPageContent() {
   }, [])
 
   const rows = useMemo(() => rules.data ?? [], [rules.data])
+  const ruleTotalPages = Math.max(1, Math.ceil(rows.length / rulePerPage))
+  const ruleCurrent = Math.min(rulePage, ruleTotalPages)
+  const pagedRows = rows.slice((ruleCurrent - 1) * rulePerPage, ruleCurrent * rulePerPage)
 
   const stats = useMemo(() => {
     const active = rows.filter((r) => r.is_active).length
@@ -240,16 +258,30 @@ function ProjectRuleAutomationPageContent() {
               Gunakan + Rule untuk membuka builder, atau pilih template siap pakai.
             </p>
           )}
-          {rows.map((rule) => (
+          {pagedRows.map((rule) => (
             <RuleRow
               key={rule.id}
               rule={rule}
               statusName={statusName}
+              inherited={rule.scope_type === 'workspace'}
               toggling={toggle.isPending}
               onToggle={() => toggle.mutate({ ruleId: rule.id, active: !rule.is_active })}
               onDelete={() => setConfirmDelete(rule)}
             />
           ))}
+          {rows.length > 0 && (
+            <GridPager
+              page={ruleCurrent}
+              perPage={rulePerPage}
+              total={rows.length}
+              unit="RULE"
+              onPage={setRulePage}
+              onPerPage={(n) => {
+                setRulePerPage(n)
+                setRulePage(1)
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -262,6 +294,7 @@ function ProjectRuleAutomationPageContent() {
             <TemplateRow
               key={t.key}
               template={t}
+              used={rows.filter((r) => r.template_key === t.key).length}
               onUse={() => {
                 setTemplateForNew(t)
                 setAddOpen(true)
@@ -274,15 +307,19 @@ function ProjectRuleAutomationPageContent() {
       {tab === 'Log Eksekusi' && (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={logStatus}
-              onChange={(e) => setLogStatus(e.target.value)}
-              className="border border-line-strong bg-input-bg px-2.5 py-2 font-mono text-[10px] text-text-bone outline-none"
-            >
-              <option value="">Semua status</option>
-              <option value="completed">Berhasil</option>
-              <option value="failed">Gagal</option>
-            </select>
+            {([['', 'SEMUA'], ['completed', 'BERHASIL'], ['failed', 'GAGAL']] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setLogStatus(key)}
+                className={cn(
+                  'border px-2.5 py-1.5 font-mono text-[9.5px] tracking-[0.06em]',
+                  logStatus === key ? 'border-signal bg-signal text-bg-deep' : 'border-line-strong text-text-muted',
+                )}
+              >
+                {label}
+              </button>
+            ))}
             <span className="font-mono text-[9px] text-text-dim">{logRows.length} eksekusi</span>
             <button
               type="button"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { countRecentFailures, ruleSummary } from './summary'
+import { countRecentFailures, executionDetail, ruleSummary } from './summary'
 import type { Rule, RuleExecution } from './types'
 
 const baseRule: Rule = {
@@ -15,6 +15,10 @@ const baseRule: Rule = {
   created_by: 'u1',
   created_at: '2026-10-01T00:00:00Z',
   runs: 0,
+  scope_type: 'workspace',
+  scope_id: 'ws1',
+  template_key: null,
+  created_by_name: 'Budi',
 }
 const names: Record<string, string> = { 's-done': 'DONE', 's-canceled': 'CANCELED' }
 const lookup = (id?: string) => (id ? names[id] : undefined)
@@ -54,10 +58,38 @@ describe('countRecentFailures', () => {
     status,
     action_taken: null,
     error_message: null,
+    task_code: null,
+    task_title: null,
+    duration_ms: null,
   })
 
   it('hanya gagal dalam 7 hari', () => {
     const logs = [exec('failed', '2026-10-08T00:00:00Z'), exec('failed', '2026-09-01T00:00:00Z'), exec('completed', '2026-10-09T00:00:00Z')]
     expect(countRecentFailures(logs, now)).toBe(1)
+  })
+})
+
+describe('executionDetail', () => {
+  const base: RuleExecution = {
+    id: 'e1',
+    rule_id: 'r1',
+    rule_name: 'R',
+    trigger_event: { event: 'status_changed' },
+    triggered_by: null,
+    executed_at: '2026-10-08T00:00:00Z',
+    status: 'completed',
+    action_taken: { type: 'change_status' },
+    error_message: null,
+    task_code: 'PRJ-12',
+    task_title: 'Judul',
+    duration_ms: 42,
+  }
+
+  it('menyusun TRIGGER · TASK · ACTION · ms', () => {
+    expect(executionDetail(base)).toBe('TRIGGER STATUS TASK BERUBAH · TASK PRJ-12 · ACTION UBAH STATUS · 42 ms')
+  })
+
+  it('baris lama tanpa durasi/task tidak menampilkan ms', () => {
+    expect(executionDetail({ ...base, duration_ms: null, task_code: null })).toBe('TRIGGER STATUS TASK BERUBAH · TASK - · ACTION UBAH STATUS')
   })
 })
