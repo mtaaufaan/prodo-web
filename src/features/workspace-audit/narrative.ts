@@ -83,6 +83,10 @@ export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): Au
       return { text: `Konfirmasi mulai pengerjaan status "${targetOf(entry)}" diubah`, scope: 'CUSTOM STATUS' }
     case 'custom_status.pic_requirement_changed':
       return { text: `Kewajiban PIC status "${targetOf(entry)}" diubah`, scope: 'CUSTOM STATUS' }
+    case 'project_import.created':
+      return { text: `Import ${String(entry.metadata?.kind ?? 'data')} "${targetOf(entry)}": ${String(entry.metadata?.success_count ?? 0)} berhasil, ${String(entry.metadata?.failed_count ?? 0)} dilewati`, scope: 'IMPORT' }
+    case 'project_import.report_downloaded':
+      return { text: `Laporan import "${targetOf(entry)}" diunduh`, scope: 'IMPORT' }
     case 'rule.created':
       return { text: `Rule otomatisasi "${targetOf(entry)}" dibuat`, scope: 'RULE AUTOMATION' }
     case 'rule.deleted':

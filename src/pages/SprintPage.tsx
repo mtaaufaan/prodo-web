@@ -62,7 +62,7 @@ function SprintCard({ sprint, tasksInSprint: allTasksInSprint, onManage }: { spr
             {sprint.name}
           </button>
           <div className="mt-1 font-mono text-[8.5px] text-text-dim">
-            {formatDateDMY(sprint.start_date)} → {formatDateDMY(sprint.end_date)} · {total} TASK
+            {sprint.code} · {formatDateDMY(sprint.start_date)} → {formatDateDMY(sprint.end_date)} · {total} TASK
           </div>
           {sprint.goal && <div className="mt-1.5 text-[11.5px] text-text-muted">{sprint.goal}</div>}
         </div>

@@ -64,6 +64,8 @@ export type SprintStatus = 'backlog' | 'active' | 'done'
 export interface Sprint {
   id: string
   project_id: string
+  // kode unik per project (SPR-01, ...) -- kunci penghubung import task (IG-120)
+  code: string
   name: string
   start_date: string | null
   end_date: string | null
