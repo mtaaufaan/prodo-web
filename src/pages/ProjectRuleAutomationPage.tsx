@@ -253,7 +253,7 @@ function ProjectRuleAutomationPageContent() {
           {rules.isLoading && <p className="p-4 text-sm text-text-muted">Memuat...</p>}
           {rows.length === 0 && !rules.isLoading && (
             <p className="p-6 text-center font-mono text-[10.5px] leading-relaxed text-text-muted">
-              Belum ada rule di project ini.
+              Belum ada rule di project ini maupun di workspace (rule workspace otomatis diwarisi ke sini).
               <br />
               Gunakan + Rule untuk membuka builder, atau pilih template siap pakai.
             </p>
