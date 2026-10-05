@@ -8,6 +8,7 @@ import { useExecuteProjectImport, useProjectImportHistory, useValidateProjectImp
 import { sprintRowNote, sprintRowTitle } from '@/features/project-import/rows'
 import type { ProjectImport, ProjectImportKind, ProjectImportValidateResult } from '@/features/project-import/types'
 import { useProjects } from '@/features/projects/hooks'
+import { useProjectSprints } from '@/features/tasks/hooks'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -85,6 +86,7 @@ function ProjectImportPageContent() {
   const validate = useValidateProjectImport(pid)
   const execute = useExecuteProjectImport(pid)
   const history = useProjectImportHistory(pid)
+  const sprints = useProjectSprints(pid)
 
   useEffect(() => {
     if (!templateNotice && !resultMsg && !logNotice) return
@@ -227,6 +229,19 @@ function ProjectImportPageContent() {
                   <span className="text-[11.5px] leading-snug text-text-muted">{c.desc}</span>
                 </div>
               ))}
+            </div>
+            <div className="mb-2 mt-4 font-mono text-[9px] tracking-[0.14em] text-text-dim">KODE SPRINT PROJECT INI</div>
+            <div className="flex max-h-[180px] flex-col gap-1.5 overflow-auto">
+              {(sprints.data ?? []).map((sp) => (
+                <div key={sp.id} className="flex items-baseline gap-2.5">
+                  <span className="min-w-[88px] font-mono text-[10px] text-signal">{sp.code}</span>
+                  <span className="min-w-0 flex-1 truncate text-[11.5px] text-text-muted">{sp.name}</span>
+                  <span className="font-mono text-[8.5px] text-text-dim">{sp.status.toUpperCase()}</span>
+                </div>
+              ))}
+              {!sprints.isLoading && (sprints.data ?? []).length === 0 && (
+                <span className="text-[11.5px] text-text-muted">Belum ada sprint di project ini.</span>
+              )}
             </div>
             {rateLimit && (
               <div className="mt-3.5">
