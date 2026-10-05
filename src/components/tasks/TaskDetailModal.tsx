@@ -698,7 +698,9 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   const dependencyCandidates = (projectTasks.data ?? [])
     .filter((t) => !linkedTaskIds.has(t.id))
     .filter((t) => !depSearchLower || t.title.toLowerCase().includes(depSearchLower) || (t.task_code ?? '').toLowerCase().includes(depSearchLower))
-  const activeBlockers = predecessors.filter((p) => p.status !== 'DONE')
+  // Predecessor DONE atau CANCELED sama-sama melepas blokir (IG-118).
+  const isReleasedPredecessor = (status: string) => status === 'DONE' || status === 'CANCELED'
+  const activeBlockers = predecessors.filter((p) => !isReleasedPredecessor(p.status))
   const depEffectNote =
     activeBlockers.length > 0
       ? `Efek saat ini: task ini ditahan dan hanya boleh berada di BACKLOG atau BLOCKED sampai ${activeBlockers.map((b) => b.task_code ?? b.title).join(', ')} berstatus DONE. Percobaan memindahkan status ditolak dan tercatat di Audit Trail.`
@@ -1281,14 +1283,14 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
               {activeTab === 'deps' && (
                 <div className="flex flex-col gap-4">
                   <p className="font-mono text-[9.5px] leading-relaxed text-text-dim">
-                    Dependency Finish-to-Start: task yang memblokir harus DONE sebelum task ini boleh masuk status berjalan. Rule automation dan Gantt memakai keterkaitan yang sama. Keterkaitan yang membentuk lingkaran ditolak sistem dan dicatat di Audit Trail.
+                    Dependency Finish-to-Start: task yang memblokir harus DONE (atau dibatalkan/CANCELED) sebelum task ini boleh masuk status berjalan. Rule automation dan Gantt memakai keterkaitan yang sama. Keterkaitan yang membentuk lingkaran ditolak sistem dan dicatat di Audit Trail.
                   </p>
 
                   <div className="flex flex-col gap-2">
                     {predecessors.map((p) => (
                       <div key={p.task_id} className="flex items-center gap-3 border border-line-strong bg-input-bg p-2.5">
-                        <span className={cn('flex-shrink-0 whitespace-nowrap border px-2 py-0.5 font-mono text-[9px] tracking-[0.06em]', p.status === 'DONE' ? 'border-mint text-mint' : 'border-destructive text-destructive')}>
-                          {p.status === 'DONE' ? 'SUDAH DONE' : 'MENAHAN'}
+                        <span className={cn('flex-shrink-0 whitespace-nowrap border px-2 py-0.5 font-mono text-[9px] tracking-[0.06em]', isReleasedPredecessor(p.status) ? 'border-mint text-mint' : 'border-destructive text-destructive')}>
+                          {p.status === 'DONE' ? 'SUDAH DONE' : p.status === 'CANCELED' ? 'DIBATALKAN' : 'MENAHAN'}
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-[12.5px] text-text-bone">{p.task_code ?? '—'} · {p.title}</div>
