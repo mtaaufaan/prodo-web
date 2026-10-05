@@ -138,6 +138,7 @@ export default function AddProjectRuleModal({ open, onClose, projectId, projectN
     create.mutate(
       {
         name: trimmedName,
+        template_key: template?.key,
         trigger: { event: trigger, status_id: needsStatus ? statusId : undefined, days: needsDays ? Number(days) : undefined },
         condition,
         action: {

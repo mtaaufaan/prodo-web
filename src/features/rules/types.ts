@@ -70,6 +70,11 @@ export interface Rule {
   created_by: string
   created_at: string
   runs: number
+  scope_type: 'workspace' | 'project'
+  scope_id: string
+  // template Library asal rule (null = manual) -- kartu "DIPAKAI n RULE".
+  template_key: string | null
+  created_by_name: string
 }
 
 export interface RuleExecution {
@@ -82,10 +87,15 @@ export interface RuleExecution {
   status: 'completed' | 'failed'
   action_taken: Record<string, unknown> | null
   error_message: string | null
+  task_code: string | null
+  task_title: string | null
+  // lama eksekusi action (ms); null untuk baris sebelum kolom duration_ms ada.
+  duration_ms: number | null
 }
 
 export interface CreateRuleValues {
   name: string
+  template_key?: string
   trigger: RuleTrigger
   condition: RuleCondition | null
   action: RuleAction
