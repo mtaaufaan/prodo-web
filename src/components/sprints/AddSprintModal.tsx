@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAssignTasksToSprint, useCreateSprint, useProjectSprints, useProjectTasks } from '@/features/tasks/hooks'
+import { formatSprintCode, isValidSprintCode, nextSprintNumber, normalizeSprintCode } from '@/features/tasks/sprintCode'
 import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
@@ -37,6 +38,10 @@ function addDaysISO(dateStr: string, days: number) {
 
 export default function AddSprintModal({ projectId, open, onClose }: AddSprintModalProps) {
   const [name, setName] = useState('')
+  const [code, setCode] = useState('')
+  const [codeError, setCodeError] = useState('')
+  // startFrom -- hanya relevan kalau project belum punya sprint dan kode dikosongkan.
+  const [startFrom, setStartFrom] = useState<0 | 1 | null>(null)
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
   const [goal, setGoal] = useState('')
@@ -48,11 +53,19 @@ export default function AddSprintModal({ projectId, open, onClose }: AddSprintMo
   const createSprint = useCreateSprint(projectId)
   const assignTasks = useAssignTasksToSprint(projectId)
 
-  const nextName = useMemo(() => `Sprint ${(sprints.data?.length ?? 0) + 1}`, [sprints.data])
+  // Pratinjau kode/nama otomatis -- sumber kebenaran tetap backend.
+  const nextNumber = useMemo(() => nextSprintNumber((sprints.data ?? []).map((s) => s.code)), [sprints.data])
+  const noSprintsYet = sprints.isSuccess && (sprints.data ?? []).length === 0
+  const autoNumber = nextNumber ?? startFrom
+  const nextName = autoNumber !== null ? `Sprint ${autoNumber}` : `Sprint ${(sprints.data?.length ?? 0) + 1}`
+  const needsStartChoice = noSprintsYet && code.trim() === ''
   const backlogTasks = useMemo(() => (tasks.data ?? []).filter((t) => t.status_name === 'BACKLOG' && !t.sprint_id), [tasks.data])
 
   const handleClose = () => {
     setName('')
+    setCode('')
+    setCodeError('')
+    setStartFrom(null)
     setStart('')
     setEnd('')
     setGoal('')
@@ -73,6 +86,16 @@ export default function AddSprintModal({ projectId, open, onClose }: AddSprintMo
 
   const handleSave = () => {
     setFormError('')
+    setCodeError('')
+    const normalizedCode = normalizeSprintCode(code)
+    if (normalizedCode && !isValidSprintCode(normalizedCode)) {
+      setCodeError('Kode hanya boleh huruf, angka, titik, strip, atau garis bawah (maksimal 20 karakter, tanpa spasi).')
+      return
+    }
+    if (needsStartChoice && startFrom === null) {
+      setFormError('Project ini belum punya sprint -- pilih penomoran dimulai dari Sprint 0 atau Sprint 1.')
+      return
+    }
     if (!start || !end) {
       setFormError('Tanggal mulai dan selesai wajib diisi -- gunakan durasi cepat bila perlu.')
       return
@@ -82,7 +105,14 @@ export default function AddSprintModal({ projectId, open, onClose }: AddSprintMo
       return
     }
     createSprint.mutate(
-      { name: name.trim(), start_date: start, end_date: end, goal: goal.trim() || undefined },
+      {
+        name: name.trim(),
+        code: normalizedCode || undefined,
+        start_from: needsStartChoice ? (startFrom ?? undefined) : undefined,
+        start_date: start,
+        end_date: end,
+        goal: goal.trim() || undefined,
+      },
       {
         onSuccess: (sprint) => {
           if (picked.length > 0) {
@@ -90,7 +120,13 @@ export default function AddSprintModal({ projectId, open, onClose }: AddSprintMo
           }
           handleClose()
         },
-        onError: (err) => setFormError(err instanceof ApiError ? err.message : 'Gagal membuat sprint.'),
+        onError: (err) => {
+          if (err instanceof ApiError && err.code === 'SPRINT_CODE_TAKEN') {
+            setCodeError('Kode ini sudah dipakai sprint lain di project ini.')
+            return
+          }
+          setFormError(err instanceof ApiError ? err.message : 'Gagal membuat sprint.')
+        },
       },
     )
   }
@@ -119,6 +155,54 @@ export default function AddSprintModal({ projectId, open, onClose }: AddSprintMo
             </Label>
             <Input id="sprint-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={`${nextName} · nama fase`} />
           </div>
+
+          <div>
+            <Label htmlFor="sprint-code" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+              Kode Sprint · Opsional
+            </Label>
+            <Input
+              id="sprint-code"
+              value={code}
+              maxLength={20}
+              onChange={(e) => {
+                setCode(e.target.value)
+                setCodeError('')
+              }}
+              placeholder={autoNumber !== null ? `Otomatis · ${formatSprintCode(autoNumber)}` : 'Otomatis · pilih penomoran di bawah'}
+              className="font-mono uppercase tracking-[0.04em]"
+            />
+            {codeError ? (
+              <p className="mt-1.5 font-mono text-[9.5px] leading-relaxed text-destructive">⚠ {codeError}</p>
+            ) : (
+              <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-text-dim">
+                Unik per project. Dikosongkan = dibuat sistem (nomor terakhir + 1). Dipakai kolom sprint pada import CSV task.
+              </p>
+            )}
+          </div>
+
+          {needsStartChoice && (
+            <div className="border border-amber p-3">
+              <div className="mb-2 font-mono text-[9px] uppercase tracking-[0.14em] text-amber">Penomoran Dimulai Dari</div>
+              <p className="mb-2.5 font-mono text-[9.5px] leading-relaxed text-text-muted">
+                Project ini belum punya sprint. Pilih sprint pertama diberi nomor 0 (fase fondasi/persiapan) atau 1.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {([0, 1] as const).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setStartFrom(n)}
+                    className={cn(
+                      'border px-3 py-2 font-mono text-[10px]',
+                      startFrom === n ? 'border-signal bg-signal text-bg-deep' : 'border-line-strong text-text-muted hover:text-text-bone',
+                    )}
+                  >
+                    Sprint {n} · {formatSprintCode(n)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-3">
             <div className="min-w-[150px] flex-1">
