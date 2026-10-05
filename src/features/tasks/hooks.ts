@@ -246,7 +246,7 @@ export function useTask(taskId: string | null) {
 export function useCreateSprint(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (values: { name: string; start_date?: string; end_date?: string; goal?: string }) => createSprint(projectId, values),
+    mutationFn: (values: { name: string; code?: string; start_from?: number; start_date?: string; end_date?: string; goal?: string }) => createSprint(projectId, values),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: taskKeys.sprints(projectId) }),
   })
 }
