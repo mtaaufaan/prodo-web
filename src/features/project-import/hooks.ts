@@ -25,7 +25,7 @@ export function useValidateProjectImport(projectId: string) {
   })
 }
 
-// Eksekusi sprint mengubah daftar sprint -> invalidasi query sprint project juga.
+// Eksekusi mengubah daftar sprint/task -> invalidasi query sprint dan task project juga.
 export function useExecuteProjectImport(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -33,6 +33,7 @@ export function useExecuteProjectImport(projectId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectImportKeys.history(projectId) })
       void queryClient.invalidateQueries({ queryKey: taskKeys.sprints(projectId) })
+      void queryClient.invalidateQueries({ queryKey: taskKeys.list(projectId) })
     },
   })
 }
