@@ -27,6 +27,15 @@ const TASK_COLUMNS: { key: string; desc: string; required?: boolean }[] = [
   { key: 'sprint', desc: 'KODE sprint yang sudah ada (lihat daftar di bawah); kosong = backlog. Sprint yang sudah selesai hanya menerima status DONE/CANCELED.' },
   { key: 'estimate', desc: 'Estimasi jam, angka desimal.' },
   { key: 'story_points', desc: '1 / 2 / 3 / 5 / 8 / 13 atau “?” belum diestimasi; nilai lain dilewati.' },
+  // Riwayat (opsional) -- kosongkan semua untuk task baru tanpa riwayat.
+  { key: 'created_at', desc: 'Riwayat: tanggal masuk BACKLOG (DD/MM/YYYY). Tanpa ini, lead time dihitung dari hari import.' },
+  { key: 'in_progress_at', desc: 'Riwayat: tanggal masuk IN PROGRESS. Wajib kalau status task IN PROGRESS dan riwayat diisi.' },
+  { key: 'under_review_at', desc: 'Riwayat: tanggal masuk UNDER REVIEW.' },
+  { key: 'done_at', desc: 'Riwayat: tanggal selesai (DONE). Wajib untuk status DONE kalau riwayat diisi. Tanggal harus berurutan dan tidak di masa depan.' },
+  { key: 'pic_backlog', desc: 'PIC fase BACKLOG — email member (beberapa dipisah ;). pic_in_progress / pic_under_review / pic_done sama.' },
+  { key: 'pic_in_progress', desc: 'PIC fase IN PROGRESS. Hanya untuk status yang dilalui (ada tanggalnya).' },
+  { key: 'pic_under_review', desc: 'PIC fase UNDER REVIEW.' },
+  { key: 'pic_done', desc: 'PIC fase DONE (opsional; DONE tidak butuh PIC aktif).' },
 ]
 
 const SPRINT_COLUMNS: { key: string; desc: string; required?: boolean }[] = [

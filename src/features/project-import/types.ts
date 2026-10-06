@@ -25,6 +25,15 @@ export interface TaskImportRow {
   sprint?: string
   estimate?: string
   story_points?: string
+  // riwayat tanggal status + PIC per status (tahap c, opsional)
+  created_at?: string
+  in_progress_at?: string
+  under_review_at?: string
+  done_at?: string
+  pic_backlog?: string
+  pic_in_progress?: string
+  pic_under_review?: string
+  pic_done?: string
   task_code?: string
   status: 'valid' | 'skipped'
   reason?: string
