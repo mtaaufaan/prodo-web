@@ -35,6 +35,11 @@ describe('taskRowNote', () => {
       'STATUS IN PROGRESS · HIGH · DUE 08/10/2026 · SPR-01 · a@x.com, b@x.com',
     )
   })
+  it('menandai riwayat tanggal dan PIC per status', () => {
+    expect(taskRowNote({ ...task, created_at: '2026-09-28', done_at: '2026-10-05', pic_in_progress: 'a@x.com' })).toBe(
+      'STATUS IN PROGRESS · HIGH · tanpa assignee · RIWAYAT 2 TGL · PIC PER STATUS',
+    )
+  })
   it('tanpa assignee/due/sprint', () => {
     expect(taskRowNote(task)).toBe('STATUS IN PROGRESS · HIGH · tanpa assignee')
   })

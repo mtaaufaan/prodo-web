@@ -32,6 +32,9 @@ export function taskRowNote(row: TaskImportRow): string {
   if (row.due_date) parts.push(`DUE ${formatDateDMY(row.due_date)}`)
   if (row.sprint) parts.push(row.sprint)
   parts.push(row.assignee ? row.assignee.split(';').join(', ') : 'tanpa assignee')
+  const history = [row.created_at, row.in_progress_at, row.under_review_at, row.done_at].filter(Boolean).length
+  if (history > 0) parts.push(`RIWAYAT ${history} TGL`)
+  if ([row.pic_backlog, row.pic_in_progress, row.pic_under_review, row.pic_done].some(Boolean)) parts.push('PIC PER STATUS')
   return parts.join(' · ')
 }
 
