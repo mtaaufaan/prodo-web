@@ -51,16 +51,24 @@ function SprintCard({ sprint, tasksInSprint: allTasksInSprint, onManage }: { spr
     <div className="flex flex-col gap-3 border border-line bg-panel p-4">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <button
-            type="button"
-            onClick={onManage}
-            className={cn(
-              'text-left text-[13.5px] font-semibold hover:underline',
-              sprint.status === 'done' ? 'text-text-muted' : 'text-text-bone',
-            )}
-          >
-            {sprint.name}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              title="Kode sprint — dipakai kolom sprint pada import CSV task"
+              className="border border-signal px-1.5 py-0.5 font-mono text-[9.5px] font-semibold tracking-[0.04em] text-signal"
+            >
+              {sprint.code}
+            </span>
+            <button
+              type="button"
+              onClick={onManage}
+              className={cn(
+                'text-left text-[13.5px] font-semibold hover:underline',
+                sprint.status === 'done' ? 'text-text-muted' : 'text-text-bone',
+              )}
+            >
+              {sprint.name}
+            </button>
+          </div>
           <div className="mt-1 font-mono text-[8.5px] text-text-dim">
             {formatDateDMY(sprint.start_date)} → {formatDateDMY(sprint.end_date)} · {total} TASK
           </div>

@@ -71,7 +71,7 @@ export function getProjectSprints(projectId: string) {
   return apiClient.get<Sprint[]>(`/api/v1/projects/${projectId}/sprints`)
 }
 
-export function createSprint(projectId: string, values: { name: string; start_date?: string; end_date?: string; goal?: string }) {
+export function createSprint(projectId: string, values: { name: string; code?: string; start_from?: number; start_date?: string; end_date?: string; goal?: string }) {
   return apiClient.post<Sprint>(`/api/v1/projects/${projectId}/sprints`, values)
 }
 

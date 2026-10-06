@@ -122,7 +122,7 @@ export default function ManageSprintModal({ sprint, onClose }: ManageSprintModal
         <DialogHeader>
           <DialogTitle>Kelola Sprint</DialogTitle>
           <div className="mt-1.5 font-mono text-[10.5px] text-text-muted">
-            Status {STATUS_LABEL[sprint.status]} · dibuat {new Date(sprint.created_at).toLocaleDateString('id-ID')}
+            Kode {sprint.code} · Status {STATUS_LABEL[sprint.status]} · dibuat {new Date(sprint.created_at).toLocaleDateString('id-ID')}
           </div>
           {!dirty && notice && (
             <div className="mt-2.5 border border-mint px-3.5 py-3 font-mono text-[10px] leading-relaxed text-mint">✓ {notice}</div>
@@ -140,6 +140,16 @@ export default function ManageSprintModal({ sprint, onClose }: ManageSprintModal
               Nama Sprint
             </Label>
             <Input id="manage-sprint-name" value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+
+          <div>
+            <Label htmlFor="manage-sprint-code" className="mb-1.5 block font-mono text-[9px] uppercase tracking-[0.14em] text-text-muted">
+              Kode Sprint
+            </Label>
+            <Input id="manage-sprint-code" value={sprint.code} readOnly className="font-mono uppercase tracking-[0.04em] opacity-70" />
+            <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-text-dim">
+              Dipakai kolom <span className="text-text-muted">sprint</span> pada import CSV task untuk menunjuk sprint ini. Kode dibuat otomatis dan tidak dapat diubah.
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
