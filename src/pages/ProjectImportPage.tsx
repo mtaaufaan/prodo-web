@@ -5,7 +5,7 @@ import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { downloadProjectImportReport, downloadProjectImportTemplate } from '@/features/project-import/api'
 import { useExecuteProjectImport, useProjectImportHistory, useValidateProjectImport } from '@/features/project-import/hooks'
-import { sprintRowNote, sprintRowTitle } from '@/features/project-import/rows'
+import { importRowView } from '@/features/project-import/rows'
 import type { ProjectImport, ProjectImportKind, ProjectImportValidateResult } from '@/features/project-import/types'
 import { useProjects } from '@/features/projects/hooks'
 import { useProjectSprints } from '@/features/tasks/hooks'
@@ -15,6 +15,20 @@ import { cn } from '@/lib/utils'
 type ViewTab = 'Unggah CSV' | 'Riwayat'
 
 // Kolom yang dikenali per jenis ("PM Import CSV.dc.html" KOLOM YANG DIKENALI).
+// start_date (perkiraan mulai) TIDAK ada di desain -- ditambahkan karena kolom
+// tasks.start_date ada (batang PLAN di Gantt).
+const TASK_COLUMNS: { key: string; desc: string; required?: boolean }[] = [
+  { key: 'title*', desc: 'Judul task — wajib, 3–160 karakter.', required: true },
+  { key: 'status', desc: 'Salah satu status project ini (mis. BACKLOG, IN PROGRESS, DONE); kosong = BACKLOG.' },
+  { key: 'priority', desc: 'low / medium / high / critical; kosong = medium.' },
+  { key: 'assignee', desc: 'Opsional. Email member project (bukan Viewer); beberapa email dipisah titik koma.' },
+  { key: 'start_date', desc: 'Perkiraan mulai, format DD/MM/YYYY.' },
+  { key: 'due_date', desc: 'Perkiraan selesai, format DD/MM/YYYY; tidak boleh lebih awal dari start_date.' },
+  { key: 'sprint', desc: 'KODE sprint yang sudah ada (lihat daftar di bawah); kosong = backlog. Sprint yang sudah selesai hanya menerima status DONE/CANCELED.' },
+  { key: 'estimate', desc: 'Estimasi jam, angka desimal.' },
+  { key: 'story_points', desc: '1 / 2 / 3 / 5 / 8 / 13 atau “?” belum diestimasi; nilai lain dilewati.' },
+]
+
 const SPRINT_COLUMNS: { key: string; desc: string; required?: boolean }[] = [
   { key: 'code*', desc: 'Kode sprint — wajib, unik per project, maksimal 20 karakter (huruf/angka/titik/strip). Dipakai import task untuk menunjuk sprint.', required: true },
   { key: 'name*', desc: 'Nama sprint — wajib, unik per project.', required: true },
@@ -72,7 +86,8 @@ function ProjectImportPageContent() {
 
   const projects = useProjects(workspaceId)
   const project = projects.data?.find((p) => p.id === pid) ?? null
-  const kind: ProjectImportKind = 'sprint'
+  const [kind, setKind] = useState<ProjectImportKind>('sprint')
+  const columns = kind === 'task' ? TASK_COLUMNS : SPRINT_COLUMNS
 
   const fileInput = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState('')
@@ -132,8 +147,8 @@ function ProjectImportPageContent() {
   const onTemplate = async () => {
     try {
       const blob = await downloadProjectImportTemplate(pid, kind)
-      triggerDownload(blob, 'sprint-import-template.csv')
-      setTemplateNotice('Template sprint-import-template.csv diunduh — kolom: code, name, start_date, end_date, goal, status.')
+      triggerDownload(blob, `${kind}-import-template.csv`)
+      setTemplateNotice(`Template ${kind}-import-template.csv diunduh — kolom: ${columns.map((c) => c.key.replace('*', '')).join(', ')}.`)
     } catch (err) {
       setError(errorMessage(err, 'Gagal mengunduh template.'))
     }
@@ -147,7 +162,7 @@ function ProjectImportPageContent() {
       onSuccess: (imp) => {
         reset()
         setResultMsg(
-          `${imp.success_count ?? 0} sprint diimpor ke ${project?.name ?? 'project ini'}, ${imp.failed_count ?? 0} baris dilewati. Tercatat di Audit Trail.`,
+          `${imp.success_count ?? 0} ${kind} diimpor ke ${project?.name ?? 'project ini'}, ${imp.failed_count ?? 0} baris dilewati. Tercatat di Audit Trail.`,
         )
       },
       onError: (err) => {
@@ -177,13 +192,25 @@ function ProjectImportPageContent() {
     <div className="flex flex-col gap-3.5 p-6">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">JENIS</span>
-        <span className="border border-signal bg-signal px-2.5 py-1.5 font-mono text-[9.5px] text-bg-deep">SPRINT</span>
-        <span
-          title="Import task menyusul — impor sprint dulu agar kode sprint bisa dirujuk."
-          className="cursor-not-allowed border border-line-strong px-2.5 py-1.5 font-mono text-[9.5px] text-text-dim opacity-60"
-        >
-          TASK · SEGERA
-        </span>
+        {(['sprint', 'task'] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            title={k === 'task' ? 'Impor sprint dulu supaya kode sprint bisa dirujuk kolom sprint.' : undefined}
+            onClick={() => {
+              if (k === kind) return
+              setKind(k)
+              reset()
+              setResultMsg('')
+            }}
+            className={cn(
+              'border px-2.5 py-1.5 font-mono text-[9.5px]',
+              k === kind ? 'border-signal bg-signal text-bg-deep' : 'border-line-strong text-text-muted hover:text-text-bone',
+            )}
+          >
+            {k.toUpperCase()}
+          </button>
+        ))}
         <span className="font-mono text-[9px] text-text-dim">PROJECT {(project?.name ?? '...').toUpperCase()}</span>
       </div>
 
@@ -192,7 +219,7 @@ function ProjectImportPageContent() {
       {tab === 'Unggah CSV' && (
         <div className="flex flex-wrap items-start gap-3.5">
           <div className="min-w-[300px] flex-1 border border-line bg-panel px-[19px] py-[18px]">
-            <div className="mb-1.5 font-mono text-[9px] tracking-[0.14em] text-signal">IMPORT SPRINT KE PROJECT {(project?.name ?? '...').toUpperCase()}</div>
+            <div className="mb-1.5 font-mono text-[9px] tracking-[0.14em] text-signal">IMPORT {kind.toUpperCase()} KE PROJECT {(project?.name ?? '...').toUpperCase()}</div>
             <p className="mb-4 mt-1.5 text-[12px] leading-relaxed text-text-muted">
               Berkas CSV UTF-8, pemisah koma, maksimal 5.000 baris per unggahan. Baris yang gagal validasi dilewati — sisanya tetap diimpor.
             </p>
@@ -223,7 +250,7 @@ function ProjectImportPageContent() {
             )}
             <div className="mb-2 font-mono text-[9px] tracking-[0.14em] text-text-dim">KOLOM YANG DIKENALI</div>
             <div className="flex flex-col gap-[7px]">
-              {SPRINT_COLUMNS.map((c) => (
+              {columns.map((c) => (
                 <div key={c.key} className="flex items-baseline gap-2.5">
                   <span className={cn('min-w-[88px] font-mono text-[10px]', c.required ? 'text-signal' : 'text-text-bone')}>{c.key}</span>
                   <span className="text-[11.5px] leading-snug text-text-muted">{c.desc}</span>
@@ -293,8 +320,8 @@ function ProjectImportPageContent() {
                     {r.status === 'valid' ? 'OK' : 'SKIP'}
                   </span>
                   <div className="min-w-0 flex-1 leading-[1.45]">
-                    <div className="truncate text-[12px] text-text-bone">{sprintRowTitle(r)}</div>
-                    <div className={cn('mt-1 font-mono text-[8.5px] leading-[1.7]', r.status === 'valid' ? 'text-text-dim' : 'text-destructive')}>{sprintRowNote(r)}</div>
+                    <div className="truncate text-[12px] text-text-bone">{importRowView(r).title}</div>
+                    <div className={cn('mt-1 font-mono text-[8.5px] leading-[1.7]', r.status === 'valid' ? 'text-text-dim' : 'text-destructive')}>{importRowView(r).note}</div>
                   </div>
                 </div>
               ))}
@@ -334,7 +361,7 @@ function ProjectImportPageContent() {
           {(history.data ?? []).map((h) => (
             <div key={h.id} className="flex flex-col gap-[7px] border-t border-line px-[15px] py-[13px] first:border-t-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="border border-mint px-1.5 py-[3px] font-mono text-[9px] font-semibold text-mint">{h.kind.toUpperCase()}</span>
+                <span className={cn('border px-1.5 py-[3px] font-mono text-[9px] font-semibold', h.kind === 'task' ? 'border-blue text-blue' : 'border-mint text-mint')}>{h.kind.toUpperCase()}</span>
                 <span className="text-[12.5px] font-semibold text-text-bone">{h.filename}</span>
                 <span className="ml-auto whitespace-nowrap font-mono text-[9px] text-text-dim">{h.status === 'completed' ? 'SELESAI' : h.status.toUpperCase()}</span>
               </div>
@@ -361,7 +388,7 @@ function ProjectImportPageContent() {
             </div>
           )}
           <div className="border-t border-line bg-raised-2 px-3.5 py-[11px] font-mono text-[9px] leading-[1.8] text-text-dim">
-            Setiap import tercatat di Audit Trail dengan aktor, berkas, jumlah baris berhasil dan dilewati. Import tidak dapat dibatalkan — sprint yang salah
+            Setiap import tercatat di Audit Trail dengan aktor, berkas, jumlah baris berhasil dan dilewati. Import tidak dapat dibatalkan — data yang salah
             harus dihapus manual.
           </div>
         </div>

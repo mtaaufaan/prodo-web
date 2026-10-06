@@ -14,13 +14,29 @@ export interface SprintImportRow {
   reason?: string
 }
 
+export interface TaskImportRow {
+  row: number
+  title: string
+  task_status: string
+  priority: string
+  assignee?: string
+  start_date?: string
+  due_date?: string
+  sprint?: string
+  estimate?: string
+  story_points?: string
+  task_code?: string
+  status: 'valid' | 'skipped'
+  reason?: string
+}
+
 export interface ProjectImportValidateResult {
   import_id: string
   kind: ProjectImportKind
   total_rows: number
   valid_count: number
   skipped_count: number
-  preview: SprintImportRow[]
+  preview: (SprintImportRow | TaskImportRow)[]
 }
 
 export interface ProjectImport {
