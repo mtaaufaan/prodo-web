@@ -6,6 +6,7 @@ import { useMyContext, useSwitchContext } from '@/features/context/hooks'
 import { useProjects } from '@/features/projects/hooks'
 import { isProjectPM } from '@/features/projects/types'
 import { useWorkspace } from '@/features/workspaces/hooks'
+import { projectIdFromPath, switchProjectPath } from '@/lib/projectPath'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -170,7 +171,8 @@ function pmNavItems(workspaceId: string, activeProjectId: string | null): Worksp
       key: 'kinerja',
       icon: '◎',
       label: 'Performance Dashboard',
-      to: `/workspaces/${workspaceId}/performance`,
+      // PM: dashboard PER PROJECT sesuai project aktif switcher.
+      to: p ? `/workspaces/${workspaceId}/projects/${p}/performance` : `/workspaces/${workspaceId}/performance`,
       tabs: ['Project Health', 'Member Performance', 'Flow Efficiency'],
       cta: null,
     },
@@ -326,6 +328,24 @@ export default function WorkspaceLayout() {
   useEffect(() => {
     if (isPM && !activeProjectId && myProjects.length > 0) setActiveProjectId(myProjects[0].id)
   }, [isPM, myProjects, activeProjectId])
+  // URL = sumber kebenaran project aktif: buka/kembali ke halaman project lain
+  // (deep link, tombol back) menyamakan switcher.
+  const urlProjectId = projectIdFromPath(location.pathname, workspaceId)
+  useEffect(() => {
+    if (isPM && urlProjectId && urlProjectId !== activeProjectId && myProjects.some((p) => p.id === urlProjectId)) setActiveProjectId(urlProjectId)
+  }, [isPM, urlProjectId, activeProjectId, myProjects])
+  // Pilih project di switcher: halaman project yang sedang terbuka ikut pindah
+  // ke project baru (sebelumnya hanya link menu yang berubah, isi halaman tetap
+  // project lama).
+  const switchProject = (projectId: string) => {
+    setActiveProjectId(projectId)
+    let target = switchProjectPath(location.pathname, location.search, workspaceId, projectId)
+    // Rute lama dashboard PM tanpa project di URL -> pindah ke rute per project.
+    if (!target && location.pathname === `/workspaces/${workspaceId}/performance`) {
+      target = `/workspaces/${workspaceId}/projects/${projectId}/performance${location.search}`
+    }
+    if (target) navigate(target)
+  }
 
   const items = useMemo(
     () => (isPM ? pmNavItems(workspaceId, activeProjectId || null) : awNavItems(workspaceId)),
@@ -559,7 +579,7 @@ export default function WorkspaceLayout() {
                           key={p.id}
                           type="button"
                           onClick={() => {
-                            setActiveProjectId(p.id)
+                            switchProject(p.id)
                             setProjectMenuOpen(false)
                           }}
                           className={cn('flex w-full items-center gap-2.5 border-t border-line-subtle px-3 py-2.5 text-left', active && 'bg-raised-2')}

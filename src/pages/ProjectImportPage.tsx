@@ -19,6 +19,7 @@ type ViewTab = 'Unggah CSV' | 'Riwayat'
 // tasks.start_date ada (batang PLAN di Gantt).
 const TASK_COLUMNS: { key: string; desc: string; required?: boolean }[] = [
   { key: 'title*', desc: 'Judul task — wajib, 3–160 karakter.', required: true },
+  { key: 'description', desc: 'Deskripsi task (opsional), maksimal 4.000 karakter. Boleh beberapa baris — bungkus dengan tanda kutip "..." dan tulis tanda kutip di dalamnya sebagai "".' },
   { key: 'status', desc: 'Salah satu status project ini (mis. BACKLOG, IN PROGRESS, DONE); kosong = BACKLOG.' },
   { key: 'priority', desc: 'low / medium / high / critical; kosong = medium.' },
   { key: 'assignee', desc: 'Opsional. Email member project (bukan Viewer); beberapa email dipisah titik koma.' },

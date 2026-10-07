@@ -17,6 +17,7 @@ export interface SprintImportRow {
 export interface TaskImportRow {
   row: number
   title: string
+  description?: string
   task_status: string
   priority: string
   assignee?: string

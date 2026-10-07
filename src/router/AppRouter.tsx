@@ -136,6 +136,8 @@ export default function AppRouter() {
           <Route path="/workspaces/:wsId/documents" element={<AwDocumentsPage />} />
           {/* EPIC 12, US-075/076/077/078 ("Performance Dashboard.dc.html"). */}
           <Route path="/workspaces/:wsId/performance" element={<PerformanceDashboardPage />} />
+          {/* PM: dashboard per project sesuai project aktif switcher */}
+          <Route path="/workspaces/:wsId/projects/:projectId/performance" element={<PerformanceDashboardPage />} />
           {/* S4W-16/17, US-058 ("AW Audit Trail.dc.html"), dikerjakan
               TERAKHIR di Track S4W atas instruksi user. */}
           <Route path="/workspaces/:wsId/audit-trail" element={<AwAuditTrailPage />} />

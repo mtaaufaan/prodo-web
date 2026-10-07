@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
 
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
@@ -31,7 +31,7 @@ const PRIORITY_CLASS: Record<string, string> = {
 // mendapat layar "AKSES DITOLAK" sama seperti desain. Group Admin punya
 // dashboard TERPISAH (GA Kinerja Grup, US-079) -- tidak lewat halaman ini.
 export default function PerformanceDashboardPage() {
-  const { wsId } = useParams<{ wsId: string }>()
+  const { wsId, projectId: routeProjectId } = useParams<{ wsId: string; projectId?: string }>()
   const workspaceId = wsId ?? ''
   const { view } = useOutletContext<WorkspaceOutletContext>()
   const tab: Tab = view === 'Member Performance' || view === 'Flow Efficiency' ? view : 'Project Health'
@@ -50,14 +50,14 @@ export default function PerformanceDashboardPage() {
   const isPM = !isFullMode && myProjects.length > 0
 
   const [projectFilter, setProjectFilter] = useState('')
-  const [activeProjectId, setActiveProjectId] = useState('')
   const [range, setRange] = useState(30)
   const [mode, setMode] = useState<Mode>('raw')
   const [bottleMode, setBottleMode] = useState<BottleMode>('total')
 
-  useEffect(() => {
-    if (isPM && !activeProjectId && myProjects.length > 0) setActiveProjectId(myProjects[0].id)
-  }, [isPM, myProjects, activeProjectId])
+  // PM: project = project di URL (dipilih lewat switcher project di sidebar);
+  // rute lama tanpa project jatuh ke project pertama yang dia kelola.
+  const routeProjectIsMine = routeProjectId ? myProjects.some((p) => p.id === routeProjectId) : true
+  const activeProjectId = routeProjectId ?? myProjects[0]?.id ?? ''
 
   const wsQuery = useWorkspacePerformance(workspaceId, projectFilter, range, isFullMode)
   const pmQuery = useProjectPerformance(activeProjectId, range, isPM)
@@ -65,7 +65,7 @@ export default function PerformanceDashboardPage() {
   const isLoadingData = isFullMode ? wsQuery.isLoading : pmQuery.isLoading
 
   const contextLoading = myContext.isLoading || projects.isLoading
-  const denied = !contextLoading && !isFullMode && !isPM
+  const denied = !contextLoading && !isFullMode && (!isPM || !routeProjectIsMine)
 
   const activeProjects = (projects.data ?? []).filter((p) => !p.is_archived)
   const scopeLabel = isFullMode
@@ -145,16 +145,10 @@ export default function PerformanceDashboardPage() {
         ) : (
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">PROJECT</span>
-            {myProjects.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setActiveProjectId(p.id)}
-                className={cn('max-w-[180px] truncate border px-2 py-1 font-mono text-[9.5px]', activeProjectId === p.id ? 'border-signal text-signal' : 'border-line-strong text-text-dim')}
-              >
-                {p.name.toUpperCase()}
-              </button>
-            ))}
+            <span className="max-w-[260px] truncate border border-signal px-2 py-1 font-mono text-[9.5px] text-signal">
+              {(myProjects.find((p) => p.id === activeProjectId)?.name ?? '—').toUpperCase()}
+            </span>
+            {myProjects.length > 1 && <span className="font-mono text-[9px] text-text-dim">ganti project lewat switcher di sidebar</span>}
           </div>
         )}
         <div className="flex items-center gap-1.5">
