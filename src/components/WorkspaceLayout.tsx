@@ -159,8 +159,9 @@ function awNavItems(workspaceId: string): WorkspaceNavItemDef[] {
 // Automation AW level workspace, lihat ProjectRuleAutomationPage.tsx)
 // sudah py halaman sungguhan, begitu juga 'picgroup' (US-017b, IG-117,
 // "PM PIC Group.dc.html" -- ProjectPicGroupPage.tsx), dan 'import' (Import
-// CSV PM, IG-120 -- tahap (a): import sprint). Sisanya "SEGERA": analytics -> S5E.
-// 'docs' (level PROJECT, beda dari AW Documents yang workspace-wide) dan
+// CSV PM, IG-120 -- tahap (a): import sprint), dan 'docs' (Dokumen &
+// Lampiran level PROJECT, IG-123 -- DocumentsView cakupan project, beda dari
+// AW Documents yang workspace-wide). Sisanya "SEGERA": analytics -> S5E.
 // 'audit' (Audit Trail PM, beda dari Audit Trail Workspace AW) BELUM py
 // task Sprint 5 sama sekali (IG-90), perlu dikonfirmasi cakupannya ke user
 // sebelum dikerjakan.
@@ -225,7 +226,7 @@ function pmNavItems(workspaceId: string, activeProjectId: string | null): Worksp
       cta: '+ Rule',
     },
     { key: 'import', icon: '⇪', label: 'Import CSV', to: p ? `/workspaces/${workspaceId}/projects/${p}/import` : null, tabs: ['Unggah CSV', 'Riwayat'], cta: null },
-    { key: 'docs', icon: '▧', label: 'Dokumen & Lampiran', to: null, tabs: null, cta: null },
+    { key: 'docs', icon: '▧', label: 'Dokumen & Lampiran', to: p ? `/workspaces/${workspaceId}/projects/${p}/documents` : null, tabs: null, cta: null },
     { key: 'analytics', icon: '◔', label: 'Timesheet & Analitik', to: null, tabs: ['Ringkasan', 'Per-Member'], cta: null },
     { key: 'audit', icon: '☰', label: 'Audit Trail', to: null, tabs: null, cta: null },
   ]
