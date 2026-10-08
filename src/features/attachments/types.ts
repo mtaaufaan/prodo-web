@@ -31,6 +31,16 @@ export interface QuotaOverview {
   per_project: { project_id: string; project_name: string; bytes: number; file_count: number }[]
 }
 
+// Kuota di halaman Dokumen & Lampiran PM (IG-123): kuota organisasi (baca-saja)
+// + pemakaian project ini saja.
+export interface ProjectQuota {
+  quota_bytes: number
+  used_bytes: number
+  retention_days: number
+  project_bytes: number
+  project_file_count: number
+}
+
 export interface DocumentFilter {
   project_id?: string
   status?: string // '' (aktif & orphan) | 'active' | 'orphan' | 'deleted' | 'all'
