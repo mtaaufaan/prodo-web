@@ -2,9 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
   bulkDeleteDocuments,
+  bulkDeleteProjectDocuments,
   deleteAttachment,
   deleteDocument,
   getDocumentsQuota,
+  getProjectDocuments,
+  getProjectDocumentsQuota,
   getTaskAttachments,
   getWorkspaceDocuments,
   renameAttachment,
@@ -19,6 +22,8 @@ export const attachmentKeys = {
   task: (taskId: string) => [...attachmentKeys.all, 'task', taskId] as const,
   workspace: (workspaceId: string, filter: DocumentFilter) => [...attachmentKeys.all, 'workspace', workspaceId, filter] as const,
   quota: (workspaceId: string) => [...attachmentKeys.all, 'quota', workspaceId] as const,
+  project: (projectId: string, filter: DocumentFilter) => [...attachmentKeys.all, 'project', projectId, filter] as const,
+  projectQuota: (projectId: string) => [...attachmentKeys.all, 'project-quota', projectId] as const,
 }
 
 export function useTaskAttachments(taskId: string | null) {
@@ -69,6 +74,22 @@ export function useDocumentsQuota(workspaceId: string) {
   })
 }
 
+export function useProjectDocuments(projectId: string, filter: DocumentFilter) {
+  return useQuery({
+    queryKey: attachmentKeys.project(projectId, filter),
+    queryFn: () => getProjectDocuments(projectId, filter),
+    enabled: projectId !== '',
+  })
+}
+
+export function useProjectDocumentsQuota(projectId: string) {
+  return useQuery({
+    queryKey: attachmentKeys.projectQuota(projectId),
+    queryFn: () => getProjectDocumentsQuota(projectId),
+    enabled: projectId !== '',
+  })
+}
+
 function useInvalidateWorkspaceDocs() {
   const queryClient = useQueryClient()
   return () => {
@@ -90,6 +111,14 @@ export function useBulkDeleteDocuments(workspaceId: string) {
   return useMutation({
     mutationFn: ({ ids, mode, confirmWorkspaceName }: { ids: string[]; mode: string; confirmWorkspaceName?: string }) =>
       bulkDeleteDocuments(workspaceId, ids, mode, confirmWorkspaceName),
+    onSuccess: invalidate,
+  })
+}
+
+export function useBulkDeleteProjectDocuments(projectId: string) {
+  const invalidate = useInvalidateWorkspaceDocs()
+  return useMutation({
+    mutationFn: (ids: string[]) => bulkDeleteProjectDocuments(projectId, ids),
     onSuccess: invalidate,
   })
 }

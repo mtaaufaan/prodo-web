@@ -1,6 +1,6 @@
 import { apiClient } from '@/lib/api'
 
-import type { Attachment, DocumentFilter, QuotaOverview } from './types'
+import type { Attachment, DocumentFilter, ProjectQuota, QuotaOverview } from './types'
 
 export function uploadAttachment(taskId: string, file: File) {
   const form = new FormData()
@@ -48,6 +48,19 @@ export function bulkDeleteDocuments(workspaceId: string, ids: string[], mode: st
     mode,
     confirm_workspace_name: confirmWorkspaceName,
   })
+}
+
+// Dokumen & Lampiran PM (IG-123): per project, hapus massal hanya retensi.
+export function getProjectDocuments(projectId: string, filter: DocumentFilter) {
+  return apiClient.get<Attachment[]>(`/api/v1/projects/${projectId}/documents`, { params: filter })
+}
+
+export function getProjectDocumentsQuota(projectId: string) {
+  return apiClient.get<ProjectQuota>(`/api/v1/projects/${projectId}/documents/quota`)
+}
+
+export function bulkDeleteProjectDocuments(projectId: string, ids: string[]) {
+  return apiClient.post<{ succeeded: number; total: number }>(`/api/v1/projects/${projectId}/documents/bulk-delete`, { ids })
 }
 
 export function requestDocumentsQuota(workspaceId: string, additionalGb: number, reason: string) {
