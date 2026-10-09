@@ -103,12 +103,12 @@ function ProjectImportPageContent() {
   const fileInput = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState('')
   const [preview, setPreview] = useState<ProjectImportValidateResult | null>(null)
-  const [confirmOpen, setConfirmOpen] = useState(false)
   const [error, setError] = useState('')
   const [rateLimit, setRateLimit] = useState<{ message: string; retryAfter: number } | null>(null)
   const [templateNotice, setTemplateNotice] = useState('')
   const [resultMsg, setResultMsg] = useState('')
   const [logNotice, setLogNotice] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const validate = useValidateProjectImport(pid)
   const execute = useExecuteProjectImport(pid)
