@@ -23,7 +23,7 @@ const PREVIEW_PAGE_SIZE = 10
 const TASK_COLUMNS: { key: string; desc: string; required?: boolean }[] = [
   { key: 'title*', desc: 'Judul task — wajib, 3–160 karakter.', required: true },
   { key: 'description', desc: 'Deskripsi task (opsional), maksimal 4.000 karakter. Boleh beberapa baris — bungkus dengan tanda kutip "..." dan tulis tanda kutip di dalamnya sebagai "".' },
-  { key: 'status', desc: 'Salah satu status project ini (mis. BACKLOG, IN PROGRESS, DONE); kosong = BACKLOG.' },
+  { key: 'status', desc: 'Salah satu status project ini (mis. BACKLOG, IN PROGRESS, DONE, CANCELED); kosong = BACKLOG.' },
   { key: 'priority', desc: 'low / medium / high / critical; kosong = medium.' },
   { key: 'assignee', desc: 'Opsional. Email member project (bukan Viewer); beberapa email dipisah titik koma.' },
   { key: 'start_date', desc: 'Perkiraan mulai, format DD/MM/YYYY.' },
@@ -36,10 +36,12 @@ const TASK_COLUMNS: { key: string; desc: string; required?: boolean }[] = [
   { key: 'in_progress_at', desc: 'Riwayat: tanggal masuk IN PROGRESS. Wajib kalau status task IN PROGRESS dan riwayat diisi.' },
   { key: 'under_review_at', desc: 'Riwayat: tanggal masuk UNDER REVIEW.' },
   { key: 'done_at', desc: 'Riwayat: tanggal selesai (DONE). Wajib untuk status DONE kalau riwayat diisi. Tanggal harus berurutan dan tidak di masa depan.' },
-  { key: 'pic_backlog', desc: 'PIC fase BACKLOG — email member (beberapa dipisah ;). pic_in_progress / pic_under_review / pic_done sama.' },
+  { key: 'canceled_at', desc: 'Riwayat: tanggal dibatalkan (CANCELED). Wajib untuk status CANCELED kalau riwayat diisi; tanggal antara (in_progress_at dst) boleh dikosongkan, mis. created_at → canceled_at.' },
+  { key: 'pic_backlog', desc: 'PIC fase BACKLOG — email member (beberapa dipisah ;). pic_in_progress / pic_under_review / pic_done / pic_canceled sama.' },
   { key: 'pic_in_progress', desc: 'PIC fase IN PROGRESS. Hanya untuk status yang dilalui (ada tanggalnya).' },
   { key: 'pic_under_review', desc: 'PIC fase UNDER REVIEW.' },
   { key: 'pic_done', desc: 'PIC fase DONE (opsional; DONE tidak butuh PIC aktif).' },
+  { key: 'pic_canceled', desc: 'PIC fase CANCELED (opsional; CANCELED tidak butuh PIC aktif).' },
 ]
 
 const SPRINT_COLUMNS: { key: string; desc: string; required?: boolean }[] = [
