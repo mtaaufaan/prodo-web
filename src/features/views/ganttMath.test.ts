@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildElbowPoints, computeActualBar, milestoneLabel, parseDateOnly, progressPct, sortTasksBySprintTimeline } from './ganttMath'
+import {
+  buildElbowPoints,
+  computeActualBar,
+  ganttFocusDate,
+  milestoneLabel,
+  orderedSprintNames,
+  parseDateOnly,
+  progressPct,
+  sortTasksBySprintTimeline,
+} from './ganttMath'
 import type { Sprint, Task, TaskStatusSession } from '@/features/tasks/types'
 
 function session(partial: Partial<TaskStatusSession>): TaskStatusSession {
@@ -166,5 +175,54 @@ describe('sortTasksBySprintTimeline', () => {
     const sorted = sortTasksBySprintTimeline(input, sprints)
     expect(sorted.map((x) => x.task_code)).toEqual(['A', 'C', 'B'])
     expect(input.map((x) => x.task_code)).toEqual(['B', 'A', 'C'])
+  })
+})
+
+describe('orderedSprintNames', () => {
+  const sp = (name: string, start: string | null, end: string | null) => ({ id: name, name, start_date: start, end_date: end }) as Sprint
+  const t = (sprintName: string | null) => ({ sprint_name: sprintName }) as Task
+
+  it('urut menurut tanggal mulai sprint, bukan urutan kemunculan task', () => {
+    const sprints = [sp('Sprint 1', '2026-10-05', '2026-10-16'), sp('Sprint 0', '2026-09-28', '2026-10-05'), sp('Sprint 2', '2026-10-19', '2026-10-30')]
+    // task Sprint 1 muncul lebih dulu (kasus screenshot: tombol Sprint 1 sebelum Sprint 0)
+    const tasks = [t('Sprint 1'), t('Sprint 2'), t('Sprint 0'), t('Sprint 1')]
+    expect(orderedSprintNames(tasks, sprints)).toEqual(['Sprint 0', 'Sprint 1', 'Sprint 2'])
+  })
+
+  it('hanya sprint yang punya task; sprint tanpa tanggal setelah yang bertanggal', () => {
+    const sprints = [sp('Tanpa Tanggal', null, null), sp('Sprint 0', '2026-09-28', null), sp('Kosong', '2026-08-01', null)]
+    expect(orderedSprintNames([t('Tanpa Tanggal'), t('Sprint 0'), t(null)], sprints)).toEqual(['Sprint 0', 'Tanpa Tanggal'])
+  })
+
+  it('nama sprint tak dikenal ditaruh paling akhir', () => {
+    expect(orderedSprintNames([t('Zeta'), t('Sprint 0'), t('Alfa')], [sp('Sprint 0', '2026-09-28', null)])).toEqual(['Sprint 0', 'Alfa', 'Zeta'])
+  })
+
+  it('tanpa task bersprint -> kosong', () => {
+    expect(orderedSprintNames([t(null)], [sp('Sprint 0', '2026-09-28', null)])).toEqual([])
+  })
+})
+
+describe('ganttFocusDate', () => {
+  const sp = (name: string, start: string | null) => ({ id: name, name, start_date: start, end_date: null }) as Sprint
+  const t = (sprintName: string, start: string | null) => ({ sprint_name: sprintName, start_date: start }) as Task
+  const now = parseDateOnly('2026-10-10')!
+
+  it('Semua -> hari ini', () => {
+    expect(ganttFocusDate('Semua', [], [], now)).toBe(now)
+  })
+
+  it('sprint terpilih -> tanggal mulai sprint', () => {
+    const d = ganttFocusDate('Sprint 1', [t('Sprint 1', '2026-10-07')], [sp('Sprint 1', '2026-10-05')], now)
+    expect(d?.toISOString().slice(0, 10)).toBe('2026-10-05')
+  })
+
+  it('sprint tanpa tanggal mulai -> start_date task paling awal di sprint itu', () => {
+    const d = ganttFocusDate('Sprint X', [t('Sprint X', '2026-10-09'), t('Sprint X', '2026-10-03'), t('Lain', '2026-01-01')], [sp('Sprint X', null)], now)
+    expect(d?.toISOString().slice(0, 10)).toBe('2026-10-03')
+  })
+
+  it('sprint tanpa tanggal sama sekali -> null (jangan geser)', () => {
+    expect(ganttFocusDate('Sprint X', [t('Sprint X', null)], [sp('Sprint X', null)], now)).toBeNull()
   })
 })
