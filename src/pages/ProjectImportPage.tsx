@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
 
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
+import ImportConfirmDialog from '@/components/project-import/ImportConfirmDialog'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { downloadProjectImportReport, downloadProjectImportTemplate } from '@/features/project-import/api'
 import { useExecuteProjectImport, useProjectImportHistory, useValidateProjectImport } from '@/features/project-import/hooks'
@@ -102,6 +103,7 @@ function ProjectImportPageContent() {
   const fileInput = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState('')
   const [preview, setPreview] = useState<ProjectImportValidateResult | null>(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [error, setError] = useState('')
   const [rateLimit, setRateLimit] = useState<{ message: string; retryAfter: number } | null>(null)
   const [templateNotice, setTemplateNotice] = useState('')
@@ -166,6 +168,7 @@ function ProjectImportPageContent() {
 
   const onExecute = () => {
     if (!preview) return
+    setConfirmOpen(false)
     setError('')
     setRateLimit(null)
     execute.mutate(preview.import_id, {
@@ -345,7 +348,7 @@ function ProjectImportPageContent() {
               <div className="flex flex-wrap gap-2.5 border-t border-line px-4 py-3.5">
                 <button
                   type="button"
-                  onClick={onExecute}
+                  onClick={() => setConfirmOpen(true)}
                   disabled={execute.isPending || preview.valid_count === 0}
                   className="bg-signal px-5 py-[11px] font-mono text-[10.5px] font-bold tracking-[0.08em] text-bg-deep disabled:opacity-50"
                 >
@@ -354,6 +357,16 @@ function ProjectImportPageContent() {
                 <button type="button" onClick={reset} className="border border-line-strong px-5 py-[11px] font-mono text-[10.5px] tracking-[0.06em] text-text-muted">
                   TUTUP
                 </button>
+                <ImportConfirmDialog
+                  open={confirmOpen}
+                  kind={preview.kind}
+                  projectName={project?.name ?? ''}
+                  fileName={fileName}
+                  validCount={preview.valid_count}
+                  skippedCount={preview.skipped_count}
+                  onClose={() => setConfirmOpen(false)}
+                  onConfirm={onExecute}
+                />
               </div>
             )}
             {resultMsg && (
