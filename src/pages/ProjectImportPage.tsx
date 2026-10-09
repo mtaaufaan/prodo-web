@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
 
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
+import ImportConfirmDialog from '@/components/project-import/ImportConfirmDialog'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import Grid1Pager from '@/components/shared/Grid1Pager'
 import { downloadProjectImportReport, downloadProjectImportTemplate } from '@/features/project-import/api'
@@ -113,6 +114,7 @@ function ProjectImportPageContent() {
   const [templateNotice, setTemplateNotice] = useState('')
   const [resultMsg, setResultMsg] = useState('')
   const [logNotice, setLogNotice] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const validate = useValidateProjectImport(pid)
   const execute = useExecuteProjectImport(pid)
@@ -176,6 +178,7 @@ function ProjectImportPageContent() {
 
   const onExecute = () => {
     if (!preview) return
+    setConfirmOpen(false)
     setError('')
     setRateLimit(null)
     execute.mutate(preview.import_id, {
@@ -351,7 +354,7 @@ function ProjectImportPageContent() {
               <div className="flex flex-wrap gap-2.5 border-t border-line px-4 py-3.5">
                 <button
                   type="button"
-                  onClick={onExecute}
+                  onClick={() => setConfirmOpen(true)}
                   disabled={execute.isPending || preview.valid_count === 0}
                   className="bg-signal px-5 py-[11px] font-mono text-[10.5px] font-bold tracking-[0.08em] text-bg-deep disabled:opacity-50"
                 >
@@ -360,6 +363,16 @@ function ProjectImportPageContent() {
                 <button type="button" onClick={reset} className="border border-line-strong px-5 py-[11px] font-mono text-[10.5px] tracking-[0.06em] text-text-muted">
                   TUTUP
                 </button>
+                <ImportConfirmDialog
+                  open={confirmOpen}
+                  kind={preview.kind}
+                  projectName={project?.name ?? ''}
+                  fileName={fileName}
+                  validCount={preview.valid_count}
+                  skippedCount={preview.skipped_count}
+                  onClose={() => setConfirmOpen(false)}
+                  onConfirm={onExecute}
+                />
               </div>
             )}
             {resultMsg && (
