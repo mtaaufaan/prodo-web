@@ -10,8 +10,10 @@ import {
   DAY_MS,
   dayFloorUTC,
   fmtShort,
+  ganttFocusDate,
   milestoneLabel,
   MONTHS_ID,
+  orderedSprintNames,
   parseDateOnly,
   progressPct,
   sortTasksBySprintTimeline,
@@ -52,6 +54,9 @@ const CANCELED_STRIPE = {
 const DAY_W = 28
 const ROW_H = 46
 const TAIL_PX = 170
+// Jarak (px) tanggal fokus dari tepi kiri area timeline saat scroll otomatis.
+const FOCUS_OFFSET_TODAY = 260
+const FOCUS_OFFSET_SPRINT = 48
 
 interface GanttChartProps {
   projectId: string
@@ -79,7 +84,7 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
   const [depsOn, setDepsOn] = useState(true)
   const [drag, setDrag] = useState<{ taskId: string; days: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const scrolledOnceRef = useRef(false)
+  const focusKeyRef = useRef('')
 
   const sessionsByTask = useMemo(() => {
     const map = new Map<string, TaskStatusSession[]>()
@@ -99,11 +104,9 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
   // supaya PM sadar dan bisa melengkapinya langsung dari sini.
   const dated = useMemo(() => tasks.filter((t) => t.start_date && t.due_date), [tasks])
 
-  const sprintNames = useMemo(() => {
-    const names = new Set<string>()
-    tasks.forEach((t) => { if (t.sprint_name) names.add(t.sprint_name) })
-    return Array.from(names)
-  }, [tasks])
+  // Tombol filter sprint urut menurut timeline sprint (Sprint 0, 1, 2, ...), sama
+  // dengan urutan baris di grid -- bukan urutan kemunculan task.
+  const sprintNames = useMemo(() => orderedSprintNames(tasks, sprints), [tasks, sprints])
 
   const taskRows = useMemo(
     () => sortTasksBySprintTimeline(sprintFilter === 'Semua' ? tasks : tasks.filter((t) => t.sprint_name === sprintFilter), sprints),
@@ -136,17 +139,6 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
   const pEnd = addDaysUTC(pStart, nDays)
   const xOf = (d: Date) => diffDays(pStart, d) * DAY_W
   const timelineW = nDays * DAY_W
-
-  // Auto-scroll ke Hari Ini saat pertama render (sekali saja per project).
-  useEffect(() => {
-    scrolledOnceRef.current = false
-  }, [projectId])
-  useEffect(() => {
-    if (scrolledOnceRef.current || !scrollRef.current) return
-    scrolledOnceRef.current = true
-    scrollRef.current.scrollLeft = Math.max(0, xOf(today) - 260)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cuma sekali, dependensi xOf/today stabil per render
-  }, [pStart, nDays])
 
   // ---- hari (grid harian) + bulan (header atas) ----
   const days = useMemo(() => {
@@ -317,6 +309,25 @@ export default function GanttChart({ projectId, tasks, sprints, onOpenTask }: Ga
   }
 
   const isLoading = sessionsQuery.isLoading || dependenciesQuery.isLoading
+
+  // Fokus scroll horizontal: filter "Semua" (default) -> garis Hari Ini; sprint
+  // tertentu -> tanggal mulai sprint itu. Dijalankan sekali per (project, filter)
+  // begitu kanvas sudah tampil -- BUKAN tiap pStart/nDays berubah, supaya geser
+  // bar (drag) yang memperluas rentang tidak melompatkan scroll. Pindah project
+  // langsung (tanpa animasi); ganti filter bergulir halus.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const key = `${projectId}|${sprintFilter}`
+    if (focusKeyRef.current === key) return
+    const sameProject = focusKeyRef.current.startsWith(`${projectId}|`)
+    focusKeyRef.current = key
+    const target = ganttFocusDate(sprintFilter, tasks, sprints, today)
+    if (!target) return
+    const left = Math.max(0, xOf(target) - (sprintFilter === 'Semua' ? FOCUS_OFFSET_TODAY : FOCUS_OFFSET_SPRINT))
+    el.scrollTo({ left, behavior: sameProject ? 'smooth' : 'auto' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- today/xOf/tasks/sprints sengaja tidak jadi pemicu (lihat komentar)
+  }, [projectId, sprintFilter, isLoading, rows.length])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col border border-line">
