@@ -3,6 +3,7 @@ import { useOutletContext, useParams } from 'react-router-dom'
 
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import Grid1Pager from '@/components/shared/Grid1Pager'
 import { downloadProjectImportReport, downloadProjectImportTemplate } from '@/features/project-import/api'
 import { useExecuteProjectImport, useProjectImportHistory, useValidateProjectImport } from '@/features/project-import/hooks'
 import { importRowView } from '@/features/project-import/rows'
@@ -13,6 +14,8 @@ import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 type ViewTab = 'Unggah CSV' | 'Riwayat'
+
+const PREVIEW_PAGE_SIZE = 10
 
 // Kolom yang dikenali per jenis ("PM Import CSV.dc.html" KOLOM YANG DIKENALI).
 // start_date (perkiraan mulai) TIDAK ada di desain -- ditambahkan karena kolom
@@ -102,6 +105,7 @@ function ProjectImportPageContent() {
   const fileInput = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState('')
   const [preview, setPreview] = useState<ProjectImportValidateResult | null>(null)
+  const [previewPage, setPreviewPage] = useState(1)
   const [error, setError] = useState('')
   const [rateLimit, setRateLimit] = useState<{ message: string; retryAfter: number } | null>(null)
   const [templateNotice, setTemplateNotice] = useState('')
@@ -126,6 +130,7 @@ function ProjectImportPageContent() {
   const reset = () => {
     setFileName('')
     setPreview(null)
+    setPreviewPage(1)
     setError('')
     setRateLimit(null)
     if (fileInput.current) fileInput.current.value = ''
@@ -145,7 +150,10 @@ function ProjectImportPageContent() {
     validate.mutate(
       { kind, file },
       {
-        onSuccess: (res) => setPreview(res),
+        onSuccess: (res) => {
+          setPreview(res)
+          setPreviewPage(1)
+        },
         onError: (err) => {
           setFileName('')
           setError(errorMessage(err, 'Gagal memvalidasi berkas CSV.'))
@@ -319,7 +327,7 @@ function ProjectImportPageContent() {
                   Pratinjau menampilkan baris valid dan alasan setiap baris yang dilewati sebelum import dieksekusi.
                 </div>
               )}
-              {preview?.preview.map((r) => (
+              {preview?.preview.slice((previewPage - 1) * PREVIEW_PAGE_SIZE, previewPage * PREVIEW_PAGE_SIZE).map((r) => (
                 <div key={r.row} className="flex items-start gap-2.5 border-t border-line px-3.5 py-[11px]">
                   <span
                     className={cn(
@@ -335,12 +343,8 @@ function ProjectImportPageContent() {
                   </div>
                 </div>
               ))}
-              {preview && preview.total_rows > preview.preview.length && (
-                <div className="border-t border-line px-3.5 py-2.5 font-mono text-[9px] text-text-dim">
-                  Menampilkan {preview.preview.length} baris pertama dari {preview.total_rows}.
-                </div>
-              )}
             </div>
+            {preview && <Grid1Pager page={previewPage} perPage={PREVIEW_PAGE_SIZE} total={preview.preview.length} onPage={setPreviewPage} />}
             {preview && (
               <div className="flex flex-wrap gap-2.5 border-t border-line px-4 py-3.5">
                 <button
