@@ -187,6 +187,41 @@ export function sortTasksBySprintTimeline(tasks: Task[], sprints: Sprint[]): Tas
   })
 }
 
+// orderedSprintNames -- nama sprint untuk deretan tombol filter Gantt, urut
+// menurut timeline sprint (tanggal mulai terkecil dulu; sama dengan urutan baris
+// di sortTasksBySprintTimeline): sprint bertanggal, lalu tanpa tanggal; seri
+// diurut tanggal akhir lalu nama. Hanya sprint yang punya task; nama sprint di
+// task yang tidak ada di daftar sprint ditaruh paling akhir (urut abjad).
+export function orderedSprintNames(tasks: Task[], sprints: Sprint[]): string[] {
+  const inUse = new Set<string>()
+  for (const t of tasks) if (t.sprint_name) inUse.add(t.sprint_name)
+  const time = (d: string | null | undefined) => parseDateOnly(d)?.getTime() ?? Number.POSITIVE_INFINITY
+  const known = sprints
+    .filter((s) => inUse.has(s.name))
+    .sort((a, b) => cmp(time(a.start_date), time(b.start_date)) || cmp(time(a.end_date), time(b.end_date)) || a.name.localeCompare(b.name))
+    .map((s) => s.name)
+  const knownSet = new Set(known)
+  const orphans = [...inUse].filter((n) => !knownSet.has(n)).sort((a, b) => a.localeCompare(b))
+  return [...known, ...orphans]
+}
+
+// ganttFocusDate -- tanggal yang jadi fokus scroll horizontal Gantt: filter
+// "Semua" = hari ini; sprint tertentu = tanggal mulai sprint itu (kalau sprint
+// belum punya tanggal mulai: start_date task paling awal di sprint itu; kalau
+// tidak ada sama sekali: null = jangan geser).
+export function ganttFocusDate(sprintFilter: string, tasks: Task[], sprints: Sprint[], today: Date): Date | null {
+  if (sprintFilter === 'Semua') return today
+  const start = parseDateOnly(sprints.find((s) => s.name === sprintFilter)?.start_date)
+  if (start) return start
+  let earliest: Date | null = null
+  for (const t of tasks) {
+    if (t.sprint_name !== sprintFilter) continue
+    const d = parseDateOnly(t.start_date)
+    if (d && (!earliest || d < earliest)) earliest = d
+  }
+  return earliest
+}
+
 // milestoneLabel -- label ringkas penanda akhir sprint di baris MILESTONE
 // (desain: nama dipotong di pemisah " · " / " - ", awalan "SPRINT" -> "M"):
 // "Sprint 0 - Fondation" -> "M 0".
