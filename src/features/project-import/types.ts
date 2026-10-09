@@ -31,10 +31,12 @@ export interface TaskImportRow {
   in_progress_at?: string
   under_review_at?: string
   done_at?: string
+  canceled_at?: string
   pic_backlog?: string
   pic_in_progress?: string
   pic_under_review?: string
   pic_done?: string
+  pic_canceled?: string
   task_code?: string
   status: 'valid' | 'skipped'
   reason?: string

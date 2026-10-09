@@ -58,6 +58,22 @@ export interface BottleneckStat {
   session_count: number
 }
 
+export interface BacklogAgeStat {
+  priority: string
+  count: number
+  avg_days: number
+  oldest_days: number
+}
+
+// Umur task yang SAAT INI di BACKLOG (hari sejak masuk backlog); tidak
+// dipengaruhi filter rentang. Terpisah dari Bottleneck (BACKLOG bukan tahap kerja).
+export interface BacklogAge {
+  count: number
+  avg_days: number
+  oldest_days: number
+  by_priority: BacklogAgeStat[]
+}
+
 export interface HandoffStat {
   project_id: string
   project_name: string
@@ -73,6 +89,7 @@ export interface PerformanceDashboard {
   on_time: OnTimeStat[]
   no_due_count: number
   backlog_health: BacklogStat[]
+  backlog_age: BacklogAge
   cycle: CycleStat[]
   overdue: OverdueTaskItem[]
   overdue_total: number
@@ -90,6 +107,11 @@ export interface PerformanceDashboard {
 
 export const PRIORITY_ORDER = ['critical', 'high', 'medium', 'low']
 export const PRIORITY_WEIGHT: Record<string, number> = { critical: 5, high: 3, medium: 2, low: 1 }
+
+export function formatDays(days: number): string {
+  if (days < 1) return '<1 hari'
+  return Math.round(days) + ' hari'
+}
 
 export function formatHours(hours: number): string {
   if (hours < 1) return Math.round(hours * 60) + ' menit'

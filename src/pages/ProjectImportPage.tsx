@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
 
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
+import ImportConfirmDialog from '@/components/project-import/ImportConfirmDialog'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import Grid1Pager from '@/components/shared/Grid1Pager'
 import { downloadProjectImportReport, downloadProjectImportTemplate } from '@/features/project-import/api'
 import { useExecuteProjectImport, useProjectImportHistory, useValidateProjectImport } from '@/features/project-import/hooks'
 import { importRowView } from '@/features/project-import/rows'
@@ -14,13 +16,15 @@ import { cn } from '@/lib/utils'
 
 type ViewTab = 'Unggah CSV' | 'Riwayat'
 
+const PREVIEW_PAGE_SIZE = 10
+
 // Kolom yang dikenali per jenis ("PM Import CSV.dc.html" KOLOM YANG DIKENALI).
 // start_date (perkiraan mulai) TIDAK ada di desain -- ditambahkan karena kolom
 // tasks.start_date ada (batang PLAN di Gantt).
 const TASK_COLUMNS: { key: string; desc: string; required?: boolean }[] = [
   { key: 'title*', desc: 'Judul task — wajib, 3–160 karakter.', required: true },
   { key: 'description', desc: 'Deskripsi task (opsional), maksimal 4.000 karakter. Boleh beberapa baris — bungkus dengan tanda kutip "..." dan tulis tanda kutip di dalamnya sebagai "".' },
-  { key: 'status', desc: 'Salah satu status project ini (mis. BACKLOG, IN PROGRESS, DONE); kosong = BACKLOG.' },
+  { key: 'status', desc: 'Salah satu status project ini (mis. BACKLOG, IN PROGRESS, DONE, CANCELED); kosong = BACKLOG.' },
   { key: 'priority', desc: 'low / medium / high / critical; kosong = medium.' },
   { key: 'assignee', desc: 'Opsional. Email member project (bukan Viewer); beberapa email dipisah titik koma.' },
   { key: 'start_date', desc: 'Perkiraan mulai, format DD/MM/YYYY.' },
@@ -33,10 +37,12 @@ const TASK_COLUMNS: { key: string; desc: string; required?: boolean }[] = [
   { key: 'in_progress_at', desc: 'Riwayat: tanggal masuk IN PROGRESS. Wajib kalau status task IN PROGRESS dan riwayat diisi.' },
   { key: 'under_review_at', desc: 'Riwayat: tanggal masuk UNDER REVIEW.' },
   { key: 'done_at', desc: 'Riwayat: tanggal selesai (DONE). Wajib untuk status DONE kalau riwayat diisi. Tanggal harus berurutan dan tidak di masa depan.' },
-  { key: 'pic_backlog', desc: 'PIC fase BACKLOG — email member (beberapa dipisah ;). pic_in_progress / pic_under_review / pic_done sama.' },
+  { key: 'canceled_at', desc: 'Riwayat: tanggal dibatalkan (CANCELED). Wajib untuk status CANCELED kalau riwayat diisi; tanggal antara (in_progress_at dst) boleh dikosongkan, mis. created_at → canceled_at.' },
+  { key: 'pic_backlog', desc: 'PIC fase BACKLOG — email member (beberapa dipisah ;). pic_in_progress / pic_under_review / pic_done / pic_canceled sama.' },
   { key: 'pic_in_progress', desc: 'PIC fase IN PROGRESS. Hanya untuk status yang dilalui (ada tanggalnya).' },
   { key: 'pic_under_review', desc: 'PIC fase UNDER REVIEW.' },
   { key: 'pic_done', desc: 'PIC fase DONE (opsional; DONE tidak butuh PIC aktif).' },
+  { key: 'pic_canceled', desc: 'PIC fase CANCELED (opsional; CANCELED tidak butuh PIC aktif).' },
 ]
 
 const SPRINT_COLUMNS: { key: string; desc: string; required?: boolean }[] = [
@@ -102,11 +108,13 @@ function ProjectImportPageContent() {
   const fileInput = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState('')
   const [preview, setPreview] = useState<ProjectImportValidateResult | null>(null)
+  const [previewPage, setPreviewPage] = useState(1)
   const [error, setError] = useState('')
   const [rateLimit, setRateLimit] = useState<{ message: string; retryAfter: number } | null>(null)
   const [templateNotice, setTemplateNotice] = useState('')
   const [resultMsg, setResultMsg] = useState('')
   const [logNotice, setLogNotice] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const validate = useValidateProjectImport(pid)
   const execute = useExecuteProjectImport(pid)
@@ -126,6 +134,7 @@ function ProjectImportPageContent() {
   const reset = () => {
     setFileName('')
     setPreview(null)
+    setPreviewPage(1)
     setError('')
     setRateLimit(null)
     if (fileInput.current) fileInput.current.value = ''
@@ -145,7 +154,10 @@ function ProjectImportPageContent() {
     validate.mutate(
       { kind, file },
       {
-        onSuccess: (res) => setPreview(res),
+        onSuccess: (res) => {
+          setPreview(res)
+          setPreviewPage(1)
+        },
         onError: (err) => {
           setFileName('')
           setError(errorMessage(err, 'Gagal memvalidasi berkas CSV.'))
@@ -166,6 +178,7 @@ function ProjectImportPageContent() {
 
   const onExecute = () => {
     if (!preview) return
+    setConfirmOpen(false)
     setError('')
     setRateLimit(null)
     execute.mutate(preview.import_id, {
@@ -319,7 +332,7 @@ function ProjectImportPageContent() {
                   Pratinjau menampilkan baris valid dan alasan setiap baris yang dilewati sebelum import dieksekusi.
                 </div>
               )}
-              {preview?.preview.map((r) => (
+              {preview?.preview.slice((previewPage - 1) * PREVIEW_PAGE_SIZE, previewPage * PREVIEW_PAGE_SIZE).map((r) => (
                 <div key={r.row} className="flex items-start gap-2.5 border-t border-line px-3.5 py-[11px]">
                   <span
                     className={cn(
@@ -335,17 +348,13 @@ function ProjectImportPageContent() {
                   </div>
                 </div>
               ))}
-              {preview && preview.total_rows > preview.preview.length && (
-                <div className="border-t border-line px-3.5 py-2.5 font-mono text-[9px] text-text-dim">
-                  Menampilkan {preview.preview.length} baris pertama dari {preview.total_rows}.
-                </div>
-              )}
             </div>
+            {preview && <Grid1Pager page={previewPage} perPage={PREVIEW_PAGE_SIZE} total={preview.preview.length} onPage={setPreviewPage} />}
             {preview && (
               <div className="flex flex-wrap gap-2.5 border-t border-line px-4 py-3.5">
                 <button
                   type="button"
-                  onClick={onExecute}
+                  onClick={() => setConfirmOpen(true)}
                   disabled={execute.isPending || preview.valid_count === 0}
                   className="bg-signal px-5 py-[11px] font-mono text-[10.5px] font-bold tracking-[0.08em] text-bg-deep disabled:opacity-50"
                 >
@@ -354,6 +363,16 @@ function ProjectImportPageContent() {
                 <button type="button" onClick={reset} className="border border-line-strong px-5 py-[11px] font-mono text-[10.5px] tracking-[0.06em] text-text-muted">
                   TUTUP
                 </button>
+                <ImportConfirmDialog
+                  open={confirmOpen}
+                  kind={preview.kind}
+                  projectName={project?.name ?? ''}
+                  fileName={fileName}
+                  validCount={preview.valid_count}
+                  skippedCount={preview.skipped_count}
+                  onClose={() => setConfirmOpen(false)}
+                  onConfirm={onExecute}
+                />
               </div>
             )}
             {resultMsg && (

@@ -4,7 +4,8 @@ import { useOutletContext, useParams } from 'react-router-dom'
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { useMyContext } from '@/features/context/hooks'
 import { useProjectPerformance, useWorkspacePerformance } from '@/features/performance/hooks'
-import { formatHours, PRIORITY_ORDER, PRIORITY_WEIGHT, type PerformanceDashboard } from '@/features/performance/types'
+import { bottleneckValue, classifyBottlenecks, type BottleneckTag } from '@/features/performance/bottleneck'
+import { formatDays, formatHours, PRIORITY_ORDER, PRIORITY_WEIGHT, type PerformanceDashboard } from '@/features/performance/types'
 import { useProjects } from '@/features/projects/hooks'
 import { isProjectPM } from '@/features/projects/types'
 import { cn } from '@/lib/utils'
@@ -15,6 +16,11 @@ type Mode = 'raw' | 'weighted'
 type BottleMode = 'total' | 'queue'
 
 const PRIORITY_LABEL: Record<string, string> = { critical: 'CRITICAL', high: 'HIGH', medium: 'MEDIUM', low: 'LOW' }
+const TAG_CLASS: Record<BottleneckTag, string> = {
+  BOTTLENECK: 'text-destructive border-destructive',
+  WASPADA: 'text-amber border-amber',
+  SEHAT: 'text-mint border-mint',
+}
 const PRIORITY_CLASS: Record<string, string> = {
   critical: 'text-destructive border-destructive',
   high: 'text-amber border-amber',
@@ -248,6 +254,48 @@ function ProjectHealthTab({ data, mode }: { data: PerformanceDashboard; mode: Mo
       </div>
 
       <Card>
+        <CardLabel>UMUR BACKLOG · TASK MENUNGGU DI BACKLOG</CardLabel>
+        {data.backlog_age.count === 0 ? (
+          <p className="mt-3 font-mono text-[9.5px] text-text-dim">Tidak ada task di BACKLOG.</p>
+        ) : (
+          <div className="mt-3.5 flex flex-col gap-5 md:flex-row md:items-start">
+            <div className="flex gap-6">
+              {[
+                { label: 'TASK DI BACKLOG', value: String(data.backlog_age.count) },
+                { label: 'RATA-RATA UMUR', value: formatDays(data.backlog_age.avg_days) },
+                { label: 'TERTUA', value: formatDays(data.backlog_age.oldest_days) },
+              ].map((x) => (
+                <div key={x.label}>
+                  <div className="font-mono text-[20px] font-semibold text-text-bone">{x.value}</div>
+                  <div className="mt-1 font-mono text-[8.5px] tracking-[0.1em] text-text-dim">{x.label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-1 flex-col gap-2">
+              {data.backlog_age.by_priority.map((b) => (
+                <div key={b.priority} className="grid grid-cols-[64px_1fr_150px] items-center gap-2.5">
+                  <span className={cn('font-mono text-[9.5px]', PRIORITY_CLASS[b.priority]?.split(' ')[0])}>{PRIORITY_LABEL[b.priority] ?? b.priority}</span>
+                  <span className="h-1.5 bg-raised-1">
+                    <span
+                      className="block h-full bg-signal"
+                      style={{ width: `${data.backlog_age.oldest_days > 0 ? Math.min(100, (b.oldest_days / data.backlog_age.oldest_days) * 100) : 0}%` }}
+                    />
+                  </span>
+                  <span className="text-right font-mono text-[9.5px] text-text-bone">
+                    {b.count === 0 ? '—' : `${b.count} task · rata-rata ${formatDays(b.avg_days)} · tertua ${formatDays(b.oldest_days)}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="mt-3 font-mono text-[8.5px] leading-relaxed text-text-dim">
+          Kondisi saat ini (hari sejak masuk backlog), tidak dipengaruhi filter rentang. BACKLOG adalah tempat menunggu, bukan tahap kerja, sehingga tidak masuk
+          Bottleneck Detection.
+        </div>
+      </Card>
+
+      <Card>
         <CardLabel>CYCLE TIME · RATA-RATA ACTIVE TIME PER STATUS</CardLabel>
         <div className="mt-3.5 overflow-x-auto">
           <table className="w-full min-w-[500px] text-left">
@@ -365,6 +413,8 @@ function FlowEfficiencyTab({ data, bottleMode, setBottleMode }: { data: Performa
   const flowPct = data.flow_efficiency_pct
   const flowColor = flowPct == null ? 'text-text-dim' : flowPct >= 40 ? 'text-mint' : flowPct >= 20 ? 'text-amber' : 'text-destructive'
   const regressedNote = `${data.regressed_tasks} dari ${data.scope_total} task pernah mundur status`
+  const bottleRows = useMemo(() => [...data.bottleneck].sort((a, b) => bottleneckValue(b, bottleMode) - bottleneckValue(a, bottleMode)), [data.bottleneck, bottleMode])
+  const bottleTags = useMemo(() => classifyBottlenecks(bottleRows, bottleMode), [bottleRows, bottleMode])
 
   return (
     <div className="space-y-3.5">
@@ -409,11 +459,11 @@ function FlowEfficiencyTab({ data, bottleMode, setBottleMode }: { data: Performa
             </div>
           </div>
           <div className="flex flex-col gap-3">
-            {data.bottleneck.map((b, i) => {
+            {bottleRows.map((b) => {
               const v = bottleMode === 'queue' ? b.avg_queue_hours : b.avg_total_hours
-              const worst = data.bottleneck.length > 0 ? Math.max(...data.bottleneck.map((x) => (bottleMode === 'queue' ? x.avg_queue_hours : x.avg_total_hours))) || 1 : 1
-              const tag = i === 0 ? 'BOTTLENECK' : v >= worst * 0.6 ? 'WASPADA' : 'SEHAT'
-              const tagColor = i === 0 ? 'text-destructive border-destructive' : v >= worst * 0.6 ? 'text-amber border-amber' : 'text-mint border-mint'
+              const worst = bottleRows.length > 0 ? Math.max(...bottleRows.map((x) => (bottleMode === 'queue' ? x.avg_queue_hours : x.avg_total_hours))) || 1 : 1
+              const tag = bottleTags[b.status_name] ?? 'SEHAT'
+              const tagColor = TAG_CLASS[tag]
               return (
                 <div key={b.status_name} className="flex flex-col gap-1.5">
                   <div className="flex items-center justify-between gap-2.5">
@@ -431,7 +481,14 @@ function FlowEfficiencyTab({ data, bottleMode, setBottleMode }: { data: Performa
                 </div>
               )
             })}
-            {data.bottleneck.length === 0 && <p className="font-mono text-[9.5px] text-text-dim">Belum ada sesi status pada rentang ini.</p>}
+            {bottleRows.length === 0 && <p className="font-mono text-[9.5px] text-text-dim">Belum ada sesi status pada rentang ini.</p>}
+            {bottleRows.length > 0 && !Object.values(bottleTags).includes('BOTTLENECK') && (
+              <p className="font-mono text-[9.5px] text-mint">Tidak ada bottleneck terdeteksi pada rentang ini.</p>
+            )}
+          </div>
+          <div className="mt-3 font-mono text-[8.5px] leading-relaxed text-text-dim">
+            BOTTLENECK = status dengan antrean dominan (≥ 50% waktunya menunggu), minimal 1 hari, ≥ 1,5× rata-rata status lain, dari ≥ 5 sesi. BACKLOG tidak dihitung
+            (tempat menunggu, bukan tahap kerja) — lihat UMUR BACKLOG di bawah.
           </div>
         </Card>
 
