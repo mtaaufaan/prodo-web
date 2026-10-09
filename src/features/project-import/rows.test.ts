@@ -40,6 +40,11 @@ describe('taskRowNote', () => {
       'STATUS IN PROGRESS · HIGH · tanpa assignee · RIWAYAT 2 TGL · PIC PER STATUS',
     )
   })
+  it('menghitung canceled_at dan pic_canceled sebagai riwayat/PIC', () => {
+    expect(taskRowNote({ ...task, task_status: 'CANCELED', created_at: '2026-09-28', canceled_at: '2026-10-05', pic_canceled: 'a@x.com' })).toBe(
+      'STATUS CANCELED · HIGH · tanpa assignee · RIWAYAT 2 TGL · PIC PER STATUS',
+    )
+  })
   it('tanpa assignee/due/sprint', () => {
     expect(taskRowNote(task)).toBe('STATUS IN PROGRESS · HIGH · tanpa assignee')
   })
