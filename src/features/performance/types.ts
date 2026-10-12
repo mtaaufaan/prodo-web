@@ -39,7 +39,8 @@ export interface MemberStat {
   completion_rate_weighted: number
   avg_completion_hours: number | null
   ack_avg_hours: number | null
-  ack_pending_count: number
+  ack_pending_count: number // fase AKTIF yang belum di-acknowledge
+  ack_unconfirmed_count: number // fase lama diserahkan tanpa acknowledge (tidak bisa lagi)
   // Kesiapan Task (PIC backlog): task terbentuk -> dinyatakan lengkap (IG-126)
   readiness_count: number
   readiness_avg_hours: number | null
@@ -83,7 +84,8 @@ export interface HandoffStat {
   project_id: string
   project_name: string
   avg_hours: number | null
-  pending_count: number
+  pending_count: number // fase AKTIF belum di-acknowledge
+  unconfirmed_count: number // fase lama diserahkan tanpa acknowledge
 }
 
 export interface PerformanceDashboard {
