@@ -90,6 +90,14 @@ function describeTaskAction(action: string, before: Record<string, unknown> | nu
       return `PIC dihapus dari fase ${(metadata as { status_name?: string } | null)?.status_name ?? '—'}`
     case 'task.pic_handoff':
       return `PIC fase ${(metadata as { status_name?: string } | null)?.status_name ?? '—'} diserahterimakan`
+    case 'task.time_entry_added':
+      return `Entri waktu manual ditambahkan (${(after as { duration_minutes?: number } | null)?.duration_minutes ?? '—'} menit, menunggu persetujuan)`
+    case 'task.time_entry_updated':
+      return 'Entri waktu manual diperbarui dan dikirim ulang untuk persetujuan'
+    case 'task.time_entry_approved':
+      return `Entri waktu disetujui (${(after as { duration_minutes?: number } | null)?.duration_minutes ?? '—'} menit)`
+    case 'task.time_entry_rejected':
+      return `Entri waktu ditolak: ${(after as { rejection_note?: string } | null)?.rejection_note ?? '—'}`
     case 'attachment.uploaded':
       return `Lampiran diunggah: "${(metadata as { name?: string } | null)?.name ?? ''}"`
     case 'attachment.renamed':
@@ -117,6 +125,7 @@ function activityTypeMeta(action: string): { label: string; className: string } 
     case 'task.created':
     case 'task.dependency_added':
     case 'task.pic_added':
+    case 'task.time_entry_added':
     case 'attachment.uploaded':
     case 'attachment.restored':
       return create

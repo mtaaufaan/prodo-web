@@ -87,6 +87,8 @@ export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): Au
       return { text: `Import ${String(entry.metadata?.kind ?? 'data')} "${targetOf(entry)}": ${String(entry.metadata?.success_count ?? 0)} berhasil, ${String(entry.metadata?.failed_count ?? 0)} dilewati`, scope: 'IMPORT' }
     case 'project_import.report_downloaded':
       return { text: `Laporan import "${targetOf(entry)}" diunduh`, scope: 'IMPORT' }
+    case 'timesheet.report_downloaded':
+      return { text: `Timesheet project "${targetOf(entry)}" diekspor (CSV, ${String(entry.metadata?.rows ?? 0)} baris)`, scope: 'TIMESHEET' }
     case 'rule.created':
       return { text: `Rule otomatisasi "${targetOf(entry)}" dibuat`, scope: 'RULE AUTOMATION' }
     case 'rule.deleted':
