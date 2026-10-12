@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { hasWorkPhases, readinessCell } from './members'
+import { ackCell, hasWorkPhases, readinessCell } from './members'
 import type { MemberStat } from './types'
 
 const member = (over: Partial<MemberStat>): MemberStat => ({
@@ -18,7 +18,28 @@ const member = (over: Partial<MemberStat>): MemberStat => ({
   readiness_avg_hours: null,
   readiness_preparing: 0,
   readiness_reopens: 0,
+  ack_unconfirmed_count: 0,
   ...over,
+})
+
+describe('ackCell', () => {
+  it('ada acknowledge: rata-rata jeda berwarna menurut ambang, pending tampil di catatan', () => {
+    expect(ackCell(member({ ack_avg_hours: 6, ack_pending_count: 1 }))).toEqual({ value: '6.0 jam', tone: 'mint', note: '1 pending' })
+    expect(ackCell(member({ ack_avg_hours: 18 })).tone).toBe('amber')
+    expect(ackCell(member({ ack_avg_hours: 30 })).tone).toBe('destructive')
+  })
+
+  it('belum ada acknowledge tapi ada fase aktif menunggu -> "N pending"', () => {
+    expect(ackCell(member({ ack_pending_count: 2 }))).toEqual({ value: '2 pending', tone: 'amber', note: '' })
+  })
+
+  it('hanya fase lama tanpa acknowledge -> bukan pending, tampil sebagai tidak dikonfirmasi', () => {
+    expect(ackCell(member({ ack_unconfirmed_count: 6 }))).toEqual({ value: '—', tone: 'dim', note: '6 tidak dikonfirmasi' })
+  })
+
+  it('tidak ada data -> kosong', () => {
+    expect(ackCell(member({}))).toEqual({ value: '—', tone: 'dim', note: '' })
+  })
 })
 
 describe('members', () => {
