@@ -40,6 +40,11 @@ export interface MemberStat {
   avg_completion_hours: number | null
   ack_avg_hours: number | null
   ack_pending_count: number
+  // Kesiapan Task (PIC backlog): task terbentuk -> dinyatakan lengkap (IG-126)
+  readiness_count: number
+  readiness_avg_hours: number | null
+  readiness_preparing: number
+  readiness_reopens: number
 }
 
 export interface RegressionStat {

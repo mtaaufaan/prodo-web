@@ -677,8 +677,11 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   }
 
   const activePics = task.data?.active_pics ?? []
-  const isCreatorOrActivePic = task.data != null && (task.data.created_by === currentUserId || activePics.some((p) => p.user_id === currentUserId))
-  const showCompletenessToggle = task.data?.status_name === 'BACKLOG' && isCreatorOrActivePic
+  // IG-126: hanya PIC aktif fase BACKLOG yang boleh menyatakan lengkap/belum lengkap
+  // (pembuat task atau PM yang bukan PIC tidak lagi) -- backend menegakkan (NOT_BACKLOG_PIC).
+  const isActivePic = activePics.some((p) => p.user_id === currentUserId)
+  const isBacklog = task.data?.status_name === 'BACKLOG'
+  const showCompletenessToggle = isBacklog && isActivePic
 
   // picCandidates -- kandidat "SERAHKAN PIC FASE"/"+ Tambah PIC Paralel"
   // (IG-97 susulan), sumber SAMA `members` (project member assignable)
@@ -1206,6 +1209,12 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                       </button>
                     ) : (
                       <div className="mt-1.5 text-[12.5px] text-text-bone">{task.data.completeness === 'complete' ? 'Lengkap' : 'Belum Lengkap'}</div>
+                    )}
+                    {isBacklog && !isActivePic && (
+                      <div className="mt-1 font-mono text-[9px] leading-relaxed text-text-dim">Hanya PIC backlog task ini yang dapat mengubah kelengkapan.</div>
+                    )}
+                    {setCompleteness.isError && (
+                      <div className="mt-1 font-mono text-[9px] leading-relaxed text-destructive">Gagal mengubah kelengkapan -- hanya PIC backlog task ini yang diizinkan.</div>
                     )}
                   </div>
 
