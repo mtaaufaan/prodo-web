@@ -8,7 +8,7 @@ import TimesheetMembersView from '@/components/timesheet/TimesheetMembersView'
 import TimesheetSummaryView, { TimesheetStats } from '@/components/timesheet/TimesheetSummaryView'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { exportProjectTimesheetCSV } from '@/features/timesheet/api'
-import { useProjectTimesheet } from '@/features/timesheet/hooks'
+import { useProjectTimesheet, useRecalculateEstimates } from '@/features/timesheet/hooks'
 
 function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
@@ -34,6 +34,8 @@ export default function ProjectTimesheetPage() {
   const sheet = useProjectTimesheet(pid)
   const [notice, setNotice] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [confirmRecalc, setConfirmRecalc] = useState(false)
+  const recalc = useRecalculateEstimates(pid)
 
   useEffect(() => {
     if (!notice) return
@@ -56,6 +58,15 @@ export default function ProjectTimesheetPage() {
     }
   }
 
+  const onRecalc = () => {
+    setConfirmRecalc(false)
+    setNotice('')
+    recalc.mutate(undefined, {
+      onSuccess: (r) => setNotice(`Estimasi dihitung ulang dari riwayat tanggal status: ${r.entries} entri untuk ${r.tasks} task (${r.hours.toFixed(1)} jam). Tercatat di Audit Trail.`),
+      onError: () => setNotice('!Gagal menghitung ulang estimasi. Coba lagi.'),
+    })
+  }
+
   if (sheet.isError) {
     const code = (sheet.error as { code?: string } | null)?.code
     return (
@@ -76,8 +87,20 @@ export default function ProjectTimesheetPage() {
           {sheet.data && sheet.data.pending_count > 0 && (
             <span className="border border-amber px-2.5 py-1.5 font-mono text-[9px] text-amber">{sheet.data.pending_count} ENTRI MENUNGGU PERSETUJUAN</span>
           )}
+          {showAnalytics && !confirmRecalc && (
+            <button type="button" onClick={() => setConfirmRecalc(true)} disabled={recalc.isPending || !sheet.data} className="ml-auto whitespace-nowrap font-mono text-[9.5px] text-text-muted hover:text-text-bone disabled:opacity-40">
+              ↻ HITUNG ULANG ESTIMASI
+            </button>
+          )}
+          {showAnalytics && confirmRecalc && (
+            <span className="ml-auto flex items-center gap-2 border border-amber px-2.5 py-1 font-mono text-[9px] text-amber">
+              Ganti semua jam estimasi import dengan hasil hitung ulang?
+              <button type="button" onClick={onRecalc} className="font-bold underline">YA</button>
+              <button type="button" onClick={() => setConfirmRecalc(false)} className="text-text-muted">BATAL</button>
+            </span>
+          )}
           {showAnalytics && (
-            <button type="button" onClick={onExport} disabled={exporting || !sheet.data} className="ml-auto whitespace-nowrap font-mono text-[9.5px] text-signal hover:underline disabled:opacity-40">
+            <button type="button" onClick={onExport} disabled={exporting || !sheet.data} className="whitespace-nowrap font-mono text-[9.5px] text-signal hover:underline disabled:opacity-40">
               ⤓ EKSPOR CSV
             </button>
           )}
@@ -95,7 +118,7 @@ export default function ProjectTimesheetPage() {
         {showAnalytics && sheet.data && <TimesheetStats data={sheet.data} />}
         {showAnalytics && sheet.isLoading && <p className="font-mono text-[10px] text-text-dim">Memuat timesheet…</p>}
         {tab === 'Ringkasan' && sheet.data && <TimesheetSummaryView data={sheet.data} />}
-        {tab === 'Per-Member' && sheet.data && <TimesheetMembersView members={sheet.data.members} />}
+        {tab === 'Per-Member' && sheet.data && <TimesheetMembersView members={sheet.data.members} hasEstimates={sheet.data.import_estimated_hours > 0} />}
         {tab === 'Persetujuan' && <TimesheetApprovalView projectId={pid} />}
         {tab === 'Timesheet Saya' && <MyTimesheetView projectId={pid} />}
       </div>

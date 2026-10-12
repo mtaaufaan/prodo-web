@@ -16,6 +16,10 @@ export function exportProjectTimesheetCSV(projectId: string) {
   return apiClient.get<Blob>(`/api/v1/projects/${projectId}/timesheet/export`, { responseType: 'blob' })
 }
 
+export function recalculateTimesheetEstimates(projectId: string) {
+  return apiClient.post<{ entries: number; tasks: number; hours: number }>(`/api/v1/projects/${projectId}/timesheet/estimates/recalculate`)
+}
+
 export function getMyTimesheet(from: string, to: string) {
   return apiClient.get<MyTimesheet>('/api/v1/me/timesheets', { params: { from: from || undefined, to: to || undefined } })
 }

@@ -68,6 +68,11 @@ export default function TimesheetSummaryView({ data }: { data: ProjectTimesheet 
         </div>
         <div className="border-t border-line px-[15px] py-2.5 font-mono text-[8.5px] leading-[1.7] text-text-dim">
           Garis putih menandai estimasi; bar melampauinya berarti jam tercatat melebihi estimasi.
+          {data.import_estimated_hours > 0 && (
+            <span className="mt-1 block">
+              Jam tercatat termasuk {data.import_estimated_hours.toFixed(1)} jam ESTIMASI dari riwayat tanggal status hasil import (1 hari kerja = 8 jam per orang).
+            </span>
+          )}
         </div>
       </div>
     </div>

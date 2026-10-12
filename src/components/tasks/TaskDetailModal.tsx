@@ -1926,6 +1926,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                           <span className="text-text-dim">
                             {new Date(e.started_at).toLocaleString('id-ID')} · {e.duration_minutes != null ? (e.duration_minutes / 60).toFixed(1) : '—'} jam
                           </span>
+                          {e.is_estimate && <span className="border border-blue px-1.5 py-0.5 text-[8.5px] uppercase text-blue" title="Estimasi dari riwayat tanggal status hasil import (1 hari kerja = 8 jam)">estimasi</span>}
                           <span className={cn('border px-1.5 py-0.5 text-[8.5px] uppercase', e.approval_status === 'approved' ? 'border-mint text-mint' : e.approval_status === 'rejected' ? 'border-destructive text-destructive' : 'border-amber text-amber')}>
                             {e.approval_status}
                           </span>

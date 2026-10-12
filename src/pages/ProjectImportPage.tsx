@@ -38,7 +38,7 @@ const TASK_COLUMNS: { key: string; desc: string; required?: boolean }[] = [
   { key: 'under_review_at', desc: 'Riwayat: tanggal masuk UNDER REVIEW.' },
   { key: 'done_at', desc: 'Riwayat: tanggal selesai (DONE). Wajib untuk status DONE kalau riwayat diisi. Tanggal harus berurutan dan tidak di masa depan.' },
   { key: 'canceled_at', desc: 'Riwayat: tanggal dibatalkan (CANCELED). Wajib untuk status CANCELED kalau riwayat diisi; tanggal antara (in_progress_at dst) boleh dikosongkan, mis. created_at → canceled_at.' },
-  { key: 'pic_backlog', desc: 'PIC fase BACKLOG — email member (beberapa dipisah ;). pic_in_progress / pic_under_review / pic_done / pic_canceled sama.' },
+  { key: 'pic_backlog', desc: 'PIC fase BACKLOG — email member (beberapa dipisah ;). pic_in_progress / pic_under_review / pic_done / pic_canceled sama. Dari tanggal riwayat + PIC fase, jam tercatat DIESTIMASI otomatis (1 hari kerja Sen–Jum = 8 jam per orang; BACKLOG dihitung dari task dibuat sampai keluar backlog).' },
   { key: 'pic_in_progress', desc: 'PIC fase IN PROGRESS. Hanya untuk status yang dilalui (ada tanggalnya).' },
   { key: 'pic_under_review', desc: 'PIC fase UNDER REVIEW.' },
   { key: 'pic_done', desc: 'PIC fase DONE (opsional; DONE tidak butuh PIC aktif).' },

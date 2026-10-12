@@ -12,7 +12,7 @@ const COLS = 'grid-cols-[minmax(120px,2fr)_minmax(56px,0.7fr)_minmax(58px,0.7fr)
 // Tab Per-Member ("PM Timesheet.dc.html"): JAM = jam disetujui yang dicatat
 // member itu sendiri; BEBAN AKTIF = task belum selesai yang dipegang sebagai
 // PIC aktif (definisi Task Load Member Performance, IG-126).
-export default function TimesheetMembersView({ members }: { members: TimesheetMemberRow[] }) {
+export default function TimesheetMembersView({ members, hasEstimates = false }: { members: TimesheetMemberRow[]; hasEstimates?: boolean }) {
   const rows = useMemo(() => memberRows(members), [members])
   const [page, setPage] = useState(1)
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE))
@@ -43,7 +43,10 @@ export default function TimesheetMembersView({ members }: { members: TimesheetMe
               </div>
             </div>
             <span className="font-mono text-[11px] text-text-body">{m.tasks}</span>
-            <span className="font-mono text-[11px] text-text-body">{m.hours}</span>
+            <span className="font-mono text-[11px] text-text-body">
+              {m.hours}
+              {m.hoursNote && <span className="block text-[8px] text-text-dim">{m.hoursNote}</span>}
+            </span>
             <span className="font-mono text-[10px] text-text-muted">{m.avg}</span>
             <div>
               <div className="h-[7px] bg-bg-deep">
@@ -59,6 +62,7 @@ export default function TimesheetMembersView({ members }: { members: TimesheetMe
       </div>
       <div className="border-t border-line bg-bg-deep px-3.5 py-[11px] font-mono text-[9px] leading-[1.8] text-text-dim">
         Beban aktif dihitung dari task belum selesai yang sedang dipegang member sebagai PIC aktif. Angka ini bersifat indikatif untuk penyeimbangan beban, bukan penilaian kinerja individu.
+        {hasEstimates && <span className="mt-1 block">Jam bertanda &quot;est.&quot; adalah estimasi dari riwayat tanggal status hasil import (1 hari kerja = 8 jam), bukan jam yang dicatat sendiri.</span>}
       </div>
       <Grid1Pager page={page} perPage={PAGE_SIZE} total={rows.length} onPage={setPage} />
     </div>

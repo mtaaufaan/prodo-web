@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { approveTimeEntry, createManualTimeEntry, rejectTimeEntry, updateManualTimeEntry } from '@/features/tasks/api'
 import { taskKeys } from '@/features/tasks/hooks'
 
-import { getMyTimesheet, getProjectTimesheet, getTimesheetEntries } from './api'
+import { getMyTimesheet, getProjectTimesheet, getTimesheetEntries, recalculateTimesheetEstimates } from './api'
 import type { ApprovalFilter } from './types'
 
 export const timesheetKeys = {
@@ -56,6 +56,11 @@ function useRefreshAfterMutation() {
     queryClient.invalidateQueries({ queryKey: timesheetKeys.all })
     queryClient.invalidateQueries({ queryKey: taskKeys.all })
   }
+}
+
+export function useRecalculateEstimates(projectId: string) {
+  const refresh = useRefreshAfterMutation()
+  return useMutation({ mutationFn: () => recalculateTimesheetEstimates(projectId), onSuccess: refresh })
 }
 
 export function useApproveEntry() {

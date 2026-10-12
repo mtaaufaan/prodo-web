@@ -6,7 +6,7 @@ import type { TimesheetMemberRow } from '@/features/timesheet/types'
 import EntryForm from './EntryForm'
 import TimesheetMembersView from './TimesheetMembersView'
 
-const member = (i: number): TimesheetMemberRow => ({ user_id: `u${i}`, user_name: `Member ${i}`, role: 'editor', task_count: 1, hours: 2, active_count: i % 3 })
+const member = (i: number): TimesheetMemberRow => ({ user_id: `u${i}`, user_name: `Member ${i}`, role: 'editor', task_count: 1, hours: 2, estimate_hours: 0, active_count: i % 3 })
 
 describe('TimesheetMembersView', () => {
   it('memaginasi 10 baris per halaman dan menampilkan keterangan beban', () => {

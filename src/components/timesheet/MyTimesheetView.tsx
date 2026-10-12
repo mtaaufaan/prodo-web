@@ -96,7 +96,7 @@ export default function MyTimesheetView({ projectId }: { projectId: string }) {
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="font-mono text-[8.5px] text-text-dim">{e.task_code}</span>
                 <span className="min-w-0 flex-1 truncate text-xs text-text-bone">{e.task_title}</span>
-                <span className="border border-line-strong px-1.5 py-0.5 font-mono text-[8.5px] uppercase text-text-muted">{e.entry_type === 'timer' ? 'Timer' : 'Manual'}</span>
+                <span className="border border-line-strong px-1.5 py-0.5 font-mono text-[8.5px] uppercase text-text-muted">{e.is_estimate ? 'Estimasi' : e.entry_type === 'timer' ? 'Timer' : 'Manual'}</span>
                 <span className={cn('border px-1.5 py-0.5 font-mono text-[8.5px]', badge.cls)}>{badge.label}</span>
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[9.5px] text-text-muted">

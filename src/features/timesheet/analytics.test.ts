@@ -6,6 +6,7 @@ import type { ProjectTimesheet } from './types'
 const sample: ProjectTimesheet = {
   project_name: 'PRODO',
   logged_hours: 13,
+  import_estimated_hours: 0,
   estimate_hours: 26,
   over_count: 2,
   over_codes: ['P-1', 'P-3'],
@@ -29,6 +30,22 @@ describe('statCards', () => {
     const c = statCards({ ...sample, estimate_hours: 0, over_count: 0, over_codes: [] })
     expect(c[1].note).toBe('BELUM ADA')
     expect(c[2]).toMatchObject({ value: '0', note: 'TIDAK ADA', tone: 'mint' })
+  })
+})
+
+describe('catatan estimasi import', () => {
+  it('kartu JAM TERCATAT menyebut jam estimasi bila ada', () => {
+    expect(statCards({ ...sample, import_estimated_hours: 12.5 })[0].note).toBe('PROJECT PRODO · 12.5 JAM ESTIMASI')
+    expect(statCards(sample)[0].note).toBe('PROJECT PRODO')
+  })
+
+  it('baris member menandai bagian jam yang berupa estimasi', () => {
+    const rows = memberRows([
+      { user_id: 'a', user_name: 'A', role: 'editor', task_count: 2, hours: 8, estimate_hours: 6, active_count: 1 },
+      { user_id: 'b', user_name: 'B', role: 'editor', task_count: 1, hours: 2, estimate_hours: 0, active_count: 0 },
+    ])
+    expect(rows[0].hoursNote).toBe('6.0 est.')
+    expect(rows[1].hoursNote).toBe('')
   })
 })
 
@@ -74,9 +91,9 @@ describe('accuracyRow', () => {
 describe('memberRows', () => {
   it('beban relatif ke member dengan task aktif terbanyak', () => {
     const rows = memberRows([
-      { user_id: 'a', user_name: 'Taufan Muhammad', role: 'project_manager', task_count: 4, hours: 10, active_count: 5 },
-      { user_id: 'b', user_name: 'Joyse', role: 'editor', task_count: 0, hours: 0, active_count: 3 },
-      { user_id: 'c', user_name: 'Amir', role: '', task_count: 1, hours: 1, active_count: 1 },
+      { user_id: 'a', user_name: 'Taufan Muhammad', role: 'project_manager', task_count: 4, hours: 10, estimate_hours: 0, active_count: 5 },
+      { user_id: 'b', user_name: 'Joyse', role: 'editor', task_count: 0, hours: 0, estimate_hours: 0, active_count: 3 },
+      { user_id: 'c', user_name: 'Amir', role: '', task_count: 1, hours: 1, estimate_hours: 0, active_count: 1 },
     ])
     expect(rows[0]).toMatchObject({ loadPct: 100, loadTone: 'destructive', loadLabel: '5 TASK BERJALAN · BEBAN TERTINGGI', avg: '2.5 JAM', role: 'Project Manager', initials: 'TM' })
     expect(rows[1]).toMatchObject({ loadPct: 60, loadTone: 'amber', avg: '—', loadLabel: '3 TASK BERJALAN' })
@@ -84,7 +101,7 @@ describe('memberRows', () => {
   })
 
   it('tidak ada task aktif sama sekali -> beban 0 hijau tanpa label tertinggi', () => {
-    const rows = memberRows([{ user_id: 'a', user_name: 'A', role: 'editor', task_count: 1, hours: 1, active_count: 0 }])
+    const rows = memberRows([{ user_id: 'a', user_name: 'A', role: 'editor', task_count: 1, hours: 1, estimate_hours: 0, active_count: 0 }])
     expect(rows[0]).toMatchObject({ loadPct: 0, loadTone: 'mint', loadLabel: '0 TASK BERJALAN' })
   })
 })

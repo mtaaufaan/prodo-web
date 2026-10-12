@@ -25,12 +25,14 @@ export interface TimesheetMemberRow {
   role: string
   task_count: number
   hours: number
+  estimate_hours: number // bagian hours dari estimasi import
   active_count: number
 }
 
 export interface ProjectTimesheet {
   project_name: string
   logged_hours: number
+  import_estimated_hours: number // bagian logged_hours dari estimasi import (IG-129)
   estimate_hours: number
   over_count: number
   over_codes: string[]

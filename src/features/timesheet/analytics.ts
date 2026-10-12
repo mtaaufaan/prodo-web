@@ -13,7 +13,12 @@ export interface StatCard {
 
 export function statCards(d: ProjectTimesheet): StatCard[] {
   return [
-    { label: 'JAM TERCATAT', value: fmtHours(d.logged_hours), note: `PROJECT ${d.project_name.toUpperCase()}`, tone: 'bone' },
+    {
+      label: 'JAM TERCATAT',
+      value: fmtHours(d.logged_hours),
+      note: `PROJECT ${d.project_name.toUpperCase()}${d.import_estimated_hours > 0 ? ` · ${fmtHours(d.import_estimated_hours)} JAM ESTIMASI` : ''}`,
+      tone: 'bone',
+    },
     {
       label: 'TOTAL ESTIMASI',
       value: fmtHours(d.estimate_hours),
@@ -91,6 +96,7 @@ export interface MemberView {
   initials: string
   tasks: string
   hours: string
+  hoursNote: string // mis. "2.0 est." bila sebagian jam berasal dari estimasi import
   avg: string
   loadPct: number
   loadTone: Tone
@@ -133,6 +139,7 @@ export function memberRows(members: TimesheetMemberRow[]): MemberView[] {
       initials: initialsOf(m.user_name),
       tasks: String(m.task_count),
       hours: fmtHours(m.hours),
+      hoursNote: m.estimate_hours > 0 ? `${fmtHours(m.estimate_hours)} est.` : '',
       avg: m.task_count > 0 ? `${fmtHours(m.hours / m.task_count)} JAM` : '—',
       loadPct,
       loadTone: loadPct >= 80 ? 'destructive' : loadPct >= 50 ? 'amber' : 'mint',
