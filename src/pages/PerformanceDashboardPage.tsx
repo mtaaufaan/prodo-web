@@ -4,6 +4,7 @@ import { useOutletContext, useParams } from 'react-router-dom'
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { useMyContext } from '@/features/context/hooks'
 import { useProjectPerformance, useWorkspacePerformance } from '@/features/performance/hooks'
+import { ackCell, hasWorkPhases, readinessCell } from '@/features/performance/members'
 import { bottleneckValue, classifyBottlenecks, type BottleneckTag } from '@/features/performance/bottleneck'
 import { formatDays, formatHours, PRIORITY_ORDER, PRIORITY_WEIGHT, type PerformanceDashboard } from '@/features/performance/types'
 import { useProjects } from '@/features/projects/hooks'
@@ -16,6 +17,7 @@ type Mode = 'raw' | 'weighted'
 type BottleMode = 'total' | 'queue'
 
 const PRIORITY_LABEL: Record<string, string> = { critical: 'CRITICAL', high: 'HIGH', medium: 'MEDIUM', low: 'LOW' }
+const ACK_TONE = { mint: 'text-mint', amber: 'text-amber', destructive: 'text-destructive', dim: 'text-text-dim' } as const
 const TAG_CLASS: Record<BottleneckTag, string> = {
   BOTTLENECK: 'text-destructive border-destructive',
   WASPADA: 'text-amber border-amber',
@@ -358,21 +360,24 @@ function MemberPerformanceTab({ data, mode }: { data: PerformanceDashboard; mode
           <thead>
             <tr className="border-b border-line-subtle font-mono text-[8.5px] tracking-[0.1em] text-text-dim">
               <th className="px-4 py-2.5">MEMBER</th>
-              <th className="px-4 py-2.5">TASK LOAD · PER PRIORITY</th>
+              <th className="px-4 py-2.5">TASK LOAD · PIC AKTIF</th>
               <th className="px-4 py-2.5">COMPLETION · {mode.toUpperCase()}</th>
               <th className="px-4 py-2.5 text-right">AVG SELESAI</th>
+              <th className="px-4 py-2.5 text-right">KESIAPAN TASK</th>
               <th className="px-4 py-2.5 text-right">ACK RATE</th>
             </tr>
           </thead>
           <tbody>
             {data.members.map((m) => {
               const rate = mode === 'weighted' ? m.completion_rate_weighted : m.completion_rate_raw
-              const ack = m.ack_avg_hours
+              const ack = ackCell(m)
+              const worked = hasWorkPhases(m)
+              const ready = readinessCell(m)
               return (
                 <tr key={m.user_id} className="border-b border-line-subtle">
                   <td className="px-4 py-3">
                     <div className="text-[12.5px] text-text-bone">{m.user_name}</div>
-                    <div className="font-mono text-[8.5px] text-text-dim">{m.total_count - m.done_count} task aktif · {m.done_count}/{m.total_count} selesai</div>
+                    <div className="font-mono text-[8.5px] text-text-dim">{worked ? `${m.total_count - m.done_count} task berjalan · ${m.done_count}/${m.total_count} selesai` : 'tidak memegang fase kerja'}</div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1.5">
@@ -382,28 +387,47 @@ function MemberPerformanceTab({ data, mode }: { data: PerformanceDashboard; mode
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="h-1.5 flex-1 bg-raised-1"><span className="block h-full bg-mint" style={{ width: `${rate}%` }} /></span>
-                      <span className="w-12 text-right font-mono text-[9.5px] text-text-bone">{rate.toFixed(0)}%</span>
-                    </div>
+                    {worked ? (
+                      <div className="flex items-center gap-2.5">
+                        <span className="h-1.5 flex-1 bg-raised-1"><span className="block h-full bg-mint" style={{ width: `${rate}%` }} /></span>
+                        <span className="w-12 text-right font-mono text-[9.5px] text-text-bone">{rate.toFixed(0)}%</span>
+                      </div>
+                    ) : (
+                      <span className="font-mono text-[9.5px] text-text-dim">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-[9.5px] text-text-muted">{m.avg_completion_hours != null ? formatHours(m.avg_completion_hours) : '—'}</td>
-                  <td className={cn('px-4 py-3 text-right font-mono text-[9.5px]', ack == null ? 'text-text-dim' : ack > 24 ? 'text-destructive' : ack > 12 ? 'text-amber' : 'text-mint')}>
-                    {ack != null ? formatHours(ack) : m.ack_pending_count > 0 ? `${m.ack_pending_count} pending` : '—'}
+                  <td className="px-4 py-3 text-right">
+                    {ready ? (
+                      <>
+                        <div className="font-mono text-[10px] text-text-bone">{ready.value}</div>
+                        <div className="mt-0.5 font-mono text-[8.5px] leading-snug text-text-dim">{ready.note}</div>
+                      </>
+                    ) : (
+                      <span className="font-mono text-[9.5px] text-text-dim">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className={cn('font-mono text-[9.5px]', ACK_TONE[ack.tone])}>{ack.value}</div>
+                    {ack.note && <div className="mt-0.5 font-mono text-[8.5px] leading-snug text-text-dim">{ack.note}</div>}
                   </td>
                 </tr>
               )
             })}
             {data.members.length === 0 && (
               <tr>
-                <td colSpan={5} className="p-6 text-center font-mono text-[10px] text-text-dim">Belum ada member dengan task pada rentang ini.</td>
+                <td colSpan={6} className="p-6 text-center font-mono text-[10px] text-text-dim">Belum ada member yang memegang PIC task pada rentang ini.</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
       <div className="font-mono text-[9px] leading-relaxed text-text-dim">
-        Acknowledge Rate = rata-rata jeda antara PIC handoff dikirim dan member melakukan acknowledge (US-017). Data Member Performance tidak tersedia untuk Group Admin.
+        Member Performance dihitung dari PIC (bukan assignee). TASK LOAD = task belum selesai yang sekarang dipegang sebagai PIC aktif. COMPLETION dan AVG SELESAI =
+        task yang pernah dipegang di fase kerja (bukan BACKLOG/DONE/BLOCKED) dan lama memegang fase kerja pada task yang selesai. KESIAPAN TASK (PIC backlog) = rata-rata
+        lama dari task terbentuk sampai dinyatakan lengkap (kali terakhir); task belum lengkap dihitung "sedang disiapkan", tidak masuk rata-rata; task hasil import tanpa
+        catatan kelengkapan tidak ikut. Acknowledge Rate = rata-rata jeda antara PIC handoff dikirim dan member melakukan acknowledge (US-017); "pending" hanya untuk fase yang masih aktif, fase lama yang diserahkan tanpa acknowledge tampil sebagai "tidak dikonfirmasi" (tidak lagi bisa di-acknowledge); PIC backlog otomatis pembuat task dan fase yang diterima otomatis (mis. hasil import) tidak dihitung. Data Member Performance tidak
+        tersedia untuk Group Admin.
       </div>
     </div>
   )
@@ -505,7 +529,10 @@ function FlowEfficiencyTab({ data, bottleMode, setBottleMode }: { data: Performa
                     <span className={cn('block h-full', color.includes('destructive') ? 'bg-destructive' : color.includes('amber') ? 'bg-amber' : 'bg-mint')} style={{ width: `${Math.min(100, (hours / 40) * 100)}%` }} />
                   </span>
                   <span className={cn('w-16 text-right font-mono text-[10px]', color)}>{h.avg_hours != null ? formatHours(h.avg_hours) : '—'}</span>
-                  <span className="w-24 text-right font-mono text-[8.5px] text-text-dim">{h.pending_count} PIC pending</span>
+                  <span className="w-28 text-right font-mono text-[8.5px] leading-snug text-text-dim">
+                    {h.pending_count} PIC pending
+                    {h.unconfirmed_count > 0 && <span className="block">{h.unconfirmed_count} tidak dikonfirmasi</span>}
+                  </span>
                 </div>
               )
             })}
