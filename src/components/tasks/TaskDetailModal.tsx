@@ -90,6 +90,14 @@ function describeTaskAction(action: string, before: Record<string, unknown> | nu
       return `PIC dihapus dari fase ${(metadata as { status_name?: string } | null)?.status_name ?? '—'}`
     case 'task.pic_handoff':
       return `PIC fase ${(metadata as { status_name?: string } | null)?.status_name ?? '—'} diserahterimakan`
+    case 'task.time_entry_added':
+      return `Entri waktu manual ditambahkan (${(after as { duration_minutes?: number } | null)?.duration_minutes ?? '—'} menit, menunggu persetujuan)`
+    case 'task.time_entry_updated':
+      return 'Entri waktu manual diperbarui dan dikirim ulang untuk persetujuan'
+    case 'task.time_entry_approved':
+      return `Entri waktu disetujui (${(after as { duration_minutes?: number } | null)?.duration_minutes ?? '—'} menit)`
+    case 'task.time_entry_rejected':
+      return `Entri waktu ditolak: ${(after as { rejection_note?: string } | null)?.rejection_note ?? '—'}`
     case 'attachment.uploaded':
       return `Lampiran diunggah: "${(metadata as { name?: string } | null)?.name ?? ''}"`
     case 'attachment.renamed':
@@ -117,6 +125,7 @@ function activityTypeMeta(action: string): { label: string; className: string } 
     case 'task.created':
     case 'task.dependency_added':
     case 'task.pic_added':
+    case 'task.time_entry_added':
     case 'attachment.uploaded':
     case 'attachment.restored':
       return create
@@ -1917,6 +1926,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                           <span className="text-text-dim">
                             {new Date(e.started_at).toLocaleString('id-ID')} · {e.duration_minutes != null ? (e.duration_minutes / 60).toFixed(1) : '—'} jam
                           </span>
+                          {e.is_estimate && <span className="border border-blue px-1.5 py-0.5 text-[8.5px] uppercase text-blue" title="Estimasi dari riwayat tanggal status hasil import (1 hari kerja = 8 jam)">estimasi</span>}
                           <span className={cn('border px-1.5 py-0.5 text-[8.5px] uppercase', e.approval_status === 'approved' ? 'border-mint text-mint' : e.approval_status === 'rejected' ? 'border-destructive text-destructive' : 'border-amber text-amber')}>
                             {e.approval_status}
                           </span>

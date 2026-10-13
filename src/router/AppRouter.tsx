@@ -16,6 +16,7 @@ import CooldownMentionPage from '@/pages/CooldownMentionPage'
 import CrossOrgMembershipsPage from '@/pages/CrossOrgMembershipsPage'
 import CustomStatusPage from '@/pages/CustomStatusPage'
 import ProjectDocumentsPage from '@/pages/ProjectDocumentsPage'
+import ProjectTimesheetPage from '@/pages/ProjectTimesheetPage'
 import ProjectImportPage from '@/pages/ProjectImportPage'
 import ProjectPicGroupPage from '@/pages/ProjectPicGroupPage'
 import ProjectStatusSettingsPage from '@/pages/ProjectStatusSettingsPage'
@@ -122,6 +123,7 @@ export default function AppRouter() {
           <Route path="/workspaces/:wsId/projects/:projectId/statuses" element={<ProjectStatusSettingsPage />} />
           <Route path="/workspaces/:wsId/projects/:projectId/import" element={<ProjectImportPage />} />{/* Import CSV PM, IG-120 */}
           <Route path="/workspaces/:wsId/projects/:projectId/documents" element={<ProjectDocumentsPage />} />{/* Dokumen & Lampiran PM, IG-123 */}
+          <Route path="/workspaces/:wsId/projects/:projectId/timesheet" element={<ProjectTimesheetPage />} />{/* Timesheet & Analitik PM, IG-128 */}
           <Route path="/workspaces/:wsId/projects/:projectId/pic-groups" element={<ProjectPicGroupPage />} />{/* US-017b, IG-117 */}
           {/* Track S5B ("Rule Builder.dc.html") -- rule automation level
               project, berdampingan dengan rule workspace AW di bawah. */}
