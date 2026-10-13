@@ -15,6 +15,7 @@ import AwWebhookPage from '@/pages/AwWebhookPage'
 import CooldownMentionPage from '@/pages/CooldownMentionPage'
 import CrossOrgMembershipsPage from '@/pages/CrossOrgMembershipsPage'
 import CustomStatusPage from '@/pages/CustomStatusPage'
+import ProjectAuditTrailPage from '@/pages/ProjectAuditTrailPage'
 import ProjectDocumentsPage from '@/pages/ProjectDocumentsPage'
 import ProjectTimesheetPage from '@/pages/ProjectTimesheetPage'
 import ProjectImportPage from '@/pages/ProjectImportPage'
@@ -123,6 +124,7 @@ export default function AppRouter() {
           <Route path="/workspaces/:wsId/projects/:projectId/statuses" element={<ProjectStatusSettingsPage />} />
           <Route path="/workspaces/:wsId/projects/:projectId/import" element={<ProjectImportPage />} />{/* Import CSV PM, IG-120 */}
           <Route path="/workspaces/:wsId/projects/:projectId/documents" element={<ProjectDocumentsPage />} />{/* Dokumen & Lampiran PM, IG-123 */}
+          <Route path="/workspaces/:wsId/projects/:projectId/audit" element={<ProjectAuditTrailPage />} />{/* Audit Trail PM, IG-130 */}
           <Route path="/workspaces/:wsId/projects/:projectId/timesheet" element={<ProjectTimesheetPage />} />{/* Timesheet & Analitik PM, IG-128 */}
           <Route path="/workspaces/:wsId/projects/:projectId/pic-groups" element={<ProjectPicGroupPage />} />{/* US-017b, IG-117 */}
           {/* Track S5B ("Rule Builder.dc.html") -- rule automation level

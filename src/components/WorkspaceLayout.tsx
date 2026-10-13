@@ -162,10 +162,9 @@ function awNavItems(workspaceId: string): WorkspaceNavItemDef[] {
 // CSV PM, IG-120 -- tahap (a): import sprint), dan 'docs' (Dokumen &
 // Lampiran level PROJECT, IG-123 -- DocumentsView cakupan project, beda dari
 // AW Documents yang workspace-wide). 'analytics' (Timesheet & Analitik, IG-128, "PM Timesheet.dc.html" --
-// TimesheetPage). Sisanya "SEGERA".
-// 'audit' (Audit Trail PM, beda dari Audit Trail Workspace AW) BELUM py
-// task Sprint 5 sama sekali (IG-90), perlu dikonfirmasi cakupannya ke user
-// sebelum dikerjakan.
+// TimesheetPage). 'audit' (Audit Trail PM, IG-130 -- aktivitas project aktif,
+// komponen AuditTrailView yang sama dengan Audit Trail Workspace AW).
+// Seluruh 11 item nav PM kini punya halaman.
 function pmNavItems(workspaceId: string, activeProjectId: string | null): WorkspaceNavItemDef[] {
   const p = activeProjectId
   return [
@@ -236,7 +235,8 @@ function pmNavItems(workspaceId: string, activeProjectId: string | null): Worksp
       tabs: ['Ringkasan', 'Per-Member', 'Persetujuan', 'Timesheet Saya'],
       cta: null,
     },
-    { key: 'audit', icon: '☰', label: 'Audit Trail', to: null, tabs: null, cta: null },
+    // Audit Trail PM (IG-130): aktivitas project aktif; tab Semua Aktivitas/Akses & Keamanan di dalam halaman (pola AW).
+    { key: 'audit', icon: '☰', label: 'Audit Trail', to: p ? `/workspaces/${workspaceId}/projects/${p}/audit` : null, tabs: null, cta: null },
   ]
 }
 

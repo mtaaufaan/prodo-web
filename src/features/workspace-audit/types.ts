@@ -3,6 +3,9 @@
 // Trail) + digabung feed "Log Eksekusi" Rule Automation.
 export type AuditActionType = 'CREATE' | 'UPDATE' | 'DELETE' | 'ACCESS'
 
+// AuditScope -- cakupan Audit Trail: workspace (Admin Workspace) atau satu project (PM, IG-130).
+export type AuditScope = { kind: 'workspace'; workspaceId: string } | { kind: 'project'; projectId: string }
+
 export interface WorkspaceAuditLogEntry {
   id: string
   actor_id: string | null
