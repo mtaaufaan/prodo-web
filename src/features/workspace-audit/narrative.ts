@@ -21,12 +21,61 @@ export interface AuditNarrative {
 }
 
 function targetOf(entry: WorkspaceAuditLogEntry, fallback = 'tidak diketahui'): string {
-  return entry.target_name ?? fallback
+  return entry.target_name || fallback // string kosong = tanpa nama, sama dengan port Go
 }
 
 function metaString(entry: WorkspaceAuditLogEntry, key: string, fallback = 'tidak diketahui'): string {
   const v = entry.metadata?.[key]
   return typeof v === 'string' && v !== '' ? v : fallback
+}
+
+function stateField(state: Record<string, unknown> | null, key: string): unknown {
+  return state?.[key]
+}
+
+function stateStr(state: Record<string, unknown> | null, key: string, fallback: string): string {
+  const v = state?.[key]
+  return typeof v === 'string' && v !== '' ? v : fallback
+}
+
+function stateNum(state: Record<string, unknown> | null, key: string): string {
+  const v = state?.[key]
+  return typeof v === 'number' ? String(Math.round(v)) : '0'
+}
+
+// taskLabel -- `KODE "Judul"` dari snapshot metadata.task_code + target (judul);
+// baris lama tanpa snapshot jatuh ke judul saja / "tidak diketahui".
+function taskLabel(entry: WorkspaceAuditLogEntry): string {
+  const code = metaString(entry, 'task_code', '')
+  return code ? `${code} "${targetOf(entry)}"` : `"${targetOf(entry)}"`
+}
+
+function predecessorLabel(entry: WorkspaceAuditLogEntry): string {
+  const title = stateStr(entry.state_after, 'predecessor_title', 'tidak diketahui')
+  const code = stateStr(entry.state_after, 'predecessor_code', '')
+  return code ? `${code} "${title}"` : `"${title}"`
+}
+
+function completenessLabel(v: string): string {
+  return v === 'complete' ? 'Lengkap' : v === 'incomplete' ? 'Belum Lengkap' : '?'
+}
+
+function joinNames(v: unknown): string {
+  const names = Array.isArray(v) ? v.filter((n): n is string => typeof n === 'string' && n !== '') : []
+  return names.length > 0 ? names.join(', ') : 'tidak diketahui'
+}
+
+// taskUpdatedText -- "dari X menjadi Y" untuk judul/prioritas bila nilai sebelumnya
+// tercatat (baris lama hanya punya nilai sesudah).
+function taskUpdatedText(entry: WorkspaceAuditLogEntry): string {
+  const parts: string[] = []
+  const bt = stateStr(entry.state_before, 'title', '')
+  const at = stateStr(entry.state_after, 'title', '')
+  if (bt && at && bt !== at) parts.push(`judul "${bt}" menjadi "${at}"`)
+  const bp = stateStr(entry.state_before, 'priority', '')
+  const ap = stateStr(entry.state_after, 'priority', '')
+  if (bp && ap && bp !== ap) parts.push(`prioritas ${bp} menjadi ${ap}`)
+  return parts.length > 0 ? `Task ${taskLabel(entry)} diperbarui: ${parts.join(', ')}` : `Task ${taskLabel(entry)} diperbarui`
 }
 
 export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): AuditNarrative {
@@ -87,6 +136,52 @@ export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): Au
       return { text: `Import ${String(entry.metadata?.kind ?? 'data')} "${targetOf(entry)}": ${String(entry.metadata?.success_count ?? 0)} berhasil, ${String(entry.metadata?.failed_count ?? 0)} dilewati`, scope: 'IMPORT' }
     case 'project_import.report_downloaded':
       return { text: `Laporan import "${targetOf(entry)}" diunduh`, scope: 'IMPORT' }
+    case 'project.pm_added':
+      return { text: `Project Manager ditambahkan ke project "${targetOf(entry)}"`, scope: 'PROJECT' }
+    case 'task.created':
+      return { text: `Task ${taskLabel(entry)} dibuat${stateField(entry.state_after, 'imported') === true ? ' (hasil import)' : ''}`, scope: 'TASK' }
+    case 'task.updated':
+      return { text: taskUpdatedText(entry), scope: 'TASK' }
+    case 'task.status_changed':
+      return { text: `Status task ${taskLabel(entry)} diubah dari ${stateStr(entry.state_before, 'status', '?')} menjadi ${stateStr(entry.state_after, 'status', '?')}`, scope: 'TASK' }
+    case 'task.completeness_changed':
+      return {
+        text: `Kelengkapan task ${taskLabel(entry)} diubah dari ${completenessLabel(stateStr(entry.state_before, 'completeness', ''))} menjadi ${completenessLabel(stateStr(entry.state_after, 'completeness', ''))}`,
+        scope: 'TASK',
+      }
+    case 'task.deleted':
+      return { text: `Task ${taskLabel(entry)} dihapus (masuk masa retensi)`, scope: 'TASK' }
+    case 'task.dependency_added':
+      return { text: `Task ${taskLabel(entry)} kini menunggu task ${predecessorLabel(entry)}`, scope: 'TASK' }
+    case 'task.dependency_removed':
+      return { text: `Dependency task ${taskLabel(entry)} pada task ${predecessorLabel(entry)} dihapus`, scope: 'TASK' }
+    case 'task.pic_acknowledged':
+      return { text: `PIC mengonfirmasi serah terima task ${taskLabel(entry)}`, scope: 'PIC FASE' }
+    case 'task.pic_added':
+      return {
+        text: `PIC paralel "${stateStr(entry.state_after, 'user_name', 'tidak diketahui')}" ditambahkan pada fase ${stateStr(entry.state_after, 'status_name', '?')} task ${taskLabel(entry)}`,
+        scope: 'PIC FASE',
+      }
+    case 'task.pic_removed':
+      return {
+        text: `PIC "${stateStr(entry.state_after, 'user_name', 'tidak diketahui')}" dihapus dari fase ${stateStr(entry.state_after, 'status_name', '?')} task ${taskLabel(entry)}`,
+        scope: 'PIC FASE',
+      }
+    case 'task.pic_handoff':
+      return {
+        text: `PIC fase ${stateStr(entry.state_after, 'status_name', '?')} task ${taskLabel(entry)} diserahkan dari ${joinNames(stateField(entry.state_after, 'from_user_names'))} kepada "${stateStr(entry.state_after, 'to_user_name', 'tidak diketahui')}"`,
+        scope: 'PIC FASE',
+      }
+    case 'task.time_entry_added':
+      return { text: `Entri waktu manual (${stateNum(entry.state_after, 'duration_minutes')} menit) ditambahkan pada task ${taskLabel(entry)}, menunggu persetujuan`, scope: 'TIMESHEET' }
+    case 'task.time_entry_updated':
+      return { text: `Entri waktu manual task ${taskLabel(entry)} diperbarui dan dikirim ulang untuk persetujuan`, scope: 'TIMESHEET' }
+    case 'task.time_entry_approved':
+      return { text: `Entri waktu task ${taskLabel(entry)} disetujui (${stateNum(entry.state_after, 'duration_minutes')} menit)`, scope: 'TIMESHEET' }
+    case 'task.time_entry_rejected':
+      return { text: `Entri waktu task ${taskLabel(entry)} ditolak: ${stateStr(entry.state_after, 'rejection_note', 'tanpa catatan')}`, scope: 'TIMESHEET' }
+    case 'audit.report_downloaded':
+      return { text: `Audit Trail ${stateStr(entry.state_after, 'scope', 'workspace')} "${targetOf(entry)}" diekspor (CSV, ${stateNum(entry.state_after, 'rows')} baris)`, scope: 'AUDIT TRAIL' }
     case 'timesheet.estimates_recalculated':
       return { text: `Estimasi jam tercatat project "${targetOf(entry)}" dihitung ulang dari riwayat tanggal status (${String((entry.state_after as { entries?: number } | null)?.entries ?? 0)} entri)`, scope: 'TIMESHEET' }
     case 'timesheet.report_downloaded':

@@ -1,13 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { getWorkspaceAuditActors, getWorkspaceRuleExecutions, listWorkspaceAuditLogs } from './api'
-import type { WorkspaceAuditLogFilter } from './types'
+import { getAuditActors, getAuditRuleExecutions, listAuditLogs } from './api'
+import type { AuditScope, WorkspaceAuditLogFilter } from './types'
+
+function scopeKey(scope: AuditScope): string {
+  return scope.kind === 'project' ? `project:${scope.projectId}` : `workspace:${scope.workspaceId}`
+}
+
+function scopeReady(scope: AuditScope): boolean {
+  return (scope.kind === 'project' ? scope.projectId : scope.workspaceId) !== ''
+}
 
 export const workspaceAuditKeys = {
   all: ['workspace-audit'] as const,
-  list: (workspaceId: string, filter: WorkspaceAuditLogFilter) => [...workspaceAuditKeys.all, 'list', workspaceId, filter] as const,
-  actors: (workspaceId: string) => [...workspaceAuditKeys.all, 'actors', workspaceId] as const,
-  executions: (workspaceId: string) => [...workspaceAuditKeys.all, 'executions', workspaceId] as const,
+  list: (scope: AuditScope, filter: WorkspaceAuditLogFilter) => [...workspaceAuditKeys.all, 'list', scopeKey(scope), filter] as const,
+  actors: (scope: AuditScope) => [...workspaceAuditKeys.all, 'actors', scopeKey(scope)] as const,
+  executions: (scope: AuditScope) => [...workspaceAuditKeys.all, 'executions', scopeKey(scope)] as const,
 }
 
 // staleTime: 0 -- KESALAHAN yang tidak boleh terulang (implementation_gaps.md
@@ -16,28 +24,31 @@ export const workspaceAuditKeys = {
 // dan TIDAK ADA mutation di puluhan fitur workspace yang meng-invalidate
 // query ini satu-satu secara praktis. Halaman audit trail SELALU fetch
 // ulang begitu dibuka -- root-cause fix tunggal, pola sama useGroupAuditLogs.
-export function useWorkspaceAuditLogs(workspaceId: string, filter: WorkspaceAuditLogFilter) {
+// Berlaku untuk cakupan workspace DAN project (IG-130).
+export function useAuditLogs(scope: AuditScope, filter: WorkspaceAuditLogFilter) {
   return useQuery({
-    queryKey: workspaceAuditKeys.list(workspaceId, filter),
-    queryFn: () => listWorkspaceAuditLogs(workspaceId, filter),
-    enabled: workspaceId !== '',
+    queryKey: workspaceAuditKeys.list(scope, filter),
+    queryFn: () => listAuditLogs(scope, filter),
+    enabled: scopeReady(scope),
     staleTime: 0,
   })
 }
 
-export function useWorkspaceAuditActors(workspaceId: string) {
+// Daftar aktor ikut staleTime 0: aktor baru muncul begitu ia melakukan aksi.
+export function useAuditActors(scope: AuditScope) {
   return useQuery({
-    queryKey: workspaceAuditKeys.actors(workspaceId),
-    queryFn: () => getWorkspaceAuditActors(workspaceId),
-    enabled: workspaceId !== '',
+    queryKey: workspaceAuditKeys.actors(scope),
+    queryFn: () => getAuditActors(scope),
+    enabled: scopeReady(scope),
+    staleTime: 0,
   })
 }
 
-export function useWorkspaceRuleExecutions(workspaceId: string) {
+export function useAuditRuleExecutions(scope: AuditScope) {
   return useQuery({
-    queryKey: workspaceAuditKeys.executions(workspaceId),
-    queryFn: () => getWorkspaceRuleExecutions(workspaceId),
-    enabled: workspaceId !== '',
+    queryKey: workspaceAuditKeys.executions(scope),
+    queryFn: () => getAuditRuleExecutions(scope),
+    enabled: scopeReady(scope),
     staleTime: 0,
   })
 }

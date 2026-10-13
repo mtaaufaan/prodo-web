@@ -1,26 +1,27 @@
 import { apiClient } from '@/lib/api'
 
-import type { RuleExecutionEntry, WorkspaceAuditActor, WorkspaceAuditLogEntry, WorkspaceAuditLogFilter } from './types'
+import type { AuditScope, RuleExecutionEntry, WorkspaceAuditActor, WorkspaceAuditLogEntry, WorkspaceAuditLogFilter } from './types'
 
-// listWorkspaceAuditLogs -- per_page dipatok tinggi (200) sekali ambil,
-// filter halaman dilakukan di klien -- pola sama listGroupAuditLogs.
-export function listWorkspaceAuditLogs(workspaceId: string, filter: WorkspaceAuditLogFilter) {
-  return apiClient.get<WorkspaceAuditLogEntry[]>(`/api/v1/workspaces/${workspaceId}/audit-logs`, {
-    params: { ...filter, per_page: 200 },
-  })
+// auditBase -- Audit Trail Workspace (Admin Workspace) dan Audit Trail PM
+// (IG-130) memakai bentuk respons yang SAMA; hanya pangkal URL yang beda.
+function auditBase(scope: AuditScope): string {
+  return scope.kind === 'project' ? `/api/v1/projects/${scope.projectId}/audit-logs` : `/api/v1/workspaces/${scope.workspaceId}/audit-logs`
 }
 
-export function getWorkspaceAuditActors(workspaceId: string) {
-  return apiClient.get<WorkspaceAuditActor[]>(`/api/v1/workspaces/${workspaceId}/audit-logs/actors`)
+// listAuditLogs -- per_page dipatok tinggi (200) sekali ambil, filter halaman
+// dilakukan di klien -- pola sama listGroupAuditLogs.
+export function listAuditLogs(scope: AuditScope, filter: WorkspaceAuditLogFilter) {
+  return apiClient.get<WorkspaceAuditLogEntry[]>(auditBase(scope), { params: { ...filter, per_page: 200 } })
 }
 
-export function exportWorkspaceAuditLogsCSV(workspaceId: string, filter: WorkspaceAuditLogFilter) {
-  return apiClient.get<Blob>(`/api/v1/workspaces/${workspaceId}/audit-logs`, {
-    params: { ...filter, export: 'csv' },
-    responseType: 'blob',
-  })
+export function getAuditActors(scope: AuditScope) {
+  return apiClient.get<WorkspaceAuditActor[]>(`${auditBase(scope)}/actors`)
 }
 
-export function getWorkspaceRuleExecutions(workspaceId: string) {
-  return apiClient.get<RuleExecutionEntry[]>(`/api/v1/workspaces/${workspaceId}/audit-logs/rule-executions`)
+export function exportAuditLogsCSV(scope: AuditScope, filter: WorkspaceAuditLogFilter) {
+  return apiClient.get<Blob>(auditBase(scope), { params: { ...filter, export: 'csv' }, responseType: 'blob' })
+}
+
+export function getAuditRuleExecutions(scope: AuditScope) {
+  return apiClient.get<RuleExecutionEntry[]>(`${auditBase(scope)}/rule-executions`)
 }
