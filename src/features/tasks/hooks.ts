@@ -565,6 +565,8 @@ function invalidateTimesheet(queryClient: ReturnType<typeof useQueryClient>, tas
   queryClient.invalidateQueries({ queryKey: taskKeys.timeEntries(taskId) })
   queryClient.invalidateQueries({ queryKey: taskKeys.activeTimer(taskId) })
   queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) })
+  // Halaman Timesheet & Analitik PM (IG-128) ikut disegarkan (key 'timesheet').
+  queryClient.invalidateQueries({ queryKey: ['timesheet'] })
 }
 
 export function useActiveTimer(taskId: string | null) {

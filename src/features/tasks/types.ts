@@ -225,6 +225,7 @@ export interface TimeEntry {
   note: string | null
   approval_status: 'pending' | 'approved' | 'rejected'
   rejection_note: string | null
+  is_estimate?: boolean // jam hasil estimasi dari riwayat import (IG-129)
   created_at: string
   updated_at: string
 }
