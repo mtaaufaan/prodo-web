@@ -198,9 +198,9 @@ export function pmNavItems(workspaceId: string, activeProjectId: string | null):
 // DesignSync). Board project-scoped (butuh project aktif dari switcher);
 // Task Saya/Timesheet/Lampiran Saya LINTAS project (level workspace -- rute
 // `my-*`, jadi tidak bentrok dengan rute PM `/projects/:p/timesheet`).
-// Halaman Task Saya/Timesheet/Lampiran Saya dibangun S6E-02/06/09; sampai itu
+// Halaman Task Saya/Timesheet/Lampiran Saya dibangun S6E-03/09/11; sampai itu
 // rute-nya menampilkan placeholder kerangka (sama pola desain). CTA "+ Task"
-// pada Task Saya disambungkan halamannya di S6E-02 (tombol tersembunyi sampai
+// pada Task Saya disambungkan halamannya di S6E-03 (tombol tersembunyi sampai
 // halaman mendaftarkan handler).
 export function editorNavItems(workspaceId: string, activeProjectId: string | null): WorkspaceNavItemDef[] {
   const p = activeProjectId

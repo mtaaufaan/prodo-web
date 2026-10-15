@@ -153,7 +153,7 @@ export default function WorkspaceLayout() {
   const allProjects = useProjects(hasProjectFrame ? workspaceId : '')
   // ponytail: Editor = semua project non-arsip workspace (RLS mengizinkan
   // anggota workspace membaca daftar project); filter keanggotaan project
-  // disambungkan di S6E-02 saat endpoint /me/tasks ada.
+  // disambungkan di S6E-02 (GET /me/context memuat project yang diikuti Editor).
   const myProjects = useMemo(() => {
     const open = (allProjects.data ?? []).filter((p) => !p.is_archived)
     return isEditor ? open : open.filter((p) => isProjectPM(p, currentUserId))

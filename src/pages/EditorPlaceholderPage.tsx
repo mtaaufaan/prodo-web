@@ -3,8 +3,8 @@ import { cn } from '@/lib/utils'
 
 // Kerangka halaman menu Editor yang belum dibangun (S6E-01): meniru area
 // placeholder "Master UI User.dc.html" -- label, judul, penjelasan, chip izin
-// role. Diganti halaman sungguhan di S6E-02 (Task Saya), S6E-06 (Timesheet),
-// S6E-09 (Lampiran Saya).
+// role. Diganti halaman sungguhan di S6E-03 (Task Saya), S6E-09 (Timesheet),
+// S6E-11 (Lampiran Saya).
 export default function EditorPlaceholderPage({ label }: { label: string }) {
   return (
     <div className="flex h-full min-h-[360px] p-4">

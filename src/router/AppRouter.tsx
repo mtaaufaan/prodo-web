@@ -107,7 +107,7 @@ export default function AppRouter() {
           <Route path="/workspaces/:wsId/account" element={<AccountSettingsPage />} />
           {/* Master frame Editor (S6E-01, Sprint 6): menu lintas project. Task Saya/
               Timesheet/Lampiran Saya masih kerangka, diganti halaman sungguhan
-              di S6E-02/06/09. */}
+              di S6E-03/09/11. */}
           <Route path="/workspaces/:wsId/board" element={<EditorBoardRedirect />} />
           <Route path="/workspaces/:wsId/my-tasks" element={<EditorPlaceholderPage label="Task Saya" />} />
           <Route path="/workspaces/:wsId/my-timesheet" element={<EditorPlaceholderPage label="Timesheet" />} />
