@@ -10,6 +10,15 @@ import { projectIdFromPath, switchProjectPath } from '@/lib/projectPath'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
+import {
+  awNavItems,
+  EDITOR_ROLE_NOTE,
+  editorNavItems,
+  isEditorPath,
+  pmNavItems,
+  type WorkspaceNavItemDef,
+} from './workspaceNav'
+
 // Kerangka aplikasi untuk role di dalam workspace (Admin Workspace, Project
 // Manager, Editor, Approver, Viewer) -- dari desain "Master UI User.dc.html".
 //
@@ -47,197 +56,6 @@ export interface WorkspaceOutletContext {
   view: string
   registerCta: (handler: (() => void) | null) => void
   query: string
-}
-
-interface WorkspaceNavItemDef {
-  key: string
-  icon: string
-  label: string
-  to: string | null
-  tabs: string[] | null
-  cta: string | null
-  adminOnly?: boolean
-}
-
-// to: null berarti belum ada halaman ("SEGERA"). Path ABSOLUT (bukan
-// relatif) -- route anak WorkspaceLayout dideklarasikan sebagai path penuh
-// /workspaces/:wsId/... di AppRouter (lihat komentar lama, masih berlaku).
-function awNavItems(workspaceId: string): WorkspaceNavItemDef[] {
-  return [
-    // Performance Dashboard SENGAJA di posisi PALING AWAL (dipindah
-    // 2026-09-22, dikonfirmasi user) -- sebelumnya urutan ketiga (setelah
-    // Project/Members), sekarang jadi landing pertama yang dilihat AW.
-    {
-      key: 'kinerja',
-      icon: '◎',
-      label: 'Performance Dashboard',
-      to: `/workspaces/${workspaceId}/performance`,
-      tabs: ['Project Health', 'Member Performance', 'Flow Efficiency'],
-      cta: null,
-    },
-    { key: 'project', icon: '▤', label: 'Project', to: `/workspaces/${workspaceId}/projects`, tabs: ['Semua', 'Aktif', 'Arsip'], cta: '+ Project' },
-    { key: 'members', icon: '◉', label: 'Members & Roles', to: `/workspaces/${workspaceId}/members`, tabs: null, cta: '+ Undang Member' },
-    {
-      key: 'cooldown',
-      icon: '◷',
-      label: 'Cooldown Mention',
-      to: `/workspaces/${workspaceId}/cooldown-mention`,
-      tabs: null,
-      cta: null,
-      adminOnly: true,
-    },
-    {
-      key: 'status',
-      icon: '◫',
-      label: 'Custom Status',
-      to: `/workspaces/${workspaceId}/statuses`,
-      tabs: ['Semua', 'Sistem', 'Kustom', 'Per Project'],
-      cta: '+ Tambah Status',
-      adminOnly: true,
-    },
-    {
-      key: 'rule',
-      icon: '⌗',
-      label: 'Rule Automation',
-      to: `/workspaces/${workspaceId}/rules`,
-      tabs: ['Rule Aktif', 'Template Library', 'Log Eksekusi'],
-      cta: '+ Rule',
-      adminOnly: true,
-    },
-    {
-      key: 'webhook',
-      icon: '⇄',
-      label: 'Webhook',
-      to: `/workspaces/${workspaceId}/webhooks`,
-      tabs: ['Endpoint', 'Log Pengiriman'],
-      cta: '+ Webhook',
-      adminOnly: true,
-    },
-    {
-      key: 'docs',
-      icon: '▧',
-      label: 'Dokumen & Lampiran',
-      to: `/workspaces/${workspaceId}/documents`,
-      tabs: null,
-      cta: null,
-      adminOnly: true,
-    },
-    {
-      key: 'audit',
-      icon: '☰',
-      label: 'Audit Trail Workspace',
-      to: `/workspaces/${workspaceId}/audit-trail`,
-      // tabs: null (2026-09-21, dibangun ulang meniru GroupAuditTrailPage
-      // persis) -- tab Semua Aktivitas/Akses & Keamanan sekarang dirender
-      // DI DALAM AwAuditTrailPage sendiri, sama seperti GroupAdminLayout's
-      // 'audit' nav item (tabs: null juga).
-      tabs: null,
-      cta: null,
-      adminOnly: true,
-    },
-  ]
-}
-
-// pmNavItems -- master frame Project Manager (2026-09-22, sebelum Track
-// S5 dimulai, "seperti biasa" pola S4P/S4G/S4W: bangun shell+menu dulu,
-// sambungkan halaman satu-satu seiring track berjalan). 11 item PERSIS
-// `NAV['Project Manager']` di "Master UI User.dc.html" (dibaca langsung
-// via DesignSync, BUKAN ditebak) -- HAMPIR SEMUA project-scoped (butuh
-// activeProjectId dari switcher project baru di sidebar), KECUALI
-// Performance Dashboard yang tetap level workspace (halaman SAMA dengan
-// AW, `PerformanceDashboardPage` sudah menangani mode PM sendiri lewat
-// deteksi pm_user_id -- tidak perlu halaman/rute terpisah). activeProjectId
-// null (PM belum py project SAMA SEKALI, atau belum termuat) -> seluruh
-// item project-scoped jatuh ke "SEGERA" sampai ada project aktif.
-//
-// Status per 2026-09-28: 'kinerja' (reuse AW), 'board' (Kanban Phase 1,
-// S4-05 dst/IG-46-49), 'pmmembers' (ProjectMembersPage, S3-24/IG-17),
-// 'sprint' (dibangun lengkap Track S5, IG-92), 'status' (Track S5B,
-// US-019, "PM Custom Status.dc.html" -- salinan independen per-project,
-// lihat ProjectStatusSettingsPage.tsx), dan 'rule' (Track S5B, "Rule
-// Builder.dc.html" -- rule level PROJECT, berdampingan/aditif dengan Rule
-// Automation AW level workspace, lihat ProjectRuleAutomationPage.tsx)
-// sudah py halaman sungguhan, begitu juga 'picgroup' (US-017b, IG-117,
-// "PM PIC Group.dc.html" -- ProjectPicGroupPage.tsx), dan 'import' (Import
-// CSV PM, IG-120 -- tahap (a): import sprint), dan 'docs' (Dokumen &
-// Lampiran level PROJECT, IG-123 -- DocumentsView cakupan project, beda dari
-// AW Documents yang workspace-wide). 'analytics' (Timesheet & Analitik, IG-128, "PM Timesheet.dc.html" --
-// TimesheetPage). 'audit' (Audit Trail PM, IG-130 -- aktivitas project aktif,
-// komponen AuditTrailView yang sama dengan Audit Trail Workspace AW).
-// Seluruh 11 item nav PM kini punya halaman.
-function pmNavItems(workspaceId: string, activeProjectId: string | null): WorkspaceNavItemDef[] {
-  const p = activeProjectId
-  return [
-    {
-      key: 'kinerja',
-      icon: '◎',
-      label: 'Performance Dashboard',
-      // PM: dashboard PER PROJECT sesuai project aktif switcher.
-      to: p ? `/workspaces/${workspaceId}/projects/${p}/performance` : `/workspaces/${workspaceId}/performance`,
-      tabs: ['Project Health', 'Member Performance', 'Flow Efficiency'],
-      cta: null,
-    },
-    {
-      key: 'sprint',
-      icon: '◧',
-      label: 'Sprint',
-      to: p ? `/workspaces/${workspaceId}/projects/${p}/sprints` : null,
-      tabs: ['Semua', 'Aktif', 'Backlog', 'Selesai'],
-      cta: '+ Sprint',
-    },
-    {
-      key: 'pmmembers',
-      icon: '◉',
-      label: 'Member Project',
-      to: p ? `/workspaces/${workspaceId}/projects/${p}/members` : null,
-      tabs: null,
-      cta: '+ Member',
-    },
-    {
-      key: 'board',
-      icon: '▦',
-      label: 'Board',
-      to: p ? `/workspaces/${workspaceId}/projects/${p}/board` : null,
-      tabs: ['Kanban', 'Daftar', 'Gantt', 'Riwayat'],
-      cta: '+ Task',
-    },
-    {
-      key: 'status',
-      icon: '◫',
-      label: 'Custom Status Project',
-      to: p ? `/workspaces/${workspaceId}/projects/${p}/statuses` : null,
-      tabs: ['Status Project'],
-      cta: '+ Status',
-    },
-    {
-      key: 'picgroup',
-      icon: '◈',
-      label: 'PIC Group per Status',
-      to: p ? `/workspaces/${workspaceId}/projects/${p}/pic-groups` : null,
-      tabs: ['Konfigurasi'],
-      cta: null,
-    },
-    {
-      key: 'rule',
-      icon: '⌗',
-      label: 'Rule Automation',
-      to: p ? `/workspaces/${workspaceId}/projects/${p}/rules` : null,
-      tabs: ['Rule Aktif', 'Template Library', 'Log Eksekusi'],
-      cta: '+ Rule',
-    },
-    { key: 'import', icon: '⇪', label: 'Import CSV', to: p ? `/workspaces/${workspaceId}/projects/${p}/import` : null, tabs: ['Unggah CSV', 'Riwayat'], cta: null },
-    { key: 'docs', icon: '▧', label: 'Dokumen & Lampiran', to: p ? `/workspaces/${workspaceId}/projects/${p}/documents` : null, tabs: null, cta: null },
-    {
-      key: 'analytics',
-      icon: '◔',
-      label: 'Timesheet & Analitik',
-      to: p ? `/workspaces/${workspaceId}/projects/${p}/timesheet` : null,
-      tabs: ['Ringkasan', 'Per-Member', 'Persetujuan', 'Timesheet Saya'],
-      cta: null,
-    },
-    // Audit Trail PM (IG-130): aktivitas project aktif; tab Semua Aktivitas/Akses & Keamanan di dalam halaman (pola AW).
-    { key: 'audit', icon: '☰', label: 'Audit Trail', to: p ? `/workspaces/${workspaceId}/projects/${p}/audit` : null, tabs: null, cta: null },
-  ]
 }
 
 // Pengaturan Akun di dalam kerangka (desain "Master UI User.dc.html": nav
@@ -328,21 +146,32 @@ export default function WorkspaceLayout() {
   // myProjects) -- SENGAJA disamakan logikanya, bukan kebetulan.
   const currentUserId = useAuthStore((s) => s.user?.id)
   const isPM = myWorkspaceRole === 'project_manager'
-  const allProjects = useProjects(isPM ? workspaceId : '')
-  const myProjects = useMemo(
-    () => (allProjects.data ?? []).filter((p) => isProjectPM(p, currentUserId) && !p.is_archived),
-    [allProjects.data, currentUserId],
-  )
+  // isEditor (S6E-01, Sprint 6): Editor memakai kerangka project-scoped yang
+  // sama dengan PM (switcher project, URL = sumber kebenaran) tapi nav sendiri.
+  const isEditor = myWorkspaceRole === 'editor'
+  const hasProjectFrame = isPM || isEditor
+  const allProjects = useProjects(hasProjectFrame ? workspaceId : '')
+  // ponytail: Editor = semua project non-arsip workspace (RLS mengizinkan
+  // anggota workspace membaca daftar project); filter keanggotaan project
+  // disambungkan di S6E-02 saat endpoint /me/tasks ada.
+  const myProjects = useMemo(() => {
+    const open = (allProjects.data ?? []).filter((p) => !p.is_archived)
+    return isEditor ? open : open.filter((p) => isProjectPM(p, currentUserId))
+  }, [allProjects.data, currentUserId, isEditor])
   const [activeProjectId, setActiveProjectId] = useState('')
   useEffect(() => {
-    if (isPM && !activeProjectId && myProjects.length > 0) setActiveProjectId(myProjects[0].id)
-  }, [isPM, myProjects, activeProjectId])
+    if (hasProjectFrame && !activeProjectId && myProjects.length > 0) setActiveProjectId(myProjects[0].id)
+  }, [hasProjectFrame, myProjects, activeProjectId])
   // URL = sumber kebenaran project aktif: buka/kembali ke halaman project lain
   // (deep link, tombol back) menyamakan switcher.
   const urlProjectId = projectIdFromPath(location.pathname, workspaceId)
   useEffect(() => {
-    if (isPM && urlProjectId && urlProjectId !== activeProjectId && myProjects.some((p) => p.id === urlProjectId)) setActiveProjectId(urlProjectId)
-  }, [isPM, urlProjectId, activeProjectId, myProjects])
+    if (hasProjectFrame && urlProjectId && urlProjectId !== activeProjectId && myProjects.some((p) => p.id === urlProjectId)) setActiveProjectId(urlProjectId)
+  }, [hasProjectFrame, urlProjectId, activeProjectId, myProjects])
+  // Editor di rute milik PM/AW (sprint, member, rule, import, dst) -> Board.
+  useEffect(() => {
+    if (isEditor && !isEditorPath(location.pathname, workspaceId)) navigate(`/workspaces/${workspaceId}/board`, { replace: true })
+  }, [isEditor, location.pathname, workspaceId, navigate])
   // Pilih project di switcher: halaman project yang sedang terbuka ikut pindah
   // ke project baru (sebelumnya hanya link menu yang berubah, isi halaman tetap
   // project lama).
@@ -356,16 +185,25 @@ export default function WorkspaceLayout() {
     if (target) navigate(target)
   }
 
-  const items = useMemo(
-    () => (isPM ? pmNavItems(workspaceId, activeProjectId || null) : awNavItems(workspaceId)),
-    [isPM, workspaceId, activeProjectId],
-  )
+  const items = useMemo(() => {
+    if (isPM) return pmNavItems(workspaceId, activeProjectId || null)
+    if (isEditor) return editorNavItems(workspaceId, activeProjectId || null)
+    return awNavItems(workspaceId)
+  }, [isPM, isEditor, workspaceId, activeProjectId])
   const accountItem = useMemo(() => accountNavItem(workspaceId), [workspaceId])
   const isAccountPath = location.pathname.startsWith(accountItem.to ?? '')
   const activeNav = useMemo(
     () => items.find((n) => n.to && location.pathname.startsWith(n.to)) ?? (isAccountPath ? accountItem : null),
     [items, location.pathname, isAccountPath, accountItem],
   )
+
+  // Editor (desain: ganti menu -> tab pertama aktif). PM/AW tetap memakai
+  // 'Semua' dan menentukan tab bawaan di halamannya sendiri.
+  const activeNavKey = activeNav?.key
+  useEffect(() => {
+    if (isEditor && activeNav?.tabs) setView(activeNav.tabs[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditor, activeNavKey])
 
   // Masuk Pengaturan Akun -> sub-tab mulai dari Profil; keluar -> buang sub-tab
   // akun dari `view` supaya halaman lain tidak menerima nilai asing (mis.
@@ -555,7 +393,7 @@ export default function WorkspaceLayout() {
               dipilih). Dropdown cuma dibuka kalau >1 project, sama pola
               switcher workspace di atas (tombol tetap tampil tapi non-
               interaktif kalau cuma 1 pilihan). */}
-          {isPM && myProjects.length > 0 && (
+          {hasProjectFrame && myProjects.length > 0 && (
             <div className="relative flex-shrink-0 border-b border-line">
               <button
                 type="button"
@@ -579,7 +417,7 @@ export default function WorkspaceLayout() {
                   <div className="fixed inset-0 z-10" onClick={() => setProjectMenuOpen(false)} />
                   <div className="absolute left-2 right-2 top-[50px] z-20 border border-line-strong bg-bg-deep">
                     <div className="border-b border-line px-3 py-2 font-mono text-[8.5px] tracking-[0.14em] text-text-muted">
-                      PINDAH PROJECT · {myProjects.length} DIKELOLA
+                      PINDAH PROJECT · {myProjects.length} {isPM ? 'DIKELOLA' : 'TERSEDIA'}
                     </div>
                     {myProjects.map((p) => {
                       const active = p.id === activeProjectId
@@ -604,7 +442,19 @@ export default function WorkspaceLayout() {
             </div>
           )}
 
+          {isEditor && (
+            <div className="flex-shrink-0 border-b border-line px-2.5 pb-1.5 pt-3">
+              <div className="mb-[7px] font-mono text-[8.5px] tracking-[0.14em] text-text-muted">ROLE AKTIF</div>
+              <div className="flex items-center gap-2 border border-line-strong bg-bg-deep px-2.5 py-[9px]">
+                <span className="flex-1 font-mono text-[11px] text-text-bone">Editor</span>
+                <span className="font-mono text-[11px] text-text-muted">🔒</span>
+              </div>
+              <div className="mt-[7px] pb-1.5 font-mono text-[8.5px] leading-[1.6] text-text-dim">{EDITOR_ROLE_NOTE}</div>
+            </div>
+          )}
+
           <div className="flex flex-1 flex-col gap-0.5 overflow-auto p-2">
+            {isEditor && <div className="px-2.5 pb-1.5 pt-1.5 font-mono text-[9px] tracking-[0.14em] text-text-muted">EDITOR</div>}
             {visibleItems.map((item) => (
               <WorkspaceNavItem key={item.key} icon={item.icon} label={item.label} to={item.to} />
             ))}
