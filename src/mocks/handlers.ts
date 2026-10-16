@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw'
 
-import { mockContext, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
+import { mockContext, mockFollowedProjects, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
 
 const ok = (data: unknown) => HttpResponse.json({ data })
 
@@ -39,6 +39,7 @@ export const handlers = [
 
   // Kerangka Master UI Editor (S6E-01): sesi mock = akun Editor (lihat main.tsx).
   http.get('/api/v1/me/context', () => ok(mockContext)),
+  http.get('/api/v1/me/projects', () => ok(mockFollowedProjects)),
   http.get('/api/v1/workspaces/:id', () => ok(mockWorkspace)),
   http.get('/api/v1/workspaces/:id/projects', () => ok(mockProjects)),
   http.get('/api/v1/projects/:id/statuses', () => ok(mockStatuses)),

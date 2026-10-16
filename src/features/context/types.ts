@@ -3,11 +3,33 @@
 // diadaptasi ke Redis di backend (BUKAN klaim JWT literal -- lihat
 // komentar backend service/context.go), FE cukup pakai nilainya apa
 // adanya tanpa perlu tahu detail penyimpanannya.
+// Capabilities (S6E-02, Sprint 6) -- petunjuk tampilan dari backend (service.CapabilitiesForRole);
+// penegakan hak akses tetap di backend.
+export interface Capabilities {
+  create_task: boolean
+  edit_own_task: boolean
+  comment: boolean
+  log_time: boolean
+  attach: boolean
+  manage_project: boolean
+  manage_rules: boolean
+  manage_members: boolean
+}
+
+// FollowedProject -- GET /me/projects: project yang diikuti user (anggota/assignee/PIC aktif).
+export interface FollowedProject {
+  id: string
+  workspace_id: string
+  name: string
+  code: string
+}
+
 export interface WorkspaceMembership {
   workspace_id: string
   name: string
   org_name: string
   role: string
+  capabilities: Capabilities
   // YYYY-MM-DD (UTC) -- tab "Workspace & Role" Pengaturan Akun.
   joined_at: string
 }
@@ -25,6 +47,7 @@ export interface ProjectScopedProject {
   workspace_name: string
   org_name: string
   role: string
+  capabilities: Capabilities
 }
 
 export interface UserContext {
