@@ -4,7 +4,7 @@ import { canActOn, canToggleComplete, isOwnTask, type BoardMode } from '@/compon
 import PicPickerModal from '@/components/tasks/PicPickerModal'
 import { useProjectMembers } from '@/features/project-members/hooks'
 import { useBulkSetTaskStatus, useReorderTask, useSetCompleteness, useSetTaskStatus } from '@/features/tasks/hooks'
-import { describeMoveError } from '@/features/tasks/moveError'
+import { describeCompleteError, describeMoveError } from '@/features/tasks/moveError'
 import type { CustomStatus, Task, TaskPriority } from '@/features/tasks/types'
 import { formatDateDMY } from '@/lib/date'
 import { cn } from '@/lib/utils'
@@ -81,7 +81,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
     setPendingError('')
     setCompleteness.mutate(
       { taskId: t.id, completeness: t.completeness === 'incomplete' ? 'complete' : 'incomplete' },
-      { onError: (err: unknown) => setPendingError((err as { code?: string }).code === 'NOT_BACKLOG_PIC' ? 'Hanya PIC backlog task ini yang dapat menandai lengkap.' : 'Gagal mengubah kelengkapan task.') },
+      { onError: (err: unknown) => setPendingError(describeCompleteError(err)) },
     )
   }
 

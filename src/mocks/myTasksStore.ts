@@ -127,6 +127,11 @@ export function moveStatus(taskId: string, statusId: string): boolean {
   return true
 }
 
+// isOwnedByMe -- meniru gerbang backend S6E-06: Editor hanya boleh mengubah task miliknya (assignee Eka).
+export function isOwnedByMe(taskId: string): boolean {
+  return mockTasks.find((x) => x.id === taskId)?.assignees.some((a) => a.user_id === 'mock-editor-id') ?? false
+}
+
 export function setCompleteness(taskId: string, completeness: 'complete' | 'incomplete'): boolean {
   const board = mockTasks.find((x) => x.id === taskId)
   if (!board) return false
