@@ -15,6 +15,11 @@ describe('editorNavItems', () => {
     ])
   })
 
+  it('Task Saya mengikuti project aktif; tanpa project SEGERA', () => {
+    expect(editorNavItems(WS, 'p1')[1].to).toBe('/workspaces/w1/projects/p1/my-tasks')
+    expect(editorNavItems(WS, null)[1].to).toBeNull()
+  })
+
   it('Board mengikuti project aktif; tanpa project jatuh ke redirect Board', () => {
     expect(editorNavItems(WS, 'p1')[0].to).toBe('/workspaces/w1/projects/p1/board')
     expect(editorNavItems(WS, null)[0].to).toBe('/workspaces/w1/board')
@@ -25,7 +30,7 @@ describe('isEditorPath', () => {
   it.each([
     '/workspaces/w1/board',
     '/workspaces/w1/projects/p9/board',
-    '/workspaces/w1/my-tasks',
+    '/workspaces/w1/projects/p9/my-tasks',
     '/workspaces/w1/my-timesheet',
     '/workspaces/w1/my-attachments',
     '/workspaces/w1/account',
@@ -34,6 +39,7 @@ describe('isEditorPath', () => {
   it.each([
     '/workspaces/w1/projects',
     '/workspaces/w1/projects/p9/sprints',
+    '/workspaces/w1/my-tasks',
     '/workspaces/w1/projects/p9/members',
     '/workspaces/w1/projects/p9/rules',
     '/workspaces/w1/projects/p9/import',
