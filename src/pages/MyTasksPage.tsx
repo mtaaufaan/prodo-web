@@ -193,7 +193,7 @@ export default function MyTasksPage() {
         isPending={setStatus.isPending}
         errorMessage={moveError}
       />
-      <AddTaskModal open={addTaskOpen} onClose={() => setAddTaskOpen(false)} projectId={projectId} projectName={projectName === '—' ? '' : projectName} capabilities={caps} />
+      <AddTaskModal open={addTaskOpen} onClose={() => setAddTaskOpen(false)} projectId={projectId} projectName={projectName === '—' ? '' : projectName} capabilities={caps} allowEditorStoryPoints={projects.data?.find((p) => p.id === projectId)?.allow_editor_story_points} />
     </div>
   )
 }

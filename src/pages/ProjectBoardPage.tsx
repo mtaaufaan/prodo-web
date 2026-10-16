@@ -111,8 +111,9 @@ function ProjectBoardPageContent() {
         projectName={project?.name ?? ''}
         defaultSprintId={activeSprint?.id ?? null}
         capabilities={capabilities}
+        allowEditorStoryPoints={project?.allow_editor_story_points}
       />
-      <TaskDetailModal taskId={detailTaskId} onClose={() => setDetailTaskId(null)} projectId={pid} workspaceId={workspaceId} statuses={statuses.data ?? []} capabilities={capabilities} />
+      <TaskDetailModal taskId={detailTaskId} onClose={() => setDetailTaskId(null)} projectId={pid} workspaceId={workspaceId} statuses={statuses.data ?? []} capabilities={capabilities} allowEditorStoryPoints={project?.allow_editor_story_points} />
     </div>
   )
 }

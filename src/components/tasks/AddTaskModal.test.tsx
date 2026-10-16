@@ -55,6 +55,15 @@ describe('AddTaskModal', () => {
     expect(mutate.mock.calls[0][0]).toMatchObject({ title: 'Task dari Editor', assignee_ids: ['me'], story_points: null })
   })
 
+  it('Editor pada project yang mengizinkan story point: pilihan story point terbuka dan terkirim', () => {
+    render(<AddTaskModal open onClose={vi.fn()} projectId="p" projectName="QuestLog" capabilities={caps({})} allowEditorStoryPoints />)
+    expect(screen.getByText('STORY POINT · OPSIONAL')).toBeInTheDocument()
+    fireEvent.change(screen.getByPlaceholderText('Uji regresi modul login'), { target: { value: 'Task dengan SP' } })
+    fireEvent.click(screen.getByRole('button', { name: '5' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Simpan Task' }))
+    expect(mutate.mock.calls[0][0]).toMatchObject({ assignee_ids: ['me'], story_points: 5 })
+  })
+
   it('judul pendek ditolak dan tidak mengirim apa pun', () => {
     show(caps({}))
     fireEvent.change(screen.getByPlaceholderText('Uji regresi modul login'), { target: { value: 'ab' } })

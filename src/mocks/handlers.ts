@@ -107,7 +107,13 @@ export const handlers = [
     return updateTaskFields(String(params.id), (await request.json()) as never) ? ok({ id: params.id }) : notFound()
   }),
   http.delete('/api/v1/tasks/:id', () => fail('FORBIDDEN', 'Hanya Admin Workspace atau Project Manager yang dapat menghapus task.', 403)),
-  http.post('/api/v1/projects/:id/tasks', async ({ params, request }) => ok(createMockTask(String(params.id), (await request.json()) as never))),
+  http.post('/api/v1/projects/:id/tasks', async ({ params, request }) => {
+    const body = (await request.json()) as { story_points?: number | null }
+    // Meniru backend S6E-08: Editor hanya boleh mengisi story point bila project mengizinkan.
+    const allowSP = mockProjects.find((p) => p.id === params.id)?.allow_editor_story_points ?? false
+    if (body.story_points != null && !allowSP) return fail('STORY_POINTS_NOT_ALLOWED', 'Project ini tidak mengizinkan Editor mengisi story point.', 403)
+    return ok(createMockTask(String(params.id), body as never))
+  }),
   http.get('/api/v1/tasks/:id/comments', ({ params }) => ok(listComments(String(params.id)))),
   http.patch('/api/v1/comments/:id', async ({ params, request }) => {
     const res = editComment(String(params.id), ((await request.json()) as { body: string }).body)

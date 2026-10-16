@@ -20,6 +20,8 @@ export interface TaskDetailAccess {
   canRemovePic: boolean
   // canApproveTime -- setujui/tolak entri timesheet: hanya PM/AW.
   canApproveTime: boolean
+  // canSetStoryPoints -- story point: PM/AW selalu; Editor hanya bila project mengizinkan (S6E-08, IG-139).
+  canSetStoryPoints: boolean
   readOnlyReason: string
 }
 
@@ -31,15 +33,16 @@ export const FULL_TASK_ACCESS: TaskDetailAccess = {
   canDelete: true,
   canRemovePic: true,
   canApproveTime: true,
+  canSetStoryPoints: true,
   readOnlyReason: '',
 }
 
 // taskDetailAccess -- capabilities belum termuat/tidak diketahui -> akses penuh (perilaku sebelum S6E-07).
-export function taskDetailAccess(caps: Capabilities | undefined, task: Task | undefined, userId: string | undefined): TaskDetailAccess {
+export function taskDetailAccess(caps: Capabilities | undefined, task: Task | undefined, userId: string | undefined, allowEditorStoryPoints = false): TaskDetailAccess {
   if (!caps || caps.manage_project) return FULL_TASK_ACCESS
   if (caps.edit_own_task) {
     if (task && isOwnTask(task, userId)) {
-      return { ...FULL_TASK_ACCESS, canAttach: caps.attach, canComment: caps.comment, canDelete: false, canRemovePic: false, canApproveTime: false }
+      return { ...FULL_TASK_ACCESS, canAttach: caps.attach, canComment: caps.comment, canDelete: false, canRemovePic: false, canApproveTime: false, canSetStoryPoints: allowEditorStoryPoints }
     }
     return {
       ...FULL_TASK_ACCESS,
@@ -50,6 +53,7 @@ export function taskDetailAccess(caps: Capabilities | undefined, task: Task | un
       canDelete: false,
       canRemovePic: false,
       canApproveTime: false,
+      canSetStoryPoints: false,
       readOnlyReason: 'Task ini bukan milik Anda -- hanya assignee atau PIC aktif yang dapat mengubahnya. Anda tetap dapat membaca dan berkomentar.',
     }
   }
@@ -62,6 +66,7 @@ export function taskDetailAccess(caps: Capabilities | undefined, task: Task | un
     canDelete: false,
     canRemovePic: false,
     canApproveTime: false,
+    canSetStoryPoints: false,
     readOnlyReason: 'Role Anda hanya dapat membaca task ini.',
   }
 }

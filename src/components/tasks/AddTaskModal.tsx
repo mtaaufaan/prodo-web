@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import type { Capabilities } from '@/features/context/types'
 import { useProjectMembers } from '@/features/project-members/hooks'
 import { useCreateTask, useProjectSprints } from '@/features/tasks/hooks'
+import { describeChildError } from '@/features/tasks/moveError'
 import { autoFillTaskDates, FIBONACCI_STORY_POINTS, type TaskPriority } from '@/features/tasks/types'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -26,6 +27,8 @@ interface AddTaskModalProps {
   // capabilities (S6E-07) -- role selain PM/AW (mis. Editor) memakai mode terbatas: assignee dikunci ke diri
   // sendiri dan story point diisi PM. Belum termuat -> form penuh; penegak sebenarnya backend (S6E-08).
   capabilities?: Capabilities
+  // allowEditorStoryPoints (S6E-08) -- setting project; bila true Editor boleh mengisi story point.
+  allowEditorStoryPoints?: boolean
 }
 
 // AddTaskModal (Task Management Core Phase 1, desain "PM Add Task.dc.html").
@@ -35,10 +38,12 @@ interface AddTaskModalProps {
 // Deviasi disengaja dari urutan field desain (atas permintaan user): field
 // SPRINT dipindah ke paling atas (sebelum Judul Task) -- desain aslinya
 // menaruh Sprint paling akhir setelah Assignee.
-export default function AddTaskModal({ open, onClose, projectId, projectName, defaultSprintId, capabilities }: AddTaskModalProps) {
+export default function AddTaskModal({ open, onClose, projectId, projectName, defaultSprintId, capabilities, allowEditorStoryPoints }: AddTaskModalProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   // limited -- Editor: hanya bisa menugaskan task ke dirinya sendiri dan tidak mengisi story point.
   const limited = Boolean(capabilities && !capabilities.manage_project)
+  // spLocked -- story point Editor hanya terbuka bila project mengizinkan (backend menegakkan, S6E-08).
+  const spLocked = limited && !allowEditorStoryPoints
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
@@ -120,7 +125,7 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
         start_date: startDate,
         due_date: dueDate,
         estimated_hours: estimatedHours ? parseFloat(estimatedHours) : null,
-        story_points: limited ? null : (storyPoints ?? null),
+        story_points: spLocked ? null : (storyPoints ?? null),
         sprint_id: sprintId,
         assignee_ids: assigneeIds,
       },
@@ -243,7 +248,7 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
             Isi 2 dari 3 (Start Date/Due Date/Estimasi) -- sisanya otomatis terhitung.
           </p>
 
-          {limited ? (
+          {spLocked ? (
             <div>
               <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">STORY POINT</label>
               <p className="font-mono text-[9px] leading-relaxed text-text-dim">🔒 Story point diisi Project Manager setelah task dibuat.</p>
@@ -307,7 +312,7 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
               ⚠ {formError}
             </p>
           )}
-          {create.isError && <p className="text-[11px] text-destructive">Gagal membuat task.</p>}
+          {create.isError && <p className="text-[11px] text-destructive">{describeChildError(create.error, 'Gagal membuat task.')}</p>}
         </div>
 
         <DialogFooter>

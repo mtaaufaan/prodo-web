@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Capabilities } from '@/features/context/types'
@@ -88,12 +88,12 @@ const task = (assignee: string): Task =>
     active_pics: [],
   }) as Task
 
-function open(capabilities: Capabilities | undefined, assignee: string) {
+function open(capabilities: Capabilities | undefined, assignee: string, allowEditorStoryPoints = false) {
   state.task = task(assignee)
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <TaskDetailModal taskId="t" onClose={vi.fn()} projectId="p" workspaceId="w" statuses={[status]} capabilities={capabilities} />
+      <TaskDetailModal taskId="t" onClose={vi.fn()} projectId="p" workspaceId="w" statuses={[status]} capabilities={capabilities} allowEditorStoryPoints={allowEditorStoryPoints} />
     </QueryClientProvider>,
   )
 }
@@ -125,6 +125,17 @@ describe('TaskDetailModal hak akses', () => {
     expect(screen.getByText(/Task ini bukan milik Anda/)).toBeInTheDocument()
     expect(screen.getByText('+ Komentar')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Hapus' })).not.toBeInTheDocument()
+  })
+
+  it('story point Editor terkunci kecuali project mengizinkan (S6E-08)', () => {
+    const { unmount } = open(EDITOR, 'me')
+    fireEvent.click(screen.getByText('✎ Edit Field'))
+    expect(screen.getByText(/Story point diisi Project Manager/)).toBeInTheDocument()
+    expect(screen.queryByText('STORY POINT · SKALA FIBONACCI')).not.toBeInTheDocument()
+    unmount()
+    open(EDITOR, 'me', true)
+    fireEvent.click(screen.getByText('✎ Edit Field'))
+    expect(screen.getByText('STORY POINT · SKALA FIBONACCI')).toBeInTheDocument()
   })
 
   it('role tanpa izin komentar tidak melihat tombol Komentar', () => {
