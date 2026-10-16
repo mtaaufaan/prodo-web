@@ -40,6 +40,7 @@ import {
   useUpdateTask,
 } from '@/features/tasks/hooks'
 import { autoFillTaskDates, FIBONACCI_STORY_POINTS, statusColorClasses, type CustomStatus, type TaskPriority } from '@/features/tasks/types'
+import { describeChildError } from '@/features/tasks/moveError'
 import { formatDateDMY } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
@@ -169,6 +170,8 @@ interface TaskDetailModalProps {
   // capabilities (S6E-07) -- hak role di workspace ini (/me/context); menentukan mode baca-saja per task.
   // Belum termuat -> akses penuh; penegak sebenarnya backend (S6E-06).
   capabilities?: Capabilities
+  // allowEditorStoryPoints (S6E-08) -- setting project; menentukan kunci story point untuk Editor.
+  allowEditorStoryPoints?: boolean
 }
 
 // TaskDetailModal (Task Management Core Phase 1/2/3/4, + LAMPIRAN H20
@@ -240,10 +243,10 @@ interface TaskDetailModalProps {
 // polos (bukan alur 2-langkah "SERAHKAN DARI"→"SERAHKAN KE" desain saat
 // PIC aktif >1) -- simplifikasi kecil diterima, sama pola PicPickerModal
 // Kanban.
-export default function TaskDetailModal({ taskId, onClose, projectId, workspaceId, statuses, capabilities }: TaskDetailModalProps) {
+export default function TaskDetailModal({ taskId, onClose, projectId, workspaceId, statuses, capabilities, allowEditorStoryPoints }: TaskDetailModalProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const task = useTask(taskId)
-  const access = taskDetailAccess(capabilities, task.data, currentUserId)
+  const access = taskDetailAccess(capabilities, task.data, currentUserId, allowEditorStoryPoints)
   // canEdit -- desain: canEdit = !readOnly (judul/deskripsi/sub-task/dependency/PIC).
   const canEdit = !access.readOnly
   // mayAttach/canMoveStatus -- desain: (canEdit || canAttach) dan canMove.
@@ -327,6 +330,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   const [depError, setDepError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [attachError, setAttachError] = useState('')
+  const [subtaskError, setSubtaskError] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameDraft, setRenameDraft] = useState('')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -370,6 +374,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
     setDepError('')
     setSaveError('')
     setAttachError('')
+    setSubtaskError('')
     setRenamingId(null)
     setRenameDraft('')
     setDeleteConfirmId(null)
@@ -590,7 +595,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
             ? 'Penyimpanan organisasi penuh. Hubungi Group Admin Anda untuk menambah kuota.'
             : apiErr.code === 'FILE_TYPE_NOT_ALLOWED'
               ? 'Tipe file ini tidak diizinkan.'
-              : 'Gagal mengunggah lampiran.',
+              : describeChildError(err, 'Gagal mengunggah lampiran.'),
         )
       },
     })
@@ -1071,6 +1076,12 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                         <p className="-mt-1 font-mono text-[8px] leading-relaxed text-text-dim">
                           Isi 2 dari 3 (Start Date/Due Date/Estimasi) -- sisanya otomatis terhitung.
                         </p>
+                        {!access.canSetStoryPoints ? (
+                          <div>
+                            <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">STORY POINT</label>
+                            <p className="font-mono text-[9px] leading-relaxed text-text-dim">🔒 Story point diisi Project Manager untuk project ini.</p>
+                          </div>
+                        ) : (
                         <div>
                           <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">STORY POINT · SKALA FIBONACCI</label>
                           <div className="flex flex-wrap gap-1.5">
@@ -1089,6 +1100,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                             ))}
                           </div>
                         </div>
+                        )}
                         <div className="flex gap-2">
                           <button
                             type="button"
@@ -1135,7 +1147,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                             type="button"
                             disabled={!canEdit}
                             aria-label={`Tandai sub-task ${item.title}`}
-                            onClick={() => updateChecklistItem.mutate({ itemId: item.id, values: { is_done: !item.is_done } })}
+                            onClick={() => updateChecklistItem.mutate({ itemId: item.id, values: { is_done: !item.is_done } }, { onSuccess: () => setSubtaskError(''), onError: (e) => setSubtaskError(describeChildError(e, 'Gagal mengubah sub-task.')) })}
                             className={cn(
                               'flex h-4 w-4 flex-shrink-0 items-center justify-center border font-mono text-[10px] disabled:cursor-default',
                               item.is_done ? 'border-mint bg-mint text-bg-deep' : 'border-line-strong text-transparent',
@@ -1155,7 +1167,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                                 onClick={() => {
                                   const trimmed = subtaskDraft.trim()
                                   if (!trimmed) return
-                                  updateChecklistItem.mutate({ itemId: item.id, values: { title: trimmed } }, { onSuccess: () => setEditingSubtaskId(null) })
+                                  updateChecklistItem.mutate({ itemId: item.id, values: { title: trimmed } }, { onSuccess: () => { setEditingSubtaskId(null); setSubtaskError('') }, onError: (e) => setSubtaskError(describeChildError(e, 'Gagal mengubah sub-task.')) })
                                 }}
                                 className="font-mono text-[9px] uppercase text-signal hover:underline"
                               >
@@ -1177,7 +1189,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                                   >
                                     ✎ Ubah
                                   </button>
-                                  <button type="button" onClick={() => deleteChecklistItem.mutate(item.id)} className="font-mono text-[9px] text-destructive hover:underline">
+                                  <button type="button" onClick={() => deleteChecklistItem.mutate(item.id, { onSuccess: () => setSubtaskError(''), onError: (e) => setSubtaskError(describeChildError(e, 'Gagal menghapus sub-task.')) })} className="font-mono text-[9px] text-destructive hover:underline">
                                     ✕
                                   </button>
                                 </>
@@ -1187,6 +1199,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                         </div>
                       ))}
                     </div>
+                    {subtaskError && <p className="mt-2 font-mono text-[9.5px] text-destructive">⚠ {subtaskError}</p>}
                     {canEdit && (
                     <div className="mt-2.5 flex flex-wrap gap-2">
                       <input
@@ -1200,7 +1213,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                         onClick={() => {
                           const trimmed = newSubtaskTitle.trim()
                           if (!trimmed) return
-                          createChecklistItem.mutate(trimmed, { onSuccess: () => setNewSubtaskTitle('') })
+                          createChecklistItem.mutate(trimmed, { onSuccess: () => { setNewSubtaskTitle(''); setSubtaskError('') }, onError: (e) => setSubtaskError(describeChildError(e, 'Gagal menambah sub-task.')) })
                         }}
                         disabled={!newSubtaskTitle.trim() || createChecklistItem.isPending}
                         className="border border-signal px-4 py-2 font-mono text-[10px] uppercase tracking-[0.06em] text-signal disabled:opacity-40"

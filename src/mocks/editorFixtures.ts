@@ -44,7 +44,7 @@ export const mockWorkspace: Workspace = {
   mention_digest_enabled: false,
 }
 
-function project(id: string, name: string, code: string): Project {
+function project(id: string, name: string, code: string, allowEditorSP = false): Project {
   return {
     id,
     workspace_id: WS,
@@ -63,10 +63,11 @@ function project(id: string, name: string, code: string): Project {
     status: 'in_progress',
     end_date: null,
     mention_cooldown_minutes: null,
+    allow_editor_story_points: allowEditorSP,
   }
 }
 
-export const mockProjects: Project[] = [project(PROJ_A, 'QuestLog', 'QST'), project(PROJ_B, 'PRODO', 'PRD')]
+export const mockProjects: Project[] = [project(PROJ_A, 'QuestLog', 'QST'), project(PROJ_B, 'PRODO', 'PRD', true)]
 
 // GET /me/projects
 export const mockFollowedProjects: FollowedProject[] = mockProjects.map((p) => ({ id: p.id, workspace_id: p.workspace_id, name: p.name, code: p.code }))

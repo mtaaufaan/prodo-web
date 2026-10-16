@@ -32,6 +32,13 @@ describe('taskDetailAccess', () => {
     expect(a).toMatchObject({ readOnly: false, canMove: true, canAttach: true, canComment: true, canDelete: false, canRemovePic: false, canApproveTime: false, readOnlyReason: '' })
   })
 
+  it('story point Editor mengikuti setting project; PM/AW selalu boleh (S6E-08)', () => {
+    expect(taskDetailAccess(editor, mine, 'u1').canSetStoryPoints).toBe(false)
+    expect(taskDetailAccess(editor, mine, 'u1', true).canSetStoryPoints).toBe(true)
+    expect(taskDetailAccess(caps({ manage_project: true }), mine, 'u1').canSetStoryPoints).toBe(true)
+    expect(taskDetailAccess(editor, mine, 'u2', true).canSetStoryPoints).toBe(false) // task orang lain
+  })
+
   it('PIC aktif juga dianggap pemilik', () => {
     const t = task({ active_pics: [{ user_id: 'u1', is_active: true } as Task['active_pics'][number]] })
     expect(taskDetailAccess(editor, t, 'u1').readOnly).toBe(false)
