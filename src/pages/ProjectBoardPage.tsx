@@ -8,6 +8,7 @@ import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import GanttChart from '@/features/views/GanttChart'
 import { useProjects } from '@/features/projects/hooks'
+import { ApiError } from '@/lib/api'
 import { useProjectSprints, useProjectStatuses, useProjectTasks } from '@/features/tasks/hooks'
 
 // ProjectBoardPage (Task Management Core Phase 1, desain "PM Board.dc.html").
@@ -66,7 +67,13 @@ function ProjectBoardPageContent() {
       </div>
 
       {(statuses.isLoading || tasks.isLoading) && <p className="text-sm text-text-muted">Memuat...</p>}
-      {(statuses.isError || tasks.isError) && <p className="text-sm text-destructive">Gagal memuat papan task.</p>}
+      {(statuses.isError || tasks.isError) && (
+        <p className="text-sm text-destructive">
+          {[statuses.error, tasks.error].some((e) => e instanceof ApiError && e.code === 'NOT_PROJECT_MEMBER')
+            ? 'Anda bukan anggota project ini.'
+            : 'Gagal memuat papan task.'}
+        </p>
+      )}
 
       {statuses.data && filteredTasks && tab === 'Kanban' && (
         <KanbanBoard

@@ -48,6 +48,8 @@ import PlatformGroupAdminPage from '@/pages/PlatformGroupAdminPage'
 import PlatformLoginPage from '@/pages/PlatformLoginPage'
 import PlatformSecuritySettingsPage from '@/pages/PlatformSecuritySettingsPage'
 import PlatformTiersPage from '@/pages/PlatformTiersPage'
+import EditorBoardRedirect from '@/pages/EditorBoardRedirect'
+import EditorPlaceholderPage from '@/pages/EditorPlaceholderPage'
 import ProjectBoardPage from '@/pages/ProjectBoardPage'
 import SprintPage from '@/pages/SprintPage'
 import ProjectListPage from '@/pages/ProjectListPage'
@@ -103,6 +105,13 @@ export default function AppRouter() {
               Akun.dc.html" mode embedded) -- /account-settings di atas tetap
               dipakai konsol Group Admin (halaman berdiri sendiri). */}
           <Route path="/workspaces/:wsId/account" element={<AccountSettingsPage />} />
+          {/* Master frame Editor (S6E-01, Sprint 6): menu lintas project. Task Saya/
+              Timesheet/Lampiran Saya masih kerangka, diganti halaman sungguhan
+              di S6E-03/09/11. */}
+          <Route path="/workspaces/:wsId/board" element={<EditorBoardRedirect />} />
+          <Route path="/workspaces/:wsId/my-tasks" element={<EditorPlaceholderPage label="Task Saya" />} />
+          <Route path="/workspaces/:wsId/my-timesheet" element={<EditorPlaceholderPage label="Timesheet" />} />
+          <Route path="/workspaces/:wsId/my-attachments" element={<EditorPlaceholderPage label="Lampiran Saya" />} />
           <Route path="/workspaces/:wsId/projects" element={<ProjectListPage />} />{/* S4-04, US-012 */}
           {/* Task Management Core Phase 1 (forward-pull, desain "PM
               Board.dc.html" disederhanakan -- lihat komentar

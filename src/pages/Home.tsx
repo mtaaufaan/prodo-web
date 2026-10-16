@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { useMyContext } from '@/features/context/hooks'
 import { useAuthStore } from '@/store/useAuthStore'
 
-// landingViewFor -- admin_workspace DAN project_manager mendarat ke
+// landingViewFor -- editor mendarat ke Board (S6E-01); admin_workspace DAN project_manager mendarat ke
 // Performance Dashboard (2026-09-22 utk AW; susulan untuk PM setelah user
 // menemukan lewat pengujian live: PM landing ke /projects, halaman yang
 // menurut desainnya sendiri "AW Projects.dc.html" -- PM malah tidak
@@ -14,6 +14,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 // ke /projects seperti semula -- nav mereka (awNavItems, item 'project'
 // bukan adminOnly) memang menyertakannya.
 function landingViewFor(role: string) {
+  if (role === 'editor') return 'board' // S6E-01: Board project pertama (EditorBoardRedirect)
   return role === 'admin_workspace' || role === 'project_manager' ? 'performance' : 'projects'
 }
 
