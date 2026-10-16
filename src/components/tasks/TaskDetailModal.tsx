@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { downloadAttachment } from '@/features/attachments/api'
 import { useDeleteAttachment, useDocumentsQuota, useRenameAttachment, useTaskAttachments, useUploadAttachment } from '@/features/attachments/hooks'
 import { ALLOWED_EXTENSIONS, MAX_ATTACHMENT_SIZE_BYTES, fileExt, formatBytes } from '@/features/attachments/types'
+import type { Capabilities } from '@/features/context/types'
 import { useProjectMembers } from '@/features/project-members/hooks'
 import {
   useAcknowledgePic,
@@ -42,6 +43,9 @@ import { autoFillTaskDates, FIBONACCI_STORY_POINTS, statusColorClasses, type Cus
 import { formatDateDMY } from '@/lib/date'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
+
+import TaskComments from './TaskComments'
+import { taskDetailAccess } from './taskDetailAccess'
 
 const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high', 'critical']
 const PRIORITY_BADGE_TONE: Record<TaskPriority, string> = {
@@ -162,6 +166,9 @@ interface TaskDetailModalProps {
   // useDocumentsQuota existing (AW Documents) tanpa endpoint baru.
   workspaceId: string
   statuses: CustomStatus[]
+  // capabilities (S6E-07) -- hak role di workspace ini (/me/context); menentukan mode baca-saja per task.
+  // Belum termuat -> akses penuh; penegak sebenarnya backend (S6E-06).
+  capabilities?: Capabilities
 }
 
 // TaskDetailModal (Task Management Core Phase 1/2/3/4, + LAMPIRAN H20
@@ -233,9 +240,15 @@ interface TaskDetailModalProps {
 // polos (bukan alur 2-langkah "SERAHKAN DARI"→"SERAHKAN KE" desain saat
 // PIC aktif >1) -- simplifikasi kecil diterima, sama pola PicPickerModal
 // Kanban.
-export default function TaskDetailModal({ taskId, onClose, projectId, workspaceId, statuses }: TaskDetailModalProps) {
+export default function TaskDetailModal({ taskId, onClose, projectId, workspaceId, statuses, capabilities }: TaskDetailModalProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const task = useTask(taskId)
+  const access = taskDetailAccess(capabilities, task.data, currentUserId)
+  // canEdit -- desain: canEdit = !readOnly (judul/deskripsi/sub-task/dependency/PIC).
+  const canEdit = !access.readOnly
+  // mayAttach/canMoveStatus -- desain: (canEdit || canAttach) dan canMove.
+  const mayAttach = canEdit || access.canAttach
+  const canMoveStatus = (canEdit || access.canAttach) && access.canMove
   const members = useProjectMembers(projectId, true)
   const sprints = useProjectSprints(projectId)
   const projectTasks = useProjectTasks(projectId)
@@ -946,15 +959,19 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                   <div className="border border-line-strong bg-input-bg p-3.5">
                     <div className="flex items-center gap-2.5">
                       <span className="font-mono text-[8.5px] tracking-[0.14em] text-signal">FIELD TASK</span>
-                      <button
-                        type="button"
-                        onClick={() => (fieldEditing ? handleCancelField() : setFieldEditing(true))}
-                        className="ml-auto font-mono text-[9px] uppercase tracking-[0.06em] text-signal hover:underline"
-                      >
-                        {fieldEditing ? '✕ Tutup Editor' : '✎ Edit Field'}
-                      </button>
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          onClick={() => (fieldEditing ? handleCancelField() : setFieldEditing(true))}
+                          className="ml-auto font-mono text-[9px] uppercase tracking-[0.06em] text-signal hover:underline"
+                        >
+                          {fieldEditing ? '✕ Tutup Editor' : '✎ Edit Field'}
+                        </button>
+                      ) : (
+                        <span className="ml-auto font-mono text-[9px] text-text-dim">🔒 Baca saja</span>
+                      )}
                     </div>
-                    {fieldEditing && (
+                    {fieldEditing && canEdit && (
                       <div className="mt-3.5 flex flex-col gap-3.5">
                         <div>
                           <label className="mb-1.5 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">JUDUL TASK</label>
@@ -1116,9 +1133,11 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                         <div key={item.id} className="flex items-center gap-2.5 border border-line-strong bg-input-bg p-2.5">
                           <button
                             type="button"
+                            disabled={!canEdit}
+                            aria-label={`Tandai sub-task ${item.title}`}
                             onClick={() => updateChecklistItem.mutate({ itemId: item.id, values: { is_done: !item.is_done } })}
                             className={cn(
-                              'flex h-4 w-4 flex-shrink-0 items-center justify-center border font-mono text-[10px]',
+                              'flex h-4 w-4 flex-shrink-0 items-center justify-center border font-mono text-[10px] disabled:cursor-default',
                               item.is_done ? 'border-mint bg-mint text-bg-deep' : 'border-line-strong text-transparent',
                             )}
                           >
@@ -1149,21 +1168,26 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                           ) : (
                             <>
                               <span className={cn('min-w-0 flex-1 text-[12.5px]', item.is_done ? 'text-text-dim line-through' : 'text-text-bone')}>{item.title}</span>
-                              <button
-                                type="button"
-                                onClick={() => { setEditingSubtaskId(item.id); setSubtaskDraft(item.title) }}
-                                className="font-mono text-[9px] uppercase text-text-muted hover:text-signal"
-                              >
-                                ✎ Ubah
-                              </button>
-                              <button type="button" onClick={() => deleteChecklistItem.mutate(item.id)} className="font-mono text-[9px] text-destructive hover:underline">
-                                ✕
-                              </button>
+                              {canEdit && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setEditingSubtaskId(item.id); setSubtaskDraft(item.title) }}
+                                    className="font-mono text-[9px] uppercase text-text-muted hover:text-signal"
+                                  >
+                                    ✎ Ubah
+                                  </button>
+                                  <button type="button" onClick={() => deleteChecklistItem.mutate(item.id)} className="font-mono text-[9px] text-destructive hover:underline">
+                                    ✕
+                                  </button>
+                                </>
+                              )}
                             </>
                           )}
                         </div>
                       ))}
                     </div>
+                    {canEdit && (
                     <div className="mt-2.5 flex flex-wrap gap-2">
                       <input
                         value={newSubtaskTitle}
@@ -1184,9 +1208,10 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                         + Sub-task
                       </button>
                     </div>
+                    )}
                   </div>
 
-                  {showStartWorkButton && (
+                  {showStartWorkButton && canEdit && (
                     <Button
                       type="button"
                       onClick={() => startWork.mutate()}
@@ -1199,7 +1224,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
 
                   <div>
                     <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">KELENGKAPAN</div>
-                    {showCompletenessToggle ? (
+                    {showCompletenessToggle && canEdit ? (
                       <button
                         type="button"
                         onClick={() =>
@@ -1219,7 +1244,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                     ) : (
                       <div className="mt-1.5 text-[12.5px] text-text-bone">{task.data.completeness === 'complete' ? 'Lengkap' : 'Belum Lengkap'}</div>
                     )}
-                    {isBacklog && !isActivePic && (
+                    {isBacklog && !isActivePic && canEdit && (
                       <div className="mt-1 font-mono text-[9px] leading-relaxed text-text-dim">Hanya PIC backlog task ini yang dapat mengubah kelengkapan.</div>
                     )}
                     {setCompleteness.isError && (
@@ -1232,12 +1257,13 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                       bukan di atas. */}
                   <div className="border-t border-line pt-4">
                     <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">PINDAHKAN STATUS</label>
+                    {!canMoveStatus && <p className="mb-2 font-mono text-[9px] text-text-dim">🔒 Status task ini tidak dapat Anda ubah.</p>}
                     <div className="flex flex-wrap gap-1.5">
                       {statuses.map((s) => (
                         <button
                           key={s.id}
                           type="button"
-                          disabled={s.is_undefined}
+                          disabled={s.is_undefined || !canMoveStatus}
                           onClick={() => openPicPicker(s.id)}
                           className={cn(
                             'border px-2.5 py-1.5 font-mono text-[9.5px] font-semibold disabled:cursor-not-allowed disabled:opacity-40',
@@ -1249,7 +1275,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                       ))}
                     </div>
 
-                    {pendingStatusId && (
+                    {pendingStatusId && canMoveStatus && (
                       <div className="mt-3 border border-amber bg-amber/5 p-3">
                         <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-amber">{pendingNeedsPic ? 'PILIH PIC FASE' : 'KONFIRMASI PINDAH STATUS'}</div>
                         {!pendingNeedsPic && (
@@ -1295,6 +1321,10 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                       </div>
                     )}
                   </div>
+
+                  <div className="border-t border-line pt-4">
+                    <TaskComments taskId={taskId} taskCode={task.data.task_code ?? '—'} taskTitle={task.data.title} canComment={access.canComment} />
+                  </div>
                 </>
               )}
 
@@ -1314,9 +1344,13 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                           <div className="truncate text-[12.5px] text-text-bone">{p.task_code ?? '—'} · {p.title}</div>
                           <div className="font-mono text-[9px] text-text-dim">Finish-to-Start · status {p.status}</div>
                         </div>
-                        <button type="button" onClick={() => removeDependency.mutate({ taskId, predecessorTaskId: p.task_id })} className="flex-shrink-0 font-mono text-[9px] uppercase tracking-[0.06em] text-destructive hover:underline">
-                          ✕ Hapus
-                        </button>
+                        {canEdit ? (
+                          <button type="button" onClick={() => removeDependency.mutate({ taskId, predecessorTaskId: p.task_id })} className="flex-shrink-0 font-mono text-[9px] uppercase tracking-[0.06em] text-destructive hover:underline">
+                            ✕ Hapus
+                          </button>
+                        ) : (
+                          <span className="flex-shrink-0 font-mono text-[9px] text-text-dim">—</span>
+                        )}
                       </div>
                     ))}
                     {successors.map((s) => (
@@ -1334,6 +1368,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
 
                   <div className="border border-line-strong bg-input-bg p-3 font-mono text-[9.5px] leading-relaxed text-text-muted">{depEffectNote}</div>
 
+                  {canEdit && (
                   <div className="border-t border-line pt-4">
                     <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">TAMBAH DEPENDENCY</label>
                     <input
@@ -1377,6 +1412,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                       )}
                     </div>
                   </div>
+                  )}
                 </div>
               )}
 
@@ -1412,7 +1448,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                               ✓ Acknowledge
                             </button>
                           )}
-                          {activePics.length > 1 && (
+                          {activePics.length > 1 && access.canRemovePic && (
                             <button
                               type="button"
                               onClick={() => onRemovePic(p.user_id)}
@@ -1456,6 +1492,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                     </div>
                   </div>
 
+                  {canEdit && (
                   <div className="border-t border-line pt-4">
                     <div className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">SERAHKAN PIC FASE · TAMBAH PIC PARALEL</div>
                     <p className="mt-1.5 font-mono text-[9.5px] leading-relaxed text-text-muted">
@@ -1533,6 +1570,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                       )}
                     </div>
                   </div>
+                  )}
 
                   <div className="border-t border-line pt-4">
                     <div className="mb-2 font-mono text-[8.5px] tracking-[0.14em] text-text-dim">RIWAYAT PIC</div>
@@ -1582,7 +1620,9 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                     </div>
                   )}
 
-                  {quotaFull ? (
+                  {!mayAttach ? (
+                    <div className="border border-line-strong bg-input-bg p-3 font-mono text-[9.5px] leading-relaxed text-text-muted">🔒 Anda tidak dapat mengunggah lampiran pada task ini; berkas yang ada tetap dapat diunduh.</div>
+                  ) : quotaFull ? (
                     <div className="border border-destructive bg-destructive/5 p-3 font-mono text-[9.5px] leading-relaxed text-destructive">
                       ⚠ Kuota storage organisasi telah habis -- upload lampiran baru diblokir di seluruh workspace organisasi ini. Hubungi Group Admin untuk menambah alokasi.
                     </div>
@@ -1858,6 +1898,10 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                     <p className="mb-2.5 font-mono text-[9px] leading-relaxed text-text-dim">
                       Jam kerja yang dicatat manusia (start/stop timer atau entri manual) -- beda dari Status Time Tracking di atas yang murni mengukur berapa lama task duduk di tiap status. Entri manual butuh approval AW/PM.
                     </p>
+                    {!canEdit ? (
+                      <p className="font-mono text-[9.5px] text-text-dim">🔒 Pencatatan waktu hanya untuk task milik Anda.</p>
+                    ) : (
+                    <>
                     <div className="flex items-center gap-2.5">
                       {timerRunningHere ? (
                         <Button
@@ -1918,6 +1962,8 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                       </button>
                     </div>
                     {timeError && <p className="mt-1.5 font-mono text-[9.5px] text-destructive">⚠ {timeError}</p>}
+                    </>
+                    )}
 
                     <div className="mt-3 flex flex-col gap-1.5">
                       {(timeEntries.data?.items ?? []).map((e) => (
@@ -1930,7 +1976,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                           <span className={cn('border px-1.5 py-0.5 text-[8.5px] uppercase', e.approval_status === 'approved' ? 'border-mint text-mint' : e.approval_status === 'rejected' ? 'border-destructive text-destructive' : 'border-amber text-amber')}>
                             {e.approval_status}
                           </span>
-                          {e.approval_status === 'pending' && (
+                          {e.approval_status === 'pending' && access.canApproveTime && (
                             <div className="ml-auto flex gap-1.5">
                               <button type="button" onClick={() => approveEntry.mutate(e.id)} className="text-mint hover:underline">✓ Approve</button>
                               <button type="button" onClick={() => { setRejectingId(e.id); setRejectNote('') }} className="text-destructive hover:underline">✕ Tolak</button>
@@ -2076,9 +2122,14 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
         )}
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onDelete} disabled={remove.isPending} className="border-destructive font-mono text-[10px] uppercase tracking-[0.06em] text-destructive">
-            Hapus
-          </Button>
+          {task.data && access.readOnly && access.readOnlyReason && (
+            <div className="mr-auto flex-1 self-center font-mono text-[9px] leading-[1.8] text-text-dim">🔒 {access.readOnlyReason}</div>
+          )}
+          {access.canDelete && (
+            <Button type="button" variant="outline" onClick={onDelete} disabled={remove.isPending} className="border-destructive font-mono text-[10px] uppercase tracking-[0.06em] text-destructive">
+              Hapus
+            </Button>
+          )}
           <Button type="button" variant="outline" onClick={onClose} className="font-mono text-[10px] uppercase tracking-[0.06em]">
             Tutup
           </Button>
