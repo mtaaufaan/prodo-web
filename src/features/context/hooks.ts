@@ -25,6 +25,14 @@ export function useMyProjects(workspaceId: string) {
   })
 }
 
+// useWorkspaceCapabilities -- role + capabilities user di workspace (workspace_memberships, lalu
+// project-scoped bila bukan anggota workspace). undefined selama konteks belum termuat.
+export function useWorkspaceCapabilities(workspaceId: string) {
+  const ctx = useMyContext()
+  const m = ctx.data?.workspace_memberships.find((w) => w.workspace_id === workspaceId) ?? ctx.data?.project_scoped_projects.find((p) => p.workspace_id === workspaceId)
+  return { role: m?.role, capabilities: m?.capabilities, isLoading: ctx.isLoading }
+}
+
 export function useSwitchContext() {
   const queryClient = useQueryClient()
   return useMutation({

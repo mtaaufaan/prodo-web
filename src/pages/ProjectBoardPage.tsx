@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
 
 import AddTaskModal from '@/components/tasks/AddTaskModal'
+import { boardModeFor } from '@/components/tasks/boardMode'
 import KanbanBoard from '@/components/tasks/KanbanBoard'
+import TaskListView from '@/components/tasks/TaskListView'
 import TaskDetailModal from '@/components/tasks/TaskDetailModal'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
+import { useWorkspaceCapabilities } from '@/features/context/hooks'
 import GanttChart from '@/features/views/GanttChart'
 import { useProjects } from '@/features/projects/hooks'
 import { ApiError } from '@/lib/api'
@@ -26,6 +29,10 @@ function ProjectBoardPageContent() {
   const pid = projectId ?? ''
   const { view, registerCta, query } = useOutletContext<WorkspaceOutletContext>()
 
+  // Mode Board dari capabilities role (S6E-05): Editor hanya mengubah task miliknya, tanpa bulk.
+  const { capabilities } = useWorkspaceCapabilities(workspaceId)
+  const mode = boardModeFor(capabilities)
+
   const projects = useProjects(workspaceId)
   const project = projects.data?.find((p) => p.id === pid) ?? null
 
@@ -45,7 +52,8 @@ function ProjectBoardPageContent() {
   }, [])
 
   const activeSprint = sprints.data?.find((s) => s.status === 'active') ?? null
-  const tab = view === 'Daftar' || view === 'Gantt' || view === 'Riwayat' ? view : 'Kanban'
+  // Gantt/Riwayat hanya untuk mode penuh (PM/AW); role lain hanya Kanban/Daftar (sesuai nav Editor).
+  const tab = view === 'Daftar' || (mode.bulk && (view === 'Gantt' || view === 'Riwayat')) ? view : 'Kanban'
 
   // query (IG-96): search topbar shell -- filter judul task client-side,
   // sama pola ProjectListPage/WorkspaceMembersPage.
@@ -82,9 +90,12 @@ function ProjectBoardPageContent() {
           tasks={filteredTasks}
           onOpenTask={setDetailTaskId}
           activeSprintId={activeSprint?.id ?? null}
+          mode={mode}
         />
       )}
-      {tab === 'Daftar' && <p className="font-mono text-[10.5px] text-text-dim">Tampilan Daftar menyusul.</p>}
+      {tab === 'Daftar' && statuses.data && filteredTasks && (
+        <TaskListView tasks={filteredTasks} statuses={statuses.data} mode={mode} onOpenTask={setDetailTaskId} />
+      )}
       {tab === 'Gantt' && tasks.data && sprints.data && (
         <GanttChart projectId={pid} tasks={tasks.data} sprints={sprints.data} onOpenTask={setDetailTaskId} />
       )}
