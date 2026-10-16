@@ -1,7 +1,7 @@
 import type { MyTask, MyTaskNextStatus, MyTasksPage, MyTaskView, PostCommentResult } from '@/features/my-tasks/types'
 import type { TaskPriority } from '@/features/tasks/types'
 
-import { mockStatuses } from './editorFixtures'
+import { mockStatuses, mockTasks } from './editorFixtures'
 
 // Data tiruan Task Saya (S6E-03) -- BERSTATE di memori: pindah status dan
 // komentar mengubah baris, supaya halaman bisa dicoba tanpa backend. Dibuang
@@ -116,6 +116,26 @@ export function moveStatus(taskId: string, statusId: string): boolean {
   t.status_name = st.name
   t.status_color = st.color_token
   t.next_status = nextOf(st.id)
+  // Board memakai objek Task yang sama id-nya (editorFixtures.mockTasks) -- sinkronkan.
+  const board = mockTasks.find((x) => x.id === taskId)
+  if (board) {
+    board.status_id = st.id
+    board.status_name = st.name
+    board.status_color = st.color_token
+    board.completeness = st.name === 'BACKLOG' ? (board.completeness ?? 'complete') : null
+  }
+  return true
+}
+
+// isOwnedByMe -- meniru gerbang backend S6E-06: Editor hanya boleh mengubah task miliknya (assignee Eka).
+export function isOwnedByMe(taskId: string): boolean {
+  return mockTasks.find((x) => x.id === taskId)?.assignees.some((a) => a.user_id === 'mock-editor-id') ?? false
+}
+
+export function setCompleteness(taskId: string, completeness: 'complete' | 'incomplete'): boolean {
+  const board = mockTasks.find((x) => x.id === taskId)
+  if (!board) return false
+  board.completeness = completeness
   return true
 }
 

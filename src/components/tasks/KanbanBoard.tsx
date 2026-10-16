@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
 
+import { canActOn, canToggleComplete, isOwnTask, type BoardMode } from '@/components/tasks/boardMode'
 import PicPickerModal from '@/components/tasks/PicPickerModal'
 import { useProjectMembers } from '@/features/project-members/hooks'
-import { useBulkSetTaskStatus, useReorderTask, useSetTaskStatus } from '@/features/tasks/hooks'
-import { describeMoveError } from '@/features/tasks/moveError'
+import { useBulkSetTaskStatus, useReorderTask, useSetCompleteness, useSetTaskStatus } from '@/features/tasks/hooks'
+import { describeCompleteError, describeMoveError } from '@/features/tasks/moveError'
 import type { CustomStatus, Task, TaskPriority } from '@/features/tasks/types'
 import { formatDateDMY } from '@/lib/date'
 import { cn } from '@/lib/utils'
@@ -38,14 +39,17 @@ interface KanbanBoardProps {
   // yang benar-benar aktif) -- null berarti project ini belum py sprint
   // aktif sama sekali, SEMUA task BACKLOG terkunci lewat jalur ini.
   activeSprintId: string | null
+  // mode (S6E-05) -- kemampuan Board per role: Editor hanya mengubah task miliknya, tanpa bulk.
+  mode: BoardMode
 }
 
-export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, activeSprintId }: KanbanBoardProps) {
+export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, activeSprintId, mode }: KanbanBoardProps) {
   const currentUserId = useAuthStore((s) => s.user?.id)
   const members = useProjectMembers(projectId, true)
   const setStatus = useSetTaskStatus(projectId)
   const reorder = useReorderTask(projectId)
   const bulkSetStatus = useBulkSetTaskStatus(projectId)
+  const setCompleteness = useSetCompleteness(projectId)
 
   const [dragTaskId, setDragTaskId] = useState<string | null>(null)
   const [overColumnId, setOverColumnId] = useState<string | null>(null)
@@ -68,7 +72,18 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
     [sortedStatuses, tasks],
   )
 
-  const isMine = (t: Task) => t.assignees.some((a) => a.user_id === currentUserId)
+  // Mode Editor: milik saya = assignee atau PIC aktif (sama Task Saya); PM tetap assignee saja.
+  const isMine = (t: Task) => (mode.limitToMine ? isOwnTask(t, currentUserId) : t.assignees.some((a) => a.user_id === currentUserId))
+  const canAct = (t: Task) => canActOn(mode, t, currentUserId)
+  const mineCount = mode.limitToMine ? tasks.filter(isMine).length : 0
+
+  const toggleComplete = (t: Task) => {
+    setPendingError('')
+    setCompleteness.mutate(
+      { taskId: t.id, completeness: t.completeness === 'incomplete' ? 'complete' : 'incomplete' },
+      { onError: (err: unknown) => setPendingError(describeCompleteError(err)) },
+    )
+  }
 
   const toggleSelect = (taskId: string) => {
     setSelected((prev) => (prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId]))
@@ -88,7 +103,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
     setOverCardId(null)
     if (!srcId || srcId === target.id) return
     const src = tasks.find((t) => t.id === srcId)
-    if (!src) return
+    if (!src || !canAct(src)) return
     if (src.status_id !== target.status_id) {
       const targetStatus = sortedStatuses.find((s) => s.id === target.status_id)
       if (!targetStatus) return
@@ -105,7 +120,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
     setOverColumnId(null)
     if (!srcId) return
     const src = tasks.find((t) => t.id === srcId)
-    if (!src || src.status_id === status.id) return
+    if (!src || !canAct(src) || src.status_id === status.id) return
     requestMove({ kind: 'single', taskId: src.id, statusId: status.id, statusName: status.name })
   }
 
@@ -155,7 +170,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
 
   const quickMoves = (task: Task) => {
     const idx = sortedStatuses.findIndex((s) => s.id === task.status_id)
-    if (idx === -1) return []
+    if (idx === -1 || !canAct(task)) return []
     const moves: { statusId: string; statusName: string; label: string }[] = []
     if (idx > 0 && !sortedStatuses[idx - 1].is_undefined)
       moves.push({ statusId: sortedStatuses[idx - 1].id, statusName: sortedStatuses[idx - 1].name, label: `← ${sortedStatuses[idx - 1].name}` })
@@ -175,7 +190,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
             mineOnly ? 'border border-mint bg-mint/10 px-2.5 py-1.5 text-mint' : 'border border-line-strong px-2.5 py-1.5 text-text-muted',
           )}
         >
-          {mineOnly ? '✓ Punya Saya' : 'Punya Saya'}
+          {mode.limitToMine ? `${mineOnly ? '◉' : '○'} TASK SAYA (${mineCount})` : mineOnly ? '✓ Punya Saya' : 'Punya Saya'}
         </button>
         <span className="font-mono text-[8px] uppercase tracking-[0.12em] text-text-dim">Kolom</span>
         {sortedStatuses.map((s) => (
@@ -188,10 +203,18 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
             {s.name}
           </button>
         ))}
-        <span className="ml-auto font-mono text-[8.5px] text-text-dim">⇕ Seret kartu untuk memindah status</span>
+        {!mode.readOnly && <span className="ml-auto font-mono text-[8.5px] text-text-dim">⇕ Seret kartu untuk memindah status</span>}
       </div>
 
-      {selected.length > 0 && (
+      {mode.limitToMine && (
+        <p className="font-mono text-[9px] leading-[1.6] text-text-dim">
+          {mineCount
+            ? `Anda dapat mengubah ${mineCount} task yang ditugaskan kepada Anda (bertanda MILIK SAYA). Task lain tetap terlihat sebagai konteks tim, namun hanya dapat dibaca.`
+            : 'Belum ada task yang ditugaskan kepada Anda di project ini. Task lain hanya dapat dibaca — minta Project Manager menugaskan task bila perlu.'}
+        </p>
+      )}
+
+      {mode.bulk && selected.length > 0 && (
         <div className="flex flex-wrap items-center gap-2.5 border border-signal bg-accent-wash px-3 py-2.5">
           <span className="font-mono text-[9.5px] text-signal">{selected.length} TASK DIPILIH · BULK ACTION</span>
           {sortedStatuses
@@ -237,11 +260,19 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
                 .filter((t) => !mineOnly || isMine(t))
                 .map((t) => {
                   const moves = quickMoves(t)
+                  const acts = canAct(t)
+                  const dim = mode.limitToMine && !acts
                   return (
                     <div
                       key={t.id}
-                      draggable
-                      onDragStart={() => setDragTaskId(t.id)}
+                      draggable={acts}
+                      onDragStart={(e) => {
+                        if (!acts) {
+                          e.preventDefault()
+                          return
+                        }
+                        setDragTaskId(t.id)
+                      }}
                       onDragEnd={() => {
                         setDragTaskId(null)
                         setOverColumnId(null)
@@ -256,25 +287,31 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
                       }}
                       onDrop={onCardDrop(t)}
                       className={cn(
-                        'flex cursor-grab flex-col gap-2 border bg-panel p-3.5 transition-shadow',
-                        dragTaskId === t.id ? 'opacity-45' : 'opacity-100',
+                        'flex flex-col gap-2 border bg-panel p-3.5 transition-shadow',
+                        acts ? 'cursor-grab' : 'cursor-default',
+                        dragTaskId === t.id ? 'opacity-45' : dim ? 'opacity-60' : 'opacity-100',
                         overCardId === t.id && dragTaskId && dragTaskId !== t.id
                           ? overSide === 'before'
                             ? 'border-line shadow-[inset_0_2px_0_0_var(--color-signal,orange)]'
                             : 'border-line shadow-[inset_0_-2px_0_0_var(--color-signal,orange)]'
-                          : 'border-line',
+                          : mode.limitToMine && acts
+                            ? 'border-mint/50'
+                            : 'border-line',
                       )}
                     >
                       <div className="flex items-center gap-1.5">
-                        <button type="button" onClick={() => toggleSelect(t.id)} className="font-mono text-[13px] text-text-muted hover:text-signal">
-                          {selected.includes(t.id) ? '☑' : '☐'}
-                        </button>
+                        {mode.bulk && (
+                          <button type="button" onClick={() => toggleSelect(t.id)} className="font-mono text-[13px] text-text-muted hover:text-signal">
+                            {selected.includes(t.id) ? '☑' : '☐'}
+                          </button>
+                        )}
                         <span className="flex min-w-0 items-center gap-1 truncate font-mono text-[10.5px] text-text-dim">
                           {t.is_blocked && <span title="Diblokir -- ada predecessor yang belum selesai">🔒</span>}
+                          {dim && <span title="Hanya dapat dibaca — task ini bukan milik Anda">🔒</span>}
                           {t.task_code} · {t.sprint_name ?? 'Backlog'}
                         </span>
                         {isMine(t) && (
-                          <span className="border border-mint px-1.5 py-0.5 font-mono text-[9px] font-semibold text-mint">SAYA</span>
+                          <span className="border border-mint px-1.5 py-0.5 font-mono text-[9px] font-semibold text-mint">{mode.limitToMine ? 'MILIK SAYA' : 'SAYA'}</span>
                         )}
                         <span className={cn('ml-auto border px-1.5 py-0.5 font-mono text-[9.5px] font-semibold uppercase', PRIORITY_TONE[t.priority])}>
                           {t.priority}
@@ -310,6 +347,16 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
                             {m.label}
                           </button>
                         ))}
+                        {canToggleComplete(mode, t, currentUserId) && (
+                          <button
+                            type="button"
+                            onClick={() => toggleComplete(t)}
+                            disabled={setCompleteness.isPending}
+                            className="border border-mint/50 px-1.5 py-0.5 font-mono text-[10px] text-mint disabled:opacity-60"
+                          >
+                            {t.completeness === 'incomplete' ? '✓ TANDAI LENGKAP' : '↺ TANDAI BELUM LENGKAP'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   )

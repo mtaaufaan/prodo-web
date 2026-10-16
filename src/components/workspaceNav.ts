@@ -220,11 +220,7 @@ export function editorNavItems(workspaceId: string, activeProjectId: string | nu
   ]
 }
 
-// Panel role sidebar Editor (desain: label role terkunci + NOTES.Editor +
-// kalimat "Role ini mengikuti akun yang masuk"). Chip izin (PERMS) di desain
-// hanya tampil di area konten placeholder, BUKAN sidebar -- lihat IG-132.
-export const EDITOR_ROLE_NOTE =
-  'Konteks task: buat/edit task, attachment, komentar, timesheet. Role ini mengikuti akun yang masuk — ubah lewat Admin Workspace.'
+// Chip izin Editor (PERMS.Editor di desain) -- hanya tampil di placeholder halaman yang belum dibangun.
 export const EDITOR_PERMISSION_CHIPS: { label: string; allowed: boolean }[] = [
   { label: 'BUAT & EDIT TASK', allowed: true },
   { label: 'KOMENTAR & ATTACHMENT', allowed: true },
