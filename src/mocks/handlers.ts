@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw'
 
 import { mockContext, mockFollowedProjects, mockMembers, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
 
-import { addComment, listMine, moveStatus } from './myTasksStore'
+import { addComment, listMine, moveStatus, setCompleteness } from './myTasksStore'
 
 const ok = (data: unknown) => HttpResponse.json({ data })
 
@@ -58,6 +58,11 @@ export const handlers = [
     const body = (await request.json()) as { status_id: string }
     return moveStatus(String(params.id), body.status_id) ? ok({ id: params.id, status_id: body.status_id }) : HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Task tidak ditemukan' } }, { status: 404 })
   }),
+  http.put('/api/v1/tasks/:id/completeness', async ({ params, request }) => {
+    const body = (await request.json()) as { completeness: 'complete' | 'incomplete' }
+    return setCompleteness(String(params.id), body.completeness) ? ok({ id: params.id, completeness: body.completeness }) : HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Task tidak ditemukan' } }, { status: 404 })
+  }),
+  http.put('/api/v1/tasks/:id/reorder', ({ params }) => ok({ id: params.id })),
   http.post('/api/v1/tasks/:id/comments', async ({ params, request }) => {
     const body = (await request.json()) as { body: string }
     const result = addComment(String(params.id), body.body)
