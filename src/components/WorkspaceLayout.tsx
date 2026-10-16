@@ -12,7 +12,6 @@ import { useAuthStore } from '@/store/useAuthStore'
 
 import {
   awNavItems,
-  EDITOR_ROLE_NOTE,
   editorNavItems,
   isEditorPath,
   pmNavItems,
@@ -439,17 +438,6 @@ export default function WorkspaceLayout() {
                   </div>
                 </>
               )}
-            </div>
-          )}
-
-          {isEditor && (
-            <div className="flex-shrink-0 border-b border-line px-2.5 pb-1.5 pt-3">
-              <div className="mb-[7px] font-mono text-[8.5px] tracking-[0.14em] text-text-muted">ROLE AKTIF</div>
-              <div className="flex items-center gap-2 border border-line-strong bg-bg-deep px-2.5 py-[9px]">
-                <span className="flex-1 font-mono text-[11px] text-text-bone">Editor</span>
-                <span className="font-mono text-[11px] text-text-muted">🔒</span>
-              </div>
-              <div className="mt-[7px] pb-1.5 font-mono text-[8.5px] leading-[1.6] text-text-dim">{EDITOR_ROLE_NOTE}</div>
             </div>
           )}
 
