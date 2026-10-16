@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { computeStats, countMentions, metaLine, progressInfo, tabRows, validateComment } from './myTaskStats'
+import { countMentions, metaLine, progressInfo, validateComment } from './myTaskStats'
 import type { MyTask } from './types'
 
 const base: MyTask = {
@@ -26,26 +26,6 @@ const base: MyTask = {
   next_status: null,
 }
 const task = (over: Partial<MyTask>): MyTask => ({ ...base, ...over })
-
-describe('tabRows', () => {
-  const rows = [task({ task_id: 'a' }), task({ task_id: 'b', is_mine: false, is_followed: true }), task({ task_id: 'c', is_followed: true })]
-  it('Ditugaskan = is_mine, Diikuti = is_followed (bisa tumpang tindih)', () => {
-    expect(tabRows(rows, 'Ditugaskan').map((t) => t.task_id)).toEqual(['a', 'c'])
-    expect(tabRows(rows, 'Diikuti').map((t) => t.task_id)).toEqual(['b', 'c'])
-  })
-})
-
-describe('computeStats', () => {
-  it('hanya menghitung task saya; BERJALAN mengecualikan BACKLOG dan DONE', () => {
-    const s = computeStats([
-      task({}),
-      task({ status_name: 'BACKLOG', logged_hours: 0.5 }),
-      task({ status_name: 'DONE', is_late: true, logged_hours: 2 }),
-      task({ is_mine: false, logged_hours: 99, is_late: true }),
-    ])
-    expect(s).toEqual({ total: 3, running: 1, loggedHours: 8.5, late: 1 })
-  })
-})
 
 describe('metaLine / progressInfo', () => {
   it('baris meta sesuai desain', () => {

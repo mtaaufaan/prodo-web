@@ -10,7 +10,7 @@ interface CommentModalProps {
   code: string
   taskTitle: string
   // Mengembalikan pesan galat dari server ('' = sukses) supaya modal bisa tetap terbuka.
-  onSubmit: (text: string, mentions: number) => Promise<string>
+  onSubmit: (text: string) => Promise<string>
   onClose: () => void
 }
 
@@ -27,7 +27,7 @@ export default function CommentModal({ code, taskTitle, onSubmit, onClose }: Com
       return
     }
     setPending(true)
-    const serverError = await onSubmit(text.trim(), mentions)
+    const serverError = await onSubmit(text.trim())
     setPending(false)
     if (serverError) setError(serverError)
   }

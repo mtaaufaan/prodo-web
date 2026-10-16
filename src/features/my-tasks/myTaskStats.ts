@@ -3,31 +3,7 @@ import { formatDateDMY } from '@/lib/date'
 import { COMMENT_MAX, type MyTask } from './types'
 
 // Fungsi murni halaman Task Saya (port logika "TM Task Saya.dc.html" /
-// "TM Komentar.dc.html").
-
-export type MyTaskTab = 'Ditugaskan' | 'Diikuti'
-
-export function tabRows(rows: MyTask[], tab: MyTaskTab): MyTask[] {
-  return tab === 'Diikuti' ? rows.filter((t) => t.is_followed) : rows.filter((t) => t.is_mine)
-}
-
-export interface MyTaskStats {
-  total: number
-  running: number
-  loggedHours: number
-  late: number
-}
-
-// Kartu dihitung dari task "saya" (Ditugaskan), bukan dari tab yang sedang dibuka.
-export function computeStats(rows: MyTask[]): MyTaskStats {
-  const mine = rows.filter((t) => t.is_mine)
-  return {
-    total: mine.length,
-    running: mine.filter((t) => t.status_name !== 'DONE' && t.status_name !== 'BACKLOG').length,
-    loggedHours: mine.reduce((sum, t) => sum + t.logged_hours, 0),
-    late: mine.filter((t) => t.is_late).length,
-  }
-}
+// "TM Komentar.dc.html"). Tab dan kartu dihitung server (GET /me/tasks, S6E-04).
 
 export function metaLine(t: MyTask): string {
   const sprint = t.sprint_name ? `SPRINT ${t.sprint_name.replace(/^Sprint /i, '')}` : 'TANPA SPRINT'

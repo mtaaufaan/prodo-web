@@ -1,9 +1,7 @@
 import type { TaskPriority } from '@/features/tasks/types'
 
-// Task Saya (S6E-03, Sprint 6 "Editor Console", desain "TM Task Saya.dc.html").
-// Kontrak GET /me/tasks?project_id= -- backend menyusul di S6E-04; sampai itu
-// dilayani mock MSW. Satu respons memuat semua baris project aktif; tab
-// Ditugaskan/Diikuti dan kartu statistik dihitung di klien (myTaskStats.ts).
+// Task Saya (Sprint 6 "Editor Console", desain "TM Task Saya.dc.html"). Kontrak GET /me/tasks
+// (S6E-04, API_CONTRACT v1.82.0): satu halaman baris + total + statistik 4 kartu dari server.
 export interface MyTaskNextStatus {
   id: string
   name: string
@@ -27,12 +25,38 @@ export interface MyTask {
   sub_done: number
   logged_hours: number
   estimate_hours: number
-  // is_mine -- assignee ATAU PIC aktif; is_followed -- otomatis saat berkomentar/di-mention/ditugaskan.
+  // is_mine -- assignee ATAU PIC aktif; is_followed -- follower (otomatis saat berkomentar/di-mention/ditugaskan).
   is_mine: boolean
   is_followed: boolean
   is_late: boolean
   // null bila tidak ada status berikutnya atau status berikutnya UNDEFINED.
   next_status: MyTaskNextStatus | null
+}
+
+export type MyTaskView = 'assigned' | 'following'
+
+// Kartu dihitung dari task "saya" (Ditugaskan) di project aktif, apa pun tab yang dibuka.
+export interface MyTaskStats {
+  total: number
+  running: number
+  logged_hours: number
+  late: number
+}
+
+export interface MyTasksPage {
+  items: MyTask[]
+  total: number
+  page: number
+  per_page: number
+  stats: MyTaskStats
+}
+
+// Respons POST /tasks/:id/comments. mentions = nama yang berhasil di-resolusi server; notified =
+// berapa yang akan diberi notifikasi (langsung atau lewat ringkasan; yang ditekan cooldown tidak dihitung).
+export interface PostCommentResult {
+  comment_count: number
+  mentions: string[]
+  notified: number
 }
 
 export const COMMENT_MAX = 1000

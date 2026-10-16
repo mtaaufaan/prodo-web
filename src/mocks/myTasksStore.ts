@@ -1,4 +1,4 @@
-import type { MyTask, MyTaskNextStatus } from '@/features/my-tasks/types'
+import type { MyTask, MyTaskNextStatus, MyTasksPage, MyTaskView, PostCommentResult } from '@/features/my-tasks/types'
 import type { TaskPriority } from '@/features/tasks/types'
 
 import { mockStatuses } from './editorFixtures'
@@ -81,8 +81,23 @@ const store = new Map<string, MyTask[]>([
   ['mock-proj-prodo', PRODO.map((s, i) => row('mock-proj-prodo', i + 1, s))],
 ])
 
-export function listMine(projectId: string): MyTask[] {
-  return store.get(projectId) ?? []
+// Bentuk sama dengan GET /me/tasks (service.MyTaskService): satu halaman + total + kartu dari task "saya".
+export function listMine(projectId: string, view: MyTaskView, page: number, perPage: number): MyTasksPage {
+  const all = store.get(projectId) ?? []
+  const rows = all.filter((t) => (view === 'following' ? t.is_followed : t.is_mine))
+  const mine = all.filter((t) => t.is_mine)
+  return {
+    items: rows.slice((page - 1) * perPage, page * perPage),
+    total: rows.length,
+    page,
+    per_page: perPage,
+    stats: {
+      total: mine.length,
+      running: mine.filter((t) => !['DONE', 'BACKLOG', 'CANCELED'].includes(t.status_name)).length,
+      logged_hours: Math.round(mine.reduce((sum, t) => sum + t.logged_hours, 0) * 10) / 10,
+      late: mine.filter((t) => t.is_late).length,
+    },
+  }
 }
 
 function find(taskId: string): MyTask | undefined {
@@ -104,10 +119,15 @@ export function moveStatus(taskId: string, statusId: string): boolean {
   return true
 }
 
-export function addComment(taskId: string): number | null {
+// Anggota project mock yang bisa di-mention (nama depan huruf kecil) -- meniru resolusi server.
+const MENTIONABLE: Record<string, string> = { budi: 'Budi', citra: 'Citra' }
+
+export function addComment(taskId: string, body: string): PostCommentResult | null {
   const t = find(taskId)
   if (!t) return null
   t.comment_count += 1
   t.is_followed = true
-  return t.comment_count
+  const tokens = Array.from(body.matchAll(/(?:^|[^\w.])@([A-Za-z][\w.]*)/g), (m) => m[1].toLowerCase().replace(/\.+$/, ''))
+  const mentions = [...new Set(tokens)].filter((k) => MENTIONABLE[k]).map((k) => MENTIONABLE[k])
+  return { comment_count: t.comment_count, mentions, notified: mentions.length }
 }

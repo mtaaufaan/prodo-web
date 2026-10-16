@@ -60,6 +60,13 @@ function completenessLabel(v: string): string {
   return v === 'complete' ? 'Lengkap' : v === 'incomplete' ? 'Belum Lengkap' : '?'
 }
 
+// shortText -- potong teks komentar untuk narasi (80 karakter + "..."), sama dengan
+// workspaceAuditShortText di Go.
+function shortText(s: string): string {
+  const chars = Array.from(s)
+  return chars.length <= 80 ? s : `${chars.slice(0, 80).join('')}...`
+}
+
 function joinNames(v: unknown): string {
   const names = Array.isArray(v) ? v.filter((n): n is string => typeof n === 'string' && n !== '') : []
   return names.length > 0 ? names.join(', ') : 'tidak diketahui'
@@ -162,6 +169,18 @@ export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): Au
         text: `PIC paralel "${stateStr(entry.state_after, 'user_name', 'tidak diketahui')}" ditambahkan pada fase ${stateStr(entry.state_after, 'status_name', '?')} task ${taskLabel(entry)}`,
         scope: 'PIC FASE',
       }
+    case 'comment.created': {
+      const mentions = stateField(entry.state_after, 'mentions')
+      const mentioned = Array.isArray(mentions) && mentions.length > 0 ? ` (mention: ${joinNames(mentions)})` : ''
+      return { text: `Komentar ditambahkan pada task ${taskLabel(entry)}${mentioned}`, scope: 'KOMENTAR' }
+    }
+    case 'comment.edited':
+      return {
+        text: `Komentar pada task ${taskLabel(entry)} diedit dari "${shortText(stateStr(entry.state_before, 'text', ''))}" menjadi "${shortText(stateStr(entry.state_after, 'text', ''))}"`,
+        scope: 'KOMENTAR',
+      }
+    case 'comment.deleted':
+      return { text: `Komentar pada task ${taskLabel(entry)} dihapus`, scope: 'KOMENTAR' }
     case 'task.pic_removed':
       return {
         text: `PIC "${stateStr(entry.state_after, 'user_name', 'tidak diketahui')}" dihapus dari fase ${stateStr(entry.state_after, 'status_name', '?')} task ${taskLabel(entry)}`,

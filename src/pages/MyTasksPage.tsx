@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
 
 import CommentModal from '@/components/my-tasks/CommentModal'
@@ -9,12 +9,12 @@ import PicPickerModal from '@/components/tasks/PicPickerModal'
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { useMyContext } from '@/features/context/hooks'
 import { useMyTasks, usePostComment } from '@/features/my-tasks/hooks'
-import { computeStats, tabRows, type MyTaskTab } from '@/features/my-tasks/myTaskStats'
-import type { MyTask } from '@/features/my-tasks/types'
+import type { MyTask, MyTaskView } from '@/features/my-tasks/types'
 import { useProjectMembers } from '@/features/project-members/hooks'
 import { useProjects } from '@/features/projects/hooks'
 import { useSetTaskStatus } from '@/features/tasks/hooks'
 import { describeMoveError } from '@/features/tasks/moveError'
+import { ApiError } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 const PER_PAGE = 10
@@ -24,12 +24,13 @@ const EDITOR_CAP_NOTE =
   'Dapat mengubah task yang ditugaskan, mencatat waktu, dan berkomentar. Tidak dapat menyetujui atau mengubah struktur project.'
 
 // MyTasksPage -- "TM Task Saya.dc.html" (S6E-03, Sprint 6 Editor Console).
-// Cakupan = project aktif di URL (switcher sidebar). Data dari GET /me/tasks
-// (mock MSW sampai S6E-04); tab dan kartu dihitung di klien.
+// Cakupan = project aktif di URL (switcher sidebar). Data dari GET /me/tasks (S6E-04):
+// baris satu halaman, total, dan statistik 4 kartu dihitung server.
 export default function MyTasksPage() {
   const { wsId = '', projectId = '' } = useParams<{ wsId: string; projectId: string }>()
   const { view, registerCta } = useOutletContext<WorkspaceOutletContext>()
-  const tab: MyTaskTab = view === 'Diikuti' ? 'Diikuti' : 'Ditugaskan'
+  const taskView: MyTaskView = view === 'Diikuti' ? 'following' : 'assigned'
+  const follow = taskView === 'following'
 
   const ctx = useMyContext()
   const membership = ctx.data?.workspace_memberships.find((w) => w.workspace_id === wsId) ?? ctx.data?.project_scoped_projects.find((p) => p.workspace_id === wsId)
@@ -38,12 +39,12 @@ export default function MyTasksPage() {
 
   const projects = useProjects(wsId)
   const projectName = projects.data?.find((p) => p.id === projectId)?.name ?? '—'
-  const tasks = useMyTasks(projectId)
+  const [page, setPage] = useState(1)
+  const tasks = useMyTasks(projectId, taskView, page, PER_PAGE)
   const members = useProjectMembers(projectId, true)
   const setStatus = useSetTaskStatus(projectId)
-  const postComment = usePostComment(projectId)
+  const postComment = usePostComment()
 
-  const [page, setPage] = useState(1)
   const [notice, setNotice] = useState('')
   const noticeTimer = useRef<ReturnType<typeof setTimeout>>()
   const [commentTask, setCommentTask] = useState<MyTask | null>(null)
@@ -57,17 +58,16 @@ export default function MyTasksPage() {
     noticeTimer.current = setTimeout(() => setNotice(''), NOTICE_MS)
   }
   useEffect(() => () => clearTimeout(noticeTimer.current), [])
-  useEffect(() => setPage(1), [tab, projectId])
+  useEffect(() => setPage(1), [taskView, projectId])
   useEffect(() => {
     registerCta(() => setAddTaskOpen(true))
     return () => registerCta(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- registerCta stabil dari useCallback shell
   }, [])
 
-  const rows = useMemo(() => tasks.data ?? [], [tasks.data])
-  const stats = computeStats(rows)
-  const list = useMemo(() => tabRows(rows, tab), [rows, tab])
-  const visible = list.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+  const visible = tasks.data?.items ?? []
+  const total = tasks.data?.total ?? 0
+  const stats = tasks.data?.stats ?? { total: 0, running: 0, logged_hours: 0, late: 0 }
 
   const runMove = (task: MyTask, picIds: string[]) => {
     if (!task.next_status) return
@@ -90,26 +90,26 @@ export default function MyTasksPage() {
     else setPendingMove(task)
   }
 
-  const submitComment = async (text: string, mentions: number): Promise<string> => {
+  const submitComment = async (text: string): Promise<string> => {
     const task = commentTask
     if (!task) return ''
+    let notified = 0
     try {
-      await postComment.mutateAsync({ taskId: task.task_id, body: text, mentions })
-    } catch {
-      return 'Gagal mengirim komentar. Coba lagi.'
+      notified = (await postComment.mutateAsync({ taskId: task.task_id, body: text })).notified
+    } catch (err) {
+      return err instanceof ApiError && err.code === 'FORBIDDEN' ? 'Role Anda tidak dapat berkomentar pada task ini.' : 'Gagal mengirim komentar. Coba lagi.'
     }
     setCommentTask(null)
-    showNotice(`Komentar terkirim pada ${task.task_code}${mentions ? ` · ${mentions} mention diberi notifikasi.` : '.'}`)
+    showNotice(`Komentar terkirim pada ${task.task_code}${notified ? ` · ${notified} mention diberi notifikasi.` : '.'}`)
     return ''
   }
 
   const cards = [
     { label: 'TASK SAYA', value: String(stats.total), note: projectName.toUpperCase(), tone: 'text-text-bone' },
     { label: 'BERJALAN', value: String(stats.running), note: 'SEDANG DIKERJAKAN', tone: 'text-blue' },
-    { label: 'JAM TERCATAT', value: stats.loggedHours.toFixed(1), note: 'PADA TASK SAYA', tone: 'text-violet' },
+    { label: 'JAM TERCATAT', value: stats.logged_hours.toFixed(1), note: 'PADA TASK SAYA', tone: 'text-violet' },
     { label: 'TERLAMBAT', value: String(stats.late), note: 'LEWAT DUE DATE', tone: 'text-red' },
   ]
-  const follow = tab === 'Diikuti'
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-content p-6">
@@ -161,7 +161,7 @@ export default function MyTasksPage() {
               onComment={setCommentTask}
             />
           ))}
-          {tasks.isSuccess && list.length === 0 && (
+          {tasks.isSuccess && total === 0 && (
             <div className="p-[30px_14px] text-center font-mono text-[10.5px] leading-[1.8] text-text-dim">
               {follow ? 'Anda belum mengikuti task mana pun.' : 'Tidak ada task yang ditugaskan kepada Anda.'}
             </div>
@@ -172,7 +172,7 @@ export default function MyTasksPage() {
             ? 'Task yang Anda ikuti mengirim notifikasi saat statusnya berubah, mengikuti aturan cooldown mention workspace.'
             : 'Anda hanya melihat task pada project yang Anda ikuti. Perubahan status task tercatat di Audit Trail.'}
         </div>
-        <Grid1Pager page={page} perPage={PER_PAGE} total={list.length} onPage={setPage} />
+        <Grid1Pager page={page} perPage={PER_PAGE} total={total} onPage={setPage} />
       </div>
 
       {commentTask && (
