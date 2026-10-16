@@ -356,6 +356,7 @@ export function useSetTaskStatus(projectId: string) {
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(vars.taskId) })
       queryClient.invalidateQueries({ queryKey: taskKeys.picHistory(vars.taskId) })
       queryClient.invalidateQueries({ queryKey: taskKeys.statusSessions(vars.taskId) })
+      queryClient.invalidateQueries({ queryKey: [...taskKeys.all, 'mine'] }) // Task Saya (S6E-03)
     },
   })
 }

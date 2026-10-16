@@ -1,6 +1,8 @@
 import { http, HttpResponse } from 'msw'
 
-import { mockContext, mockFollowedProjects, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
+import { mockContext, mockFollowedProjects, mockMembers, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
+
+import { addComment, listMine, moveStatus } from './myTasksStore'
 
 const ok = (data: unknown) => HttpResponse.json({ data })
 
@@ -45,5 +47,20 @@ export const handlers = [
   http.get('/api/v1/projects/:id/statuses', () => ok(mockStatuses)),
   http.get('/api/v1/projects/:id/sprints', () => ok(mockSprints)),
   http.get('/api/v1/projects/:id/tasks', () => ok(mockTasks)),
-  http.get('/api/v1/projects/:id/members', () => ok([])),
+  http.get('/api/v1/projects/:id/members', () => ok(mockMembers)),
+
+  // Task Saya + komentar (S6E-03) -- berstate di memori (myTasksStore.ts).
+  http.get('/api/v1/me/tasks', ({ request }) => ok(listMine(new URL(request.url).searchParams.get('project_id') ?? ''))),
+  http.put('/api/v1/tasks/:id/status', async ({ params, request }) => {
+    const body = (await request.json()) as { status_id: string }
+    return moveStatus(String(params.id), body.status_id) ? ok({ id: params.id, status_id: body.status_id }) : HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Task tidak ditemukan' } }, { status: 404 })
+  }),
+  http.post('/api/v1/tasks/:id/comments', ({ params }) => {
+    const count = addComment(String(params.id))
+    return count === null ? HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Task tidak ditemukan' } }, { status: 404 }) : ok({ id: `c-${Date.now()}`, comment_count: count })
+  }),
+
+  // Catch-all TERAKHIR (MSW memakai handler pertama yang cocok): endpoint yang tidak di-mock tidak
+  // diteruskan ke API sungguhan -- token mock ditolak 401 dan interceptor menendang sesi mock ke /login.
+  http.all('/api/v1/*', () => HttpResponse.json({ error: { code: 'MOCK_NOT_IMPLEMENTED', message: 'Endpoint belum di-mock' } }, { status: 404 })),
 ]

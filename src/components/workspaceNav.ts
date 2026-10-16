@@ -196,8 +196,8 @@ export function pmNavItems(workspaceId: string, activeProjectId: string | null):
 // editorNavItems -- master frame Editor (S6E-01, Sprint 6 "Editor Console"):
 // 4 item PERSIS `NAV.Editor` di "Master UI User.dc.html" (dibaca langsung via
 // DesignSync). Board project-scoped (butuh project aktif dari switcher);
-// Task Saya/Timesheet/Lampiran Saya LINTAS project (level workspace -- rute
-// `my-*`, jadi tidak bentrok dengan rute PM `/projects/:p/timesheet`).
+// Task Saya project-scoped (S6E-03, mengikuti switcher); Timesheet/Lampiran Saya LINTAS project
+// (level workspace -- rute `my-*`, jadi tidak bentrok dengan rute PM `/projects/:p/timesheet`).
 // Halaman Task Saya/Timesheet/Lampiran Saya dibangun S6E-03/09/11; sampai itu
 // rute-nya menampilkan placeholder kerangka (sama pola desain). CTA "+ Task"
 // pada Task Saya disambungkan halamannya di S6E-03 (tombol tersembunyi sampai
@@ -213,7 +213,8 @@ export function editorNavItems(workspaceId: string, activeProjectId: string | nu
       tabs: ['Kanban', 'Daftar'],
       cta: '+ Task',
     },
-    { key: 'mytask', icon: '◉', label: 'Task Saya', to: `/workspaces/${workspaceId}/my-tasks`, tabs: ['Ditugaskan', 'Diikuti'], cta: '+ Task' },
+    // Task Saya per project aktif (S6E-03): URL project = sumber kebenaran, switcher memindahkan halaman.
+    { key: 'mytask', icon: '◉', label: 'Task Saya', to: p ? `/workspaces/${workspaceId}/projects/${p}/my-tasks` : null, tabs: ['Ditugaskan', 'Diikuti'], cta: '+ Task' },
     { key: 'timesheet', icon: '◷', label: 'Timesheet', to: `/workspaces/${workspaceId}/my-timesheet`, tabs: ['Minggu Ini', 'Riwayat'], cta: null },
     { key: 'docs', icon: '▧', label: 'Lampiran Saya', to: `/workspaces/${workspaceId}/my-attachments`, tabs: ['Semua File'], cta: null },
   ]
@@ -236,8 +237,8 @@ export const EDITOR_PERMISSION_CHIPS: { label: string; allowed: boolean }[] = [
 // audit, timesheet PM, performance, dst). Backend tetap penjaga akses sebenarnya.
 export function isEditorPath(pathname: string, workspaceId: string): boolean {
   const base = `/workspaces/${workspaceId}`
-  if (['/board', '/my-tasks', '/my-timesheet', '/my-attachments', '/account'].some((x) => pathname === base + x || pathname.startsWith(`${base}${x}/`))) {
+  if (['/board', '/my-timesheet', '/my-attachments', '/account'].some((x) => pathname === base + x || pathname.startsWith(`${base}${x}/`))) {
     return true
   }
-  return new RegExp(`^${base}/projects/[^/]+/board/?$`).test(pathname)
+  return new RegExp(`^${base}/projects/[^/]+/(board|my-tasks)/?$`).test(pathname)
 }
