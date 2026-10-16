@@ -1,11 +1,11 @@
 import { apiClient } from '@/lib/api'
 
-import type { MyTask } from './types'
+import type { MyTasksPage, MyTaskView, PostCommentResult } from './types'
 
-export function listMyTasks(projectId: string) {
-  return apiClient.get<MyTask[]>(`/api/v1/me/tasks?project_id=${projectId}`)
+export function listMyTasks(projectId: string, view: MyTaskView, page: number, perPage: number) {
+  return apiClient.get<MyTasksPage>(`/api/v1/me/tasks?project_id=${projectId}&view=${view}&page=${page}&per_page=${perPage}`)
 }
 
-export function postTaskComment(taskId: string, input: { body: string; mentions: number }) {
-  return apiClient.post<{ id: string; comment_count: number }>(`/api/v1/tasks/${taskId}/comments`, input)
+export function postTaskComment(taskId: string, body: string) {
+  return apiClient.post<PostCommentResult>(`/api/v1/tasks/${taskId}/comments`, { body })
 }

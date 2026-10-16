@@ -35,11 +35,11 @@ describe('CommentModal', () => {
     expect(screen.getByText('1000 / 1000')).toBeInTheDocument()
   })
 
-  it('mengirim teks yang sudah di-trim beserta jumlah mention', async () => {
+  it('mengirim teks yang sudah di-trim', async () => {
     const { onSubmit, box } = setup()
     fireEvent.change(box, { target: { value: '  siap @eka  ' } })
     fireEvent.click(screen.getByRole('button', { name: 'KIRIM KOMENTAR' }))
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('siap @eka', 1))
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('siap @eka'))
   })
 
   it('galat dari server tampil dan modal tetap terbuka', async () => {
