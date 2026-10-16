@@ -1,6 +1,8 @@
 import { http, HttpResponse } from 'msw'
 
-import { mockContext, mockFollowedProjects, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
+import { mockContext, mockFollowedProjects, mockMembers, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
+
+import { addComment, listMine, moveStatus } from './myTasksStore'
 
 const ok = (data: unknown) => HttpResponse.json({ data })
 
@@ -45,5 +47,24 @@ export const handlers = [
   http.get('/api/v1/projects/:id/statuses', () => ok(mockStatuses)),
   http.get('/api/v1/projects/:id/sprints', () => ok(mockSprints)),
   http.get('/api/v1/projects/:id/tasks', () => ok(mockTasks)),
-  http.get('/api/v1/projects/:id/members', () => ok([])),
+  http.get('/api/v1/projects/:id/members', () => ok(mockMembers)),
+
+  // Task Saya + komentar (S6E-03) -- berstate di memori (myTasksStore.ts).
+  http.get('/api/v1/me/tasks', ({ request }) => {
+    const q = new URL(request.url).searchParams
+    return ok(listMine(q.get('project_id') ?? '', q.get('view') === 'following' ? 'following' : 'assigned', Number(q.get('page') ?? 1), Number(q.get('per_page') ?? 10)))
+  }),
+  http.put('/api/v1/tasks/:id/status', async ({ params, request }) => {
+    const body = (await request.json()) as { status_id: string }
+    return moveStatus(String(params.id), body.status_id) ? ok({ id: params.id, status_id: body.status_id }) : HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Task tidak ditemukan' } }, { status: 404 })
+  }),
+  http.post('/api/v1/tasks/:id/comments', async ({ params, request }) => {
+    const body = (await request.json()) as { body: string }
+    const result = addComment(String(params.id), body.body)
+    return result === null ? HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Task tidak ditemukan' } }, { status: 404 }) : ok(result)
+  }),
+
+  // Catch-all TERAKHIR (MSW memakai handler pertama yang cocok): endpoint yang tidak di-mock tidak
+  // diteruskan ke API sungguhan -- token mock ditolak 401 dan interceptor menendang sesi mock ke /login.
+  http.all('/api/v1/*', () => HttpResponse.json({ error: { code: 'MOCK_NOT_IMPLEMENTED', message: 'Endpoint belum di-mock' } }, { status: 404 })),
 ]

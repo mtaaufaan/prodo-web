@@ -1,4 +1,5 @@
 import type { Capabilities, FollowedProject, UserContext } from '@/features/context/types'
+import type { ProjectMember } from '@/features/project-members/types'
 import type { Project } from '@/features/projects/types'
 import type { CustomStatus, Sprint, Task } from '@/features/tasks/types'
 import type { Workspace } from '@/features/workspaces/types'
@@ -131,3 +132,17 @@ export const mockTasks: Task[] = [
   task(4, 'Review desain profil', mockStatuses[2], 'low', false),
   task(5, 'Rilis build internal', mockStatuses[3], 'medium', true),
 ]
+
+// GET /projects/:id/members (picker PIC) -- bentuk ProjectMember.
+const member = (id: string, name: string): ProjectMember => ({
+  user_id: id,
+  email: `${id}@prodo.local`,
+  display_name: name,
+  role: 'editor',
+  is_scoped: true,
+  added_at: '2026-09-02T00:00:00Z',
+  workspace_role: 'editor',
+  is_pending: false,
+  title: null,
+})
+export const mockMembers: ProjectMember[] = [member('mock-editor-id', 'Eka Editor'), member('mock-budi', 'Budi'), member('mock-citra', 'Citra')]
