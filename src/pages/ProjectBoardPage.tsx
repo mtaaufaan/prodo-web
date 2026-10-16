@@ -45,11 +45,14 @@ function ProjectBoardPageContent() {
   const [addTaskOpen, setAddTaskOpen] = useState(false)
   const [detailTaskId, setDetailTaskId] = useState<string | null>(null)
 
+  // "+ Task" hanya untuk role yang boleh membuat task (Approver/Viewer tidak); belum termuat -> tampil.
+  const canCreate = !capabilities || capabilities.create_task
   useEffect(() => {
+    if (!canCreate) return
     registerCta(() => setAddTaskOpen(true))
     return () => registerCta(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- registerCta stabil dari useCallback shell
-  }, [])
+  }, [canCreate])
 
   const activeSprint = sprints.data?.find((s) => s.status === 'active') ?? null
   // Gantt/Riwayat hanya untuk mode penuh (PM/AW); role lain hanya Kanban/Daftar (sesuai nav Editor).
@@ -107,8 +110,9 @@ function ProjectBoardPageContent() {
         projectId={pid}
         projectName={project?.name ?? ''}
         defaultSprintId={activeSprint?.id ?? null}
+        capabilities={capabilities}
       />
-      <TaskDetailModal taskId={detailTaskId} onClose={() => setDetailTaskId(null)} projectId={pid} workspaceId={workspaceId} statuses={statuses.data ?? []} />
+      <TaskDetailModal taskId={detailTaskId} onClose={() => setDetailTaskId(null)} projectId={pid} workspaceId={workspaceId} statuses={statuses.data ?? []} capabilities={capabilities} />
     </div>
   )
 }

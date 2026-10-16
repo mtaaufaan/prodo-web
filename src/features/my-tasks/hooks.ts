@@ -1,5 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { commentKeys } from '@/features/tasks/comments'
 import { taskKeys } from '@/features/tasks/hooks'
 
 import { listMyTasks, postTaskComment } from './api'
@@ -28,6 +29,9 @@ export function usePostComment() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ taskId, body }: { taskId: string; body: string }) => postTaskComment(taskId, body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: myTaskKeys.all }),
+    onSuccess: (_res, vars) => {
+      queryClient.invalidateQueries({ queryKey: commentKeys.list(vars.taskId) })
+      return queryClient.invalidateQueries({ queryKey: myTaskKeys.all })
+    },
   })
 }
