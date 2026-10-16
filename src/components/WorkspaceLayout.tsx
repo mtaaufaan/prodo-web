@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 
-import { useMyContext, useSwitchContext } from '@/features/context/hooks'
+import { useMyContext, useMyProjects, useSwitchContext } from '@/features/context/hooks'
 import { useProjects } from '@/features/projects/hooks'
 import { isProjectPM } from '@/features/projects/types'
 import { useWorkspace } from '@/features/workspaces/hooks'
@@ -150,14 +150,14 @@ export default function WorkspaceLayout() {
   // sama dengan PM (switcher project, URL = sumber kebenaran) tapi nav sendiri.
   const isEditor = myWorkspaceRole === 'editor'
   const hasProjectFrame = isPM || isEditor
-  const allProjects = useProjects(hasProjectFrame ? workspaceId : '')
-  // ponytail: Editor = semua project non-arsip workspace (RLS mengizinkan
-  // anggota workspace membaca daftar project); filter keanggotaan project
-  // disambungkan di S6E-02 (GET /me/context memuat project yang diikuti Editor).
-  const myProjects = useMemo(() => {
-    const open = (allProjects.data ?? []).filter((p) => !p.is_archived)
-    return isEditor ? open : open.filter((p) => isProjectPM(p, currentUserId))
-  }, [allProjects.data, currentUserId, isEditor])
+  const allProjects = useProjects(isPM ? workspaceId : '')
+  // Editor: hanya project yang diikuti (GET /me/projects, S6E-02) -- anggota project,
+  // assignee, atau PIC aktif; bukan semua project workspace.
+  const followedProjects = useMyProjects(isEditor ? workspaceId : '')
+  const myProjects = useMemo<{ id: string; name: string }[]>(() => {
+    if (isEditor) return followedProjects.data ?? []
+    return (allProjects.data ?? []).filter((p) => isProjectPM(p, currentUserId) && !p.is_archived)
+  }, [allProjects.data, followedProjects.data, currentUserId, isEditor])
   const [activeProjectId, setActiveProjectId] = useState('')
   useEffect(() => {
     if (hasProjectFrame && !activeProjectId && myProjects.length > 0) setActiveProjectId(myProjects[0].id)

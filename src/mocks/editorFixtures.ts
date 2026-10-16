@@ -1,4 +1,4 @@
-import type { UserContext } from '@/features/context/types'
+import type { Capabilities, FollowedProject, UserContext } from '@/features/context/types'
 import type { Project } from '@/features/projects/types'
 import type { CustomStatus, Sprint, Task } from '@/features/tasks/types'
 import type { Workspace } from '@/features/workspaces/types'
@@ -12,11 +12,23 @@ const WS = 'mock-ws-1'
 const PROJ_A = 'mock-proj-quest'
 const PROJ_B = 'mock-proj-prodo'
 
+// Bentuk sama dengan service.CapabilitiesForRole('editor') di backend.
+const editorCapabilities: Capabilities = {
+  create_task: true,
+  edit_own_task: true,
+  comment: true,
+  log_time: true,
+  attach: true,
+  manage_project: false,
+  manage_rules: false,
+  manage_members: false,
+}
+
 export const mockContext: UserContext = {
   platform_role: 'none',
   ga_console_enabled: false,
   active_context: 'workspace',
-  workspace_memberships: [{ workspace_id: WS, name: 'IT - Eldwin', org_name: 'RDS', role: 'editor', joined_at: '2026-09-01' }],
+  workspace_memberships: [{ workspace_id: WS, name: 'IT - Eldwin', org_name: 'RDS', role: 'editor', capabilities: editorCapabilities, joined_at: '2026-09-01' }],
   project_scoped_projects: [],
 }
 
@@ -54,6 +66,9 @@ function project(id: string, name: string, code: string): Project {
 }
 
 export const mockProjects: Project[] = [project(PROJ_A, 'QuestLog', 'QST'), project(PROJ_B, 'PRODO', 'PRD')]
+
+// GET /me/projects
+export const mockFollowedProjects: FollowedProject[] = mockProjects.map((p) => ({ id: p.id, workspace_id: p.workspace_id, name: p.name, code: p.code }))
 
 const status = (id: string, name: string, color: string, position: number): CustomStatus => ({
   id,
