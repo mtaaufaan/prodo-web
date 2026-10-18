@@ -192,6 +192,9 @@ export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): Au
         scope: 'PIC FASE',
       }
     case 'task.time_entry_added':
+      if (stateStr(entry.state_after, 'approval_status', '') === 'approved') {
+        return { text: `Waktu dicatat (${stateNum(entry.state_after, 'duration_minutes')} menit) pada task ${taskLabel(entry)}, langsung disetujui`, scope: 'TIMESHEET' }
+      }
       return { text: `Entri waktu manual (${stateNum(entry.state_after, 'duration_minutes')} menit) ditambahkan pada task ${taskLabel(entry)}, menunggu persetujuan`, scope: 'TIMESHEET' }
     case 'task.time_entry_updated':
       return { text: `Entri waktu manual task ${taskLabel(entry)} diperbarui dan dikirim ulang untuk persetujuan`, scope: 'TIMESHEET' }

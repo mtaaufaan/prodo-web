@@ -206,6 +206,24 @@ describe('MyTimesheetPage', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
   })
 
+  it('Riwayat menandai entri estimasi import dengan badge ESTIMASI', () => {
+    h.view = 'Riwayat'
+    h.data = { ...sample, items: [{ ...sample.items[0], id: 'e2', is_estimate: true }, sample.items[0]], total: 2 }
+    render(<MyTimesheetPage />)
+    // kartu ringkasan juga berlabel "ESTIMASI", jadi cari lewat title badge
+    expect(screen.getAllByTitle(/Estimasi dari riwayat tanggal status/)).toHaveLength(1)
+  })
+
+  it('batas 24 jam per hari dari server tampil di modal', async () => {
+    h.mutateAsync.mockRejectedValue({ code: 'DAILY_LIMIT' })
+    render(<MyTimesheetPage />)
+    fireEvent.click(screen.getByRole('button', { name: '+ CATAT WAKTU' }))
+    fireEvent.click(screen.getByRole('option', { name: /QST-002/ }))
+    fireEvent.change(screen.getByLabelText('JAM'), { target: { value: '5' } })
+    fireEvent.click(screen.getByRole('button', { name: 'CATAT WAKTU' }))
+    expect(await screen.findByText(/tidak boleh melebihi 24 jam/)).toBeInTheDocument()
+  })
+
   it('tab Riwayat kosong menampilkan pesan', () => {
     h.view = 'Riwayat'
     h.data = { ...sample, items: [], total: 0 }

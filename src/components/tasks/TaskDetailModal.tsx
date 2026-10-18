@@ -96,6 +96,9 @@ function describeTaskAction(action: string, before: Record<string, unknown> | nu
     case 'task.pic_handoff':
       return `PIC fase ${(metadata as { status_name?: string } | null)?.status_name ?? '—'} diserahterimakan`
     case 'task.time_entry_added':
+      if ((after as { approval_status?: string } | null)?.approval_status === 'approved') {
+        return `Waktu dicatat (${(after as { duration_minutes?: number } | null)?.duration_minutes ?? '—'} menit, langsung disetujui)`
+      }
       return `Entri waktu manual ditambahkan (${(after as { duration_minutes?: number } | null)?.duration_minutes ?? '—'} menit, menunggu persetujuan)`
     case 'task.time_entry_updated':
       return 'Entri waktu manual diperbarui dan dikirim ulang untuk persetujuan'

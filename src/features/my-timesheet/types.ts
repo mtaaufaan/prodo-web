@@ -42,6 +42,8 @@ export interface TimesheetEntry {
   entry_date: string
   hours: number
   note: string
+  // Entri hasil estimasi import (IG-129), bukan jam yang dicatat orangnya.
+  is_estimate?: boolean
 }
 
 export interface MyHoursTimesheet {
