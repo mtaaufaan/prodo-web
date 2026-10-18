@@ -6,7 +6,7 @@ import { isOwnedByMe } from './myTasksStore'
 
 // Data tiruan Timesheet Editor (S6E-09) -- BERSTATE di memori: mencatat jam menambah entri, total, dan bar
 // sehingga halaman bisa dicoba tanpa backend. Lintas project: task QuestLog milik saya (mockTasks) + dua task
-// PRODO tiruan. Dibuang di S6E-10 saat endpoint nyata tersambung.
+// PRODO tiruan. Aplikasi nyata memakai endpoint S6E-10; berkas ini tetap hanya untuk `dev:mock`.
 const DAY_MS = 86_400_000
 const today = () => new Date().toISOString().slice(0, 10)
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY_MS).toISOString().slice(0, 10)
@@ -63,6 +63,8 @@ function seed() {
   }
 }
 seed()
+// satu entri estimasi hasil import (IG-129) supaya badge ESTIMASI terlihat di Riwayat
+entries[entries.length - 3] = { ...entries[entries.length - 3], is_estimate: true }
 
 const weekStart = (iso: string) => {
   const t = Date.parse(`${iso}T00:00:00Z`)

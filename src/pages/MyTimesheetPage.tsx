@@ -66,6 +66,7 @@ export default function MyTimesheetPage() {
       const code = (err as { code?: string } | null)?.code
       if (code === 'NOT_YOUR_TASK') return 'Anda hanya dapat mencatat waktu pada task yang ditugaskan kepada Anda.'
       if (code === 'VALIDATION_ERROR') return 'Jam harus lebih dari 0 dan maksimal 12 per pencatatan.'
+      if (code === 'DAILY_LIMIT') return 'Total jam tercatat hari ini tidak boleh melebihi 24 jam.'
       return describeChildError(err, 'Gagal mencatat waktu. Coba lagi.')
     }
   }
@@ -162,6 +163,11 @@ export default function MyTimesheetPage() {
                       <div key={e.id} className="flex items-center gap-[9px] border-t border-line px-[15px] py-2.5">
                         <span className="w-[74px] font-mono text-[9px] text-text-dim">{formatDateDMY(e.entry_date)}</span>
                         <span className="font-mono text-[8.5px] text-text-muted">{e.task_code}</span>
+                        {e.is_estimate && (
+                          <span className="border border-blue px-1.5 py-0.5 font-mono text-[8px] tracking-[0.06em] text-blue" title="Estimasi dari riwayat tanggal status hasil import">
+                            ESTIMASI
+                          </span>
+                        )}
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-[12px] text-text-bone">{e.task_title}</div>
                           <div className="truncate font-mono text-[8.5px] text-text-dim">
