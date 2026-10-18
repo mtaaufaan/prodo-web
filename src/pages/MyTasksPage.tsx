@@ -59,11 +59,13 @@ export default function MyTasksPage() {
   }
   useEffect(() => () => clearTimeout(noticeTimer.current), [])
   useEffect(() => setPage(1), [taskView, projectId])
+  const canCreate = !caps || caps.create_task
   useEffect(() => {
+    if (!canCreate) return
     registerCta(() => setAddTaskOpen(true))
     return () => registerCta(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- registerCta stabil dari useCallback shell
-  }, [])
+  }, [canCreate])
 
   const visible = tasks.data?.items ?? []
   const total = tasks.data?.total ?? 0
@@ -191,7 +193,7 @@ export default function MyTasksPage() {
         isPending={setStatus.isPending}
         errorMessage={moveError}
       />
-      <AddTaskModal open={addTaskOpen} onClose={() => setAddTaskOpen(false)} projectId={projectId} projectName={projectName === '—' ? '' : projectName} />
+      <AddTaskModal open={addTaskOpen} onClose={() => setAddTaskOpen(false)} projectId={projectId} projectName={projectName === '—' ? '' : projectName} capabilities={caps} allowEditorStoryPoints={projects.data?.find((p) => p.id === projectId)?.allow_editor_story_points} />
     </div>
   )
 }

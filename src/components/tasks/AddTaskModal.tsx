@@ -2,10 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import type { Capabilities } from '@/features/context/types'
 import { useProjectMembers } from '@/features/project-members/hooks'
 import { useCreateTask, useProjectSprints } from '@/features/tasks/hooks'
+import { describeChildError } from '@/features/tasks/moveError'
 import { autoFillTaskDates, FIBONACCI_STORY_POINTS, type TaskPriority } from '@/features/tasks/types'
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/store/useAuthStore'
 
 const PRIORITIES: TaskPriority[] = ['low', 'medium', 'high', 'critical']
 const PRIORITY_TONE: Record<TaskPriority, string> = {
@@ -21,6 +24,11 @@ interface AddTaskModalProps {
   projectId: string
   projectName: string
   defaultSprintId?: string | null
+  // capabilities (S6E-07) -- role selain PM/AW (mis. Editor) memakai mode terbatas: assignee dikunci ke diri
+  // sendiri dan story point diisi PM. Belum termuat -> form penuh; penegak sebenarnya backend (S6E-08).
+  capabilities?: Capabilities
+  // allowEditorStoryPoints (S6E-08) -- setting project; bila true Editor boleh mengisi story point.
+  allowEditorStoryPoints?: boolean
 }
 
 // AddTaskModal (Task Management Core Phase 1, desain "PM Add Task.dc.html").
@@ -30,7 +38,12 @@ interface AddTaskModalProps {
 // Deviasi disengaja dari urutan field desain (atas permintaan user): field
 // SPRINT dipindah ke paling atas (sebelum Judul Task) -- desain aslinya
 // menaruh Sprint paling akhir setelah Assignee.
-export default function AddTaskModal({ open, onClose, projectId, projectName, defaultSprintId }: AddTaskModalProps) {
+export default function AddTaskModal({ open, onClose, projectId, projectName, defaultSprintId, capabilities, allowEditorStoryPoints }: AddTaskModalProps) {
+  const currentUserId = useAuthStore((s) => s.user?.id)
+  // limited -- Editor: hanya bisa menugaskan task ke dirinya sendiri dan tidak mengisi story point.
+  const limited = Boolean(capabilities && !capabilities.manage_project)
+  // spLocked -- story point Editor hanya terbuka bila project mengizinkan (backend menegakkan, S6E-08).
+  const spLocked = limited && !allowEditorStoryPoints
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
@@ -67,12 +80,12 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
     setEstimatedHours('')
     setStoryPoints(undefined)
     setSprintId(defaultSprintId ?? null)
-    setAssigneeIds([])
+    setAssigneeIds(limited && currentUserId ? [currentUserId] : [])
     setTitleError(false)
     setFormError('')
     create.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset SEKALI saat modal dibuka, `create` stabil dari hook
-  }, [open, defaultSprintId])
+  }, [open, defaultSprintId, limited, currentUserId])
 
   // handleDateFieldChange -- diminta user: isi 2 dari 3 (start_date/
   // due_date/estimasi jam) -> yang ketiga (kalau masih kosong) otomatis
@@ -112,7 +125,7 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
         start_date: startDate,
         due_date: dueDate,
         estimated_hours: estimatedHours ? parseFloat(estimatedHours) : null,
-        story_points: storyPoints ?? null,
+        story_points: spLocked ? null : (storyPoints ?? null),
         sprint_id: sprintId,
         assignee_ids: assigneeIds,
       },
@@ -235,6 +248,12 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
             Isi 2 dari 3 (Start Date/Due Date/Estimasi) -- sisanya otomatis terhitung.
           </p>
 
+          {spLocked ? (
+            <div>
+              <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">STORY POINT</label>
+              <p className="font-mono text-[9px] leading-relaxed text-text-dim">🔒 Story point diisi Project Manager setelah task dibuat.</p>
+            </div>
+          ) : (
           <div>
             <label className="mb-2 block font-mono text-[9px] tracking-[0.14em] text-text-dim">STORY POINT · OPSIONAL</label>
             <div className="flex flex-wrap gap-1.5">
@@ -254,20 +273,24 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
             </div>
             <p className="mt-1.5 font-mono text-[8.5px] text-text-dim">"?" berarti belum diestimasi.</p>
           </div>
+          )}
 
           <div>
             <label className="mb-1 block font-mono text-[9px] tracking-[0.14em] text-text-dim">ASSIGNEE · MINIMAL SATU</label>
             <p className="mb-2 font-mono text-[9px] leading-relaxed text-text-dim">
-              Viewer tidak dapat ditugaskan. Pembuat task otomatis menjadi PIC fase awal; assignee dapat menerima serah terima setelahnya.
+              {limited
+                ? '🔒 Task yang Anda buat otomatis ditugaskan kepada Anda; Project Manager dapat menambah assignee lain.'
+                : 'Viewer tidak dapat ditugaskan. Pembuat task otomatis menjadi PIC fase awal; assignee dapat menerima serah terima setelahnya.'}
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {(members.data ?? []).map((m) => {
+              {(members.data ?? []).filter((m) => !limited || m.user_id === currentUserId).map((m) => {
                 const on = assigneeIds.includes(m.user_id)
                 return (
                   <button
                     key={m.user_id}
                     type="button"
                     onClick={() => toggleAssignee(m.user_id)}
+                    disabled={limited}
                     className={cn(
                       'border px-2.5 py-1.5 font-mono text-[9.5px]',
                       on ? 'border-mint bg-mint/10 text-mint' : 'border-line-strong text-text-muted',
@@ -278,7 +301,7 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
                   </button>
                 )
               })}
-              {members.data && members.data.length === 0 && (
+              {!limited && members.data && members.data.length === 0 && (
                 <p className="font-mono text-[9.5px] text-text-dim">Belum ada member project. Tambah lewat Kelola Member Project dulu.</p>
               )}
             </div>
@@ -289,7 +312,7 @@ export default function AddTaskModal({ open, onClose, projectId, projectName, de
               ⚠ {formError}
             </p>
           )}
-          {create.isError && <p className="text-[11px] text-destructive">Gagal membuat task.</p>}
+          {create.isError && <p className="text-[11px] text-destructive">{describeChildError(create.error, 'Gagal membuat task.')}</p>}
         </div>
 
         <DialogFooter>
