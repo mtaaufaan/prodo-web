@@ -51,6 +51,7 @@ import PlatformTiersPage from '@/pages/PlatformTiersPage'
 import EditorBoardRedirect from '@/pages/EditorBoardRedirect'
 import EditorPlaceholderPage from '@/pages/EditorPlaceholderPage'
 import MyTasksPage from '@/pages/MyTasksPage'
+import MyTimesheetPage from '@/pages/MyTimesheetPage'
 import ProjectBoardPage from '@/pages/ProjectBoardPage'
 import SprintPage from '@/pages/SprintPage'
 import ProjectListPage from '@/pages/ProjectListPage'
@@ -111,7 +112,7 @@ export default function AppRouter() {
               di S6E-03/09/11. */}
           <Route path="/workspaces/:wsId/board" element={<EditorBoardRedirect />} />
           <Route path="/workspaces/:wsId/projects/:projectId/my-tasks" element={<MyTasksPage />} />{/* Task Saya Editor, S6E-03 */}
-          <Route path="/workspaces/:wsId/my-timesheet" element={<EditorPlaceholderPage label="Timesheet" />} />
+          <Route path="/workspaces/:wsId/my-timesheet" element={<MyTimesheetPage />} />{/* Timesheet Editor, S6E-09 */}
           <Route path="/workspaces/:wsId/my-attachments" element={<EditorPlaceholderPage label="Lampiran Saya" />} />
           <Route path="/workspaces/:wsId/projects" element={<ProjectListPage />} />{/* S4-04, US-012 */}
           {/* Task Management Core Phase 1 (forward-pull, desain "PM
