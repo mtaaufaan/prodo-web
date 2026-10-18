@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw'
 import { mockContext, mockFollowedProjects, mockMembers, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
 
 import { addComment, isOwnedByMe, listMine, moveStatus, setCompleteness } from './myTasksStore'
+import { getMyHours, logHours } from './myTimesheetStore'
 import {
   addAttachment,
   addChecklistItem,
@@ -155,6 +156,20 @@ export const handlers = [
   http.get('/api/v1/tasks/:id/activity', () => ok({ items: [], total: 0 })),
   http.get('/api/v1/tasks/:id/time-entries', () => ok({ items: [], total: 0 })),
   http.get('/api/v1/tasks/:id/time-entries/active', () => ok(null)),
+
+  // Timesheet Editor (S6E-09). Gerbang meniru backend S6E-10: task orang lain 403, jam di luar 0-12 -> 422.
+  http.get('/api/v1/me/timesheets', ({ request }) => {
+    const q = new URL(request.url).searchParams
+    return ok(getMyHours(q.get('view') === 'history' ? 'history' : 'week', Number(q.get('page') ?? 1), Number(q.get('per_page') ?? 10)))
+  }),
+  http.post('/api/v1/tasks/:id/time-log', async ({ params, request }) => {
+    const body = (await request.json()) as { hours: number; note?: string }
+    const res = logHours(String(params.id), body.hours, body.note ?? '')
+    if (res === 'NOT_YOUR_TASK') return fail('NOT_YOUR_TASK', 'Anda hanya dapat mencatat waktu pada task yang ditugaskan kepada Anda.', 403)
+    if (res === 'VALIDATION_ERROR') return fail('VALIDATION_ERROR', 'Jam harus lebih dari 0 dan maksimal 12.', 422)
+    if (res === 'NOT_FOUND') return notFound()
+    return ok(res)
+  }),
 
   // Catch-all TERAKHIR (MSW memakai handler pertama yang cocok): endpoint yang tidak di-mock tidak
   // diteruskan ke API sungguhan -- token mock ditolak 401 dan interceptor menendang sesi mock ke /login.
