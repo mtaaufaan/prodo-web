@@ -48,6 +48,8 @@ export interface Project {
   // ikut nilai workspace. Belum ada UI untuk PM mengisinya (scope
   // terpisah), baca-saja di sini.
   mention_cooldown_minutes: number | null
+  // allow_editor_story_points (S6E-08, IG-139) -- setting project: Editor boleh mengisi story point (US-018a).
+  allow_editor_story_points: boolean
 }
 
 export type ProjectStatus = 'not_started' | 'in_progress' | 'completed' | 'on_hold'

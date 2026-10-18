@@ -14,6 +14,22 @@ export function describeMoveError(err: unknown): string {
   return 'Gagal mengubah status task.'
 }
 
+// describeChildError -- pesan galat sub-task/lampiran/buat task (S6E-08, IG-139): kode hak akses dari backend.
+export function describeChildError(err: unknown, fallback: string): string {
+  switch ((err as { code?: string } | null)?.code) {
+    case 'NOT_YOUR_TASK':
+      return 'Anda hanya dapat mengubah task yang ditugaskan kepada Anda.'
+    case 'NOT_PROJECT_MEMBER':
+      return 'Anda bukan anggota project ini.'
+    case 'STORY_POINTS_NOT_ALLOWED':
+      return 'Project ini tidak mengizinkan Editor mengisi story point -- minta Project Manager mengisinya.'
+    case 'FORBIDDEN':
+      return 'Role Anda tidak dapat melakukan aksi ini.'
+    default:
+      return fallback
+  }
+}
+
 // describeCompleteError -- pesan galat tandai lengkap/belum lengkap (kartu Kanban).
 export function describeCompleteError(err: unknown): string {
   const code = (err as { code?: string }).code
