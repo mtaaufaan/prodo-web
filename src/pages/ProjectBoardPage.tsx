@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useOutletContext, useParams } from 'react-router-dom'
+import { useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 
 import AddTaskModal from '@/components/tasks/AddTaskModal'
 import { boardModeFor } from '@/components/tasks/boardMode'
@@ -43,7 +43,21 @@ function ProjectBoardPageContent() {
   const sprints = useProjectSprints(pid)
 
   const [addTaskOpen, setAddTaskOpen] = useState(false)
-  const [detailTaskId, setDetailTaskId] = useState<string | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(searchParams.get('task'))
+  // Tautan dalam dari notifikasi (?task=<id>): buka Task Detail, juga bila Board sudah terbuka.
+  useEffect(() => {
+    const t = searchParams.get('task')
+    if (t) setDetailTaskId(t)
+  }, [searchParams])
+  const closeDetail = () => {
+    setDetailTaskId(null)
+    if (searchParams.has('task')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('task')
+      setSearchParams(next, { replace: true })
+    }
+  }
 
   // "+ Task" hanya untuk role yang boleh membuat task (Approver/Viewer tidak); belum termuat -> tampil.
   const canCreate = !capabilities || capabilities.create_task
@@ -113,7 +127,7 @@ function ProjectBoardPageContent() {
         capabilities={capabilities}
         allowEditorStoryPoints={project?.allow_editor_story_points}
       />
-      <TaskDetailModal taskId={detailTaskId} onClose={() => setDetailTaskId(null)} projectId={pid} workspaceId={workspaceId} statuses={statuses.data ?? []} capabilities={capabilities} allowEditorStoryPoints={project?.allow_editor_story_points} />
+      <TaskDetailModal taskId={detailTaskId} onClose={closeDetail} projectId={pid} workspaceId={workspaceId} statuses={statuses.data ?? []} capabilities={capabilities} allowEditorStoryPoints={project?.allow_editor_story_points} />
     </div>
   )
 }

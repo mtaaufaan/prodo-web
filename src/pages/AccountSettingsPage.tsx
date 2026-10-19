@@ -225,11 +225,9 @@ function ProfilTab({ workspaceMode }: { workspaceMode: boolean }) {
           >
             {updateProfile.isPending ? 'Menyimpan...' : 'Simpan Perubahan'}
           </Button>
-          {form && (
-            <Button variant="outline" onClick={() => setForm(null)} className="font-mono text-[10.5px] uppercase tracking-[0.06em]">
-              Batalkan
-            </Button>
-          )}
+          <Button variant="outline" onClick={() => setForm(null)} className="font-mono text-[10.5px] uppercase tracking-[0.06em]">
+            Batalkan
+          </Button>
         </div>
       </SectionCard>
     </div>
@@ -567,7 +565,7 @@ function NotifikasiTab({ workspaceMode }: { workspaceMode: boolean }) {
     if (!current) return
     update.mutate(
       { event_type: eventType, push: channel === 'push' ? !current.push : current.push, email: channel === 'email' ? !current.email : current.email },
-      { onError: () => showToast('Gagal memperbarui preferensi notifikasi.') },
+      { onSuccess: () => showToast('Preferensi notifikasi tersimpan.'), onError: () => showToast('Gagal memperbarui preferensi notifikasi.') },
     )
   }
 
@@ -584,20 +582,20 @@ function NotifikasiTab({ workspaceMode }: { workspaceMode: boolean }) {
         {defs.map((def) => {
           const p = prefs.find((x) => x.event_type === def.key)
           return (
-            <div key={def.key} className="flex flex-wrap items-center gap-3.5 border-t border-line py-3.5 first:border-t-0">
+            <div key={def.key} className="flex flex-wrap items-center gap-3.5 border-t border-line py-[13px]">
               <div className="min-w-[200px] flex-1">
                 <div className="text-[13px] text-text-bone">{def.label}</div>
                 <div className="mt-1 font-mono text-[9px] text-text-muted">{def.note}</div>
               </div>
               <div className="flex gap-2">
-                <span className="border border-mint bg-mint/10 px-3 py-1.5 font-mono text-[9.5px] tracking-[0.06em] text-mint">
+                <span className="cursor-not-allowed border border-mint px-3 py-[7px] font-mono text-[9.5px] tracking-[0.06em] text-mint">
                   IN-APP
                 </span>
                 <button
                   type="button"
                   onClick={() => toggle(def.key, 'push')}
                   className={cn(
-                    'border px-3 py-1.5 font-mono text-[9.5px] tracking-[0.06em]',
+                    'border px-3 py-[7px] font-mono text-[9.5px] tracking-[0.06em]',
                     p?.push ? 'border-signal bg-signal text-bg-deep' : 'border-line text-text-muted',
                   )}
                 >
@@ -607,7 +605,7 @@ function NotifikasiTab({ workspaceMode }: { workspaceMode: boolean }) {
                   type="button"
                   onClick={() => toggle(def.key, 'email')}
                   className={cn(
-                    'border px-3 py-1.5 font-mono text-[9.5px] tracking-[0.06em]',
+                    'border px-3 py-[7px] font-mono text-[9.5px] tracking-[0.06em]',
                     p?.email ? 'border-signal bg-signal text-bg-deep' : 'border-line text-text-muted',
                   )}
                 >
