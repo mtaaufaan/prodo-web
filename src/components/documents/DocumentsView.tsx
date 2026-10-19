@@ -5,7 +5,9 @@ import {
   useBulkDeleteDocuments,
   useBulkDeleteProjectDocuments,
   useDeleteDocument,
+  useDeleteOwnAttachment,
   useDocumentsQuota,
+  useMyAttachments,
   useProjectDocuments,
   useProjectDocumentsQuota,
   useRequestQuota,
@@ -69,16 +71,24 @@ function statusBadge(status: Attachment['status']) {
 // Semua filter/urut/paginasi dilakukan KLIEN, pola konsisten seluruh grid
 // lain di codebase ini -- backend cuma mengirim SELURUH hasil sekali fetch.
 //
-// Cakupan lebih sempit dari desain: role selain AW/PM (Editor/Approver/
-// Viewer, tabel RIGHTS di desain) TIDAK relevan di sini -- endpoint hanya
-// untuk AW/PM, jadi setiap baris yang tampil bisa dikelola oleh siapa pun
-// yang bisa membuka halaman ini, beda dari desain yang menyaring per role.
-export type DocumentsScope = { kind: 'workspace'; workspaceId: string } | { kind: 'project'; projectId: string }
+//  - 'mine': menu "Lampiran Saya" Editor (S6E-11, IG-142; RIGHTS Editor di
+//    desain = scope 'own'). Hanya file yang SAYA unggah, lintas project dalam
+//    workspace; unduh/rename/hapus-retensi milik sendiri, tanpa pilih-massal,
+//    hapus permanen, pulihkan, dan panel kuota (quota:false di desain).
+// Approver/Viewer (RIGHTS desain) tidak punya halaman dokumen sendiri.
+export type DocumentsScope =
+  | { kind: 'workspace'; workspaceId: string }
+  | { kind: 'project'; projectId: string }
+  | { kind: 'mine'; workspaceId: string }
+
+const MAX_NAME = 255
 
 export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
   const isProject = scope.kind === 'project'
+  const isMine = scope.kind === 'mine'
   // Hook cakupan lain dipanggil dengan id kosong (query `enabled: false`).
   const workspaceId = scope.kind === 'workspace' ? scope.workspaceId : ''
+  const mineWorkspaceId = scope.kind === 'mine' ? scope.workspaceId : ''
   const projectId = scope.kind === 'project' ? scope.projectId : ''
 
   // status: 'all' -- backend ListForWorkspace masih menerapkan filter status
@@ -89,13 +99,15 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
   // lengkap sebelum difilter ulang di JS.
   const wsDocuments = useWorkspaceDocuments(workspaceId, { status: 'all' })
   const projectDocuments = useProjectDocuments(projectId, { status: 'all' })
-  const documents = isProject ? projectDocuments : wsDocuments
+  const myDocuments = useMyAttachments(mineWorkspaceId, { status: 'all' })
+  const documents = isMine ? myDocuments : isProject ? projectDocuments : wsDocuments
   const wsQuota = useDocumentsQuota(workspaceId)
   const projectQuota = useProjectDocumentsQuota(projectId)
   const quotaData = isProject ? projectQuota.data : wsQuota.data
   const refetchQuota = () => (isProject ? projectQuota.refetch() : wsQuota.refetch())
   const projects = useProjects(workspaceId)
   const deleteDoc = useDeleteDocument(workspaceId)
+  const deleteOwn = useDeleteOwnAttachment()
   const bulkDelete = useBulkDeleteDocuments(workspaceId)
   const projectBulkDelete = useBulkDeleteProjectDocuments(projectId)
   const restoreDoc = useRestoreDocument()
@@ -121,10 +133,19 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
   const [reqGb, setReqGb] = useState('5')
   const [reqReason, setReqReason] = useState('')
   const [notice, setNotice] = useState('')
+  const [errorNotice, setErrorNotice] = useState('')
   const [modalError, setModalError] = useState('')
 
   const all = useMemo(() => documents.data ?? [], [documents.data])
-  const activeProjects = (projects.data ?? []).filter((p) => !p.is_archived)
+  const activeProjects = useMemo(() => {
+    // 'mine': opsi project diambil dari file saya sendiri (tanpa memanggil daftar project workspace).
+    if (isMine) {
+      const seen = new Map<string, string>()
+      all.forEach((d) => d.project_id && seen.set(d.project_id, d.project_name ?? d.project_id))
+      return Array.from(seen.entries()).map(([id, name]) => ({ id, name }))
+    }
+    return (projects.data ?? []).filter((p) => !p.is_archived)
+  }, [isMine, all, projects.data])
   const uploaders = useMemo(() => {
     const seen = new Map<string, string>()
     all.forEach((d) => seen.set(d.uploader_id, d.uploader_name || d.uploader_email))
@@ -179,9 +200,14 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
   }
 
   const onDownload = async (d: Attachment) => {
-    const blob = await downloadAttachment(d.id)
-    triggerDownload(blob, d.display_name)
-    setNotice(`${d.display_name} diunduh.`)
+    setErrorNotice('')
+    try {
+      const blob = await downloadAttachment(d.id)
+      triggerDownload(blob, d.display_name)
+      setNotice(`${d.display_name} diunduh${isMine ? ' -- unduhan tercatat di Audit Trail workspace.' : '.'}`)
+    } catch (err) {
+      setErrorNotice(err instanceof ApiError ? err.message : `Gagal mengunduh ${d.display_name}.`)
+    }
   }
 
   const openRename = (d: Attachment) => {
@@ -191,17 +217,26 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
   }
   const saveRename = () => {
     if (!renameTarget) return
+    const name = renameDraft.trim()
+    if (name === '') {
+      setModalError('Nama tampil tidak boleh kosong.')
+      return
+    }
+    if (name.length > MAX_NAME) {
+      setModalError(`Nama tampil maksimal ${MAX_NAME} karakter.`)
+      return
+    }
     // Rename lewat endpoint task-level (sama dengan Task Detail) --
     // halaman AW Documents tidak punya endpoint rename tersendiri, cukup
     // reuse PUT /attachments/:id yang sudah ada.
     import('@/features/attachments/api').then(({ renameAttachment }) =>
-      renameAttachment(renameTarget.id, renameDraft).then(
+      renameAttachment(renameTarget.id, name).then(
         () => {
           setRenameTarget(null)
-          setNotice(`Lampiran diganti nama menjadi "${renameDraft}".`)
+          setNotice(`Lampiran diganti nama menjadi "${name}".`)
           documents.refetch()
         },
-        () => setModalError('Gagal mengganti nama lampiran.'),
+        (err: unknown) => setModalError(err instanceof ApiError ? err.message : 'Gagal mengganti nama lampiran.'),
       ),
     )
   }
@@ -228,9 +263,12 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
       refetchQuota()
     }
     const onErr = (err: unknown) => {
-      setModalError(err instanceof ApiError && err.code === 'CONFIRM_MISMATCH' ? 'Nama workspace belum sama.' : 'Gagal menghapus lampiran.')
+      if (err instanceof ApiError && err.code === 'CONFIRM_MISMATCH') setModalError('Nama workspace belum sama.')
+      else setModalError(isMine && err instanceof ApiError ? err.message : 'Gagal menghapus lampiran.')
     }
-    if (isProject) {
+    if (isMine) {
+      deleteOwn.mutate(ids[0], { onSuccess: () => onOk(1), onError: onErr })
+    } else if (isProject) {
       projectBulkDelete.mutate(ids, { onSuccess: (res) => onOk(res.succeeded), onError: onErr })
     } else if (ids.length === 1) {
       deleteDoc.mutate(
@@ -275,10 +313,25 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
   return (
     <div className="space-y-3.5 p-6">
       <div className="flex flex-wrap gap-3">
-        <StatCard label="Total File" value={String(stats.total)} note={isProject ? 'Project ini' : 'Seluruh workspace'} />
+        <StatCard label="Total File" value={String(stats.total)} note={isMine ? 'Unggahan Anda' : isProject ? 'Project ini' : 'Seluruh workspace'} />
         <StatCard label="Ukuran" value={stats.sizeLabel} note="File aktif" />
         <StatCard label="Orphan" value={String(stats.orphanCount)} note={stats.orphanCount ? 'Task induk terhapus' : 'Tidak ada'} tone={stats.orphanCount ? 'amber' : undefined} />
       </div>
+
+      {isMine && (
+        <p className="font-mono text-[10px] leading-relaxed text-text-muted">
+          Hanya file yang Anda unggah. Unduh, ganti nama, dan hapus terbatas pada unggahan sendiri (US-064b).
+        </p>
+      )}
+
+      {errorNotice && (
+        <div className="relative border border-destructive p-2.5 pr-8 font-mono text-[10px] leading-relaxed text-destructive">
+          ⚠ {errorNotice}
+          <button type="button" onClick={() => setErrorNotice('')} className="absolute right-2 top-2 text-destructive/60 hover:text-destructive" title="Tutup">
+            ✕
+          </button>
+        </div>
+      )}
 
       {notice && (
         <div className="relative border border-mint p-2.5 pr-8 font-mono text-[10px] leading-relaxed text-mint">
@@ -289,7 +342,8 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
         </div>
       )}
 
-      {/* KUOTA */}
+      {/* KUOTA -- desain: quota:false untuk Editor */}
+      {!isMine && (
       <div className="border border-line bg-panel">
         <button type="button" onClick={() => setQuotaOpen((v) => !v)} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left">
           <span className="w-2.5 font-mono text-[11px] text-text-muted">{quotaOpen ? '▾' : '▸'}</span>
@@ -359,6 +413,7 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
           </div>
         )}
       </div>
+      )}
 
       {/* FILTER */}
       <div className="border border-line bg-panel">
@@ -416,6 +471,7 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
               </div>
             </div>
             <div className="flex flex-wrap items-end gap-3.5">
+              {!isMine && (
               <div className="flex min-w-[200px] flex-1 flex-col gap-1.5">
                 <label className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">PENGUNGGAH</label>
                 <select
@@ -429,6 +485,7 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
                   ))}
                 </select>
               </div>
+              )}
               <div className="flex min-w-[150px] flex-col gap-1.5">
                 <label className="font-mono text-[8.5px] tracking-[0.14em] text-text-dim">URUTKAN</label>
                 <select
@@ -477,11 +534,13 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
         <table className="w-full min-w-[600px] text-left">
           <thead>
             <tr className="border-b border-line bg-raised-1 font-mono text-[9px] tracking-[0.1em] text-text-dim">
+              {!isMine && (
               <th className="px-2.5 py-2.5">
                 <span onClick={toggleSelectAllOnPage} className="cursor-pointer text-[11px]">
                   {paged.length > 0 && paged.every((d) => selected.includes(d.id)) ? '◼' : '◻'}
                 </span>
               </th>
+              )}
               <th className="px-2.5 py-2.5">FILE</th>
               <th className="px-2.5 py-2.5">TASK · PROJECT</th>
               <th className="px-2.5 py-2.5">PENGUNGGAH</th>
@@ -494,11 +553,13 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
               const picked = selected.includes(d.id)
               return (
                 <tr key={d.id} className={cn('border-b border-line-subtle align-top', picked && 'bg-signal/5')}>
+                  {!isMine && (
                   <td className="px-2.5 py-3">
                     <span onClick={() => toggleSelect(d.id)} className="cursor-pointer font-mono text-[11px] text-text-muted">
                       {picked ? '◼' : '◻'}
                     </span>
                   </td>
+                  )}
                   <td className="px-2.5 py-3">
                     <div className="text-[12.5px] text-text-bone">{d.display_name}</div>
                     <div className="mt-1 font-mono text-[8.5px] text-text-dim">{formatBytes(d.size_bytes)} · {fileExt(d.original_name).toUpperCase()}</div>
@@ -529,7 +590,7 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
                       {d.status !== 'deleted' && (
                         <button type="button" onClick={() => openDelete([d])} className="font-mono text-[10px] text-destructive hover:underline">Hapus</button>
                       )}
-                      {d.status === 'deleted' && (
+                      {d.status === 'deleted' && !isMine && (
                         <button type="button" onClick={() => onRestore(d)} className="font-mono text-[10px] text-mint hover:underline">Pulihkan</button>
                       )}
                     </div>
@@ -541,7 +602,13 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
         </table>
         {documents.isLoading && <p className="p-4 text-sm text-text-muted">Memuat...</p>}
         {paged.length === 0 && !documents.isLoading && (
-          <p className="p-6 text-center font-mono text-[10.5px] text-text-muted">Tidak ada dokumen pada filter ini.</p>
+          <p className="p-6 text-center font-mono text-[10.5px] text-text-muted">
+            {isMine
+              ? fStatus === 'deleted'
+                ? 'Tidak ada lampiran dalam masa retensi pada tampilan ini.'
+                : 'Tidak ada lampiran pada tampilan ini. File melekat pada task — unggah dari detail task atau komentar.'
+              : 'Tidak ada dokumen pada filter ini.'}
+          </p>
         )}
         {filtered.length > PAGE_SIZE && (
           <div className="flex items-center justify-between border-t border-line px-4 py-2.5">
@@ -586,6 +653,7 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
                 <label className="mb-1.5 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">NAMA TAMPIL</label>
                 <input
                   value={renameDraft}
+                  maxLength={MAX_NAME}
                   onChange={(e) => setRenameDraft(e.target.value)}
                   className="w-full border border-line-strong bg-input-bg px-3 py-2.5 text-[12.5px] text-text-bone outline-none focus-visible:border-signal"
                 />
@@ -625,7 +693,7 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
                   <span className="font-mono text-[10px] text-text-bone">{deleteMode === 'retensi' ? '◉' : '○'} RETENSI (DEFAULT)</span>
                   <span className="text-[11px] text-text-muted">Masuk masa retensi organisasi, dapat dipulihkan selama periode retensi berjalan.</span>
                 </button>
-                {!isProject && (
+                {scope.kind === 'workspace' && (
                   <button
                     type="button"
                     onClick={() => setDeleteMode('permanen')}
@@ -656,7 +724,7 @@ export default function DocumentsView({ scope }: { scope: DocumentsScope }) {
                 <button
                   type="button"
                   onClick={confirmDelete}
-                  disabled={deleteDoc.isPending || bulkDelete.isPending || projectBulkDelete.isPending || (deleteMode === 'permanen' && confirmWsName.trim() === '')}
+                  disabled={deleteDoc.isPending || deleteOwn.isPending || bulkDelete.isPending || projectBulkDelete.isPending || (deleteMode === 'permanen' && confirmWsName.trim() === '')}
                   className="bg-destructive px-5 py-2.5 font-mono text-[10.5px] font-bold uppercase text-white disabled:opacity-50"
                 >
                   {deleteMode === 'permanen' ? 'Hapus Permanen' : 'Hapus'}

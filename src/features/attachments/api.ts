@@ -63,6 +63,12 @@ export function bulkDeleteProjectDocuments(projectId: string, ids: string[]) {
   return apiClient.post<{ succeeded: number; total: number }>(`/api/v1/projects/${projectId}/documents/bulk-delete`, { ids })
 }
 
+// Lampiran Saya Editor (S6E-11/12, IG-142/143): file yang saya unggah, lintas project dalam workspace.
+// Pengunggah selalu diri sendiri (diputuskan server); seluruh hasil filter+urut dikirim, klien yang memotong halaman.
+export function getMyAttachments(workspaceId: string, filter: DocumentFilter) {
+  return apiClient.get<Attachment[]>('/api/v1/me/attachments', { params: { workspace_id: workspaceId, ...filter } })
+}
+
 export function requestDocumentsQuota(workspaceId: string, additionalGb: number, reason: string) {
   return apiClient.post<{ sent: boolean }>(`/api/v1/workspaces/${workspaceId}/documents/quota-request`, {
     additional_gb: additionalGb,
