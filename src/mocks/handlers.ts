@@ -3,8 +3,10 @@ import { http, HttpResponse } from 'msw'
 import { mockContext, mockFollowedProjects, mockMembers, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
 
 import { addComment, isOwnedByMe, listMine, moveStatus, setCompleteness } from './myTasksStore'
+import * as account from './accountStore'
 import { deleteMine, findMine, listMyAttachments, registerMyUpload, renameMine } from './myAttachmentsStore'
 import { getMyHours, logHours } from './myTimesheetStore'
+import { listNotifications, markAllRead, markNotificationRead } from './notificationsStore'
 import {
   addAttachment,
   addChecklistItem,
@@ -54,16 +56,45 @@ export const handlers = [
     })
   }),
 
-  http.get('/api/v1/users/me', () => {
-    return HttpResponse.json({
-      data: {
-        id: 'mock-user-id',
-        email: 'demo@prodo.local',
-        name: 'Demo User',
-        role: 'member',
-      },
-    })
+  // Pengaturan Akun Editor (S6E-13): profil, preferensi notifikasi, sesi, password, MFA -- berstate (accountStore.ts).
+  http.get('/api/v1/users/me', () => ok(account.getProfile())),
+  http.patch('/api/v1/users/me', async ({ request }) => ok(account.updateProfile((await request.json()) as never))),
+  http.get('/api/v1/users/me/notification-preferences', () => ok(account.listPrefs())),
+  http.patch('/api/v1/users/me/notification-preferences', async ({ request }) => {
+    const b = (await request.json()) as { event_type: string; push: boolean; email: boolean }
+    const hit = account.updatePref(b.event_type, b.push, b.email)
+    return hit ? ok(hit) : notFound()
   }),
+  http.get('/api/v1/auth/sessions', () => ok(account.listSessions())),
+  http.delete('/api/v1/auth/sessions/:jti', ({ params }) => {
+    account.revokeSession(String(params.jti))
+    return ok(null)
+  }),
+  http.delete('/api/v1/auth/sessions', () => {
+    account.revokeOthers()
+    return ok(null)
+  }),
+  http.post('/api/v1/auth/password/change', async ({ request }) => {
+    const b = (await request.json()) as { current_password: string; new_password: string }
+    if (!b.current_password) return fail('VALIDATION_ERROR', 'Password saat ini wajib diisi.', 422)
+    return ok({ message: 'Password diganti', revoked_other_sessions: account.revokeOthers() })
+  }),
+  http.post('/api/v1/auth/mfa/setup', () => ok({ totp_qr_url: 'otpauth://totp/PRODO:editor@prodo.local?secret=JBSWY3DPEHPK3PXP&issuer=PRODO', totp_secret: 'JBSWY3DPEHPK3PXP' })),
+  http.post('/api/v1/auth/mfa/verify', async ({ request }) => {
+    const b = (await request.json()) as { otp_code: string }
+    if (!/^\d{6}$/.test(b.otp_code ?? '')) return fail('INVALID_OTP', 'Kode OTP harus 6 digit.', 422)
+    account.setMfaEnabled(true)
+    return ok({ mfa_enabled: true, backup_codes: account.newBackupCodes() })
+  }),
+  http.post('/api/v1/auth/mfa/backup-codes/regenerate', () => ok({ backup_codes: account.newBackupCodes() })),
+
+  // Lonceng notifikasi Editor (S6E-13, US-034) -- berstate (notificationsStore.ts); API nyata di S6E-14.
+  http.get('/api/v1/me/notifications', ({ request }) => {
+    const q = new URL(request.url).searchParams
+    return ok(listNotifications(Number(q.get('page') ?? 1), Number(q.get('per_page') ?? 10)))
+  }),
+  http.patch('/api/v1/me/notifications/:id/read', ({ params }) => (markNotificationRead(String(params.id)) ? ok({ id: params.id }) : notFound())),
+  http.post('/api/v1/me/notifications/read-all', () => ok({ updated: markAllRead() })),
 
   // Kerangka Master UI Editor (S6E-01): sesi mock = akun Editor (lihat main.tsx).
   http.get('/api/v1/me/context', () => ok(mockContext)),
