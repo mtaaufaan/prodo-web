@@ -232,6 +232,8 @@ export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): Au
       return { text: `Webhook "${targetOf(entry)}" dihapus`, scope: 'WEBHOOK' }
     case 'attachment.uploaded':
       return { text: `Lampiran "${targetOf(entry)}" diunggah`, scope: 'DOKUMEN & LAMPIRAN' }
+    case 'attachment.downloaded':
+      return { text: `Lampiran "${targetOf(entry)}" diunduh`, scope: 'DOKUMEN & LAMPIRAN' }
     case 'attachment.renamed':
       return { text: `Lampiran diganti nama menjadi "${targetOf(entry)}"`, scope: 'DOKUMEN & LAMPIRAN' }
     case 'attachment.deleted':

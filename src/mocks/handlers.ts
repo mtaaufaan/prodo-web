@@ -151,7 +151,7 @@ export const handlers = [
     return ok(created)
   }),
   // Lampiran Saya (S6E-11). Gerbang kepemilikan meniru backend S6E-12: file orang lain -> 403.
-  http.get('/api/v1/workspaces/:id/my-attachments', () => ok(listMyAttachments())),
+  http.get('/api/v1/me/attachments', () => ok(listMyAttachments())),
   http.get('/api/v1/attachments/:id/download', ({ params }) =>
     findMine(String(params.id)) ? new HttpResponse('isi berkas tiruan', { headers: { 'Content-Type': 'application/octet-stream' } }) : notFound(),
   ),
