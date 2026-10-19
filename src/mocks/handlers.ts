@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw'
 import { mockContext, mockFollowedProjects, mockMembers, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
 
 import { addComment, isOwnedByMe, listMine, moveStatus, setCompleteness } from './myTasksStore'
+import { deleteMine, findMine, listMyAttachments, registerMyUpload, renameMine } from './myAttachmentsStore'
 import { getMyHours, logHours } from './myTimesheetStore'
 import {
   addAttachment,
@@ -145,7 +146,24 @@ export const handlers = [
   http.post('/api/v1/tasks/:id/attachments', async ({ params, request }) => {
     if (!isOwnedByMe(String(params.id))) return notYourTask()
     const file = (await request.formData()).get('file') as File | null
-    return ok(addAttachment(String(params.id), file?.name ?? 'berkas', file?.size ?? 0))
+    const created = addAttachment(String(params.id), file?.name ?? 'berkas', file?.size ?? 0)
+    registerMyUpload(created)
+    return ok(created)
+  }),
+  // Lampiran Saya (S6E-11). Gerbang kepemilikan meniru backend S6E-12: file orang lain -> 403.
+  http.get('/api/v1/workspaces/:id/my-attachments', () => ok(listMyAttachments())),
+  http.get('/api/v1/attachments/:id/download', ({ params }) =>
+    findMine(String(params.id)) ? new HttpResponse('isi berkas tiruan', { headers: { 'Content-Type': 'application/octet-stream' } }) : notFound(),
+  ),
+  http.put('/api/v1/attachments/:id', async ({ params, request }) => {
+    const res = renameMine(String(params.id), ((await request.json()) as { display_name: string }).display_name)
+    if (res === 'NOT_FOUND') return notFound()
+    return res === true ? ok({ id: params.id }) : fail('FORBIDDEN', 'Anda hanya dapat mengubah lampiran yang Anda unggah.', 403)
+  }),
+  http.delete('/api/v1/attachments/:id', ({ params }) => {
+    const res = deleteMine(String(params.id))
+    if (res === 'NOT_FOUND') return notFound()
+    return res === true ? ok({ id: params.id }) : fail('FORBIDDEN', 'Anda hanya dapat menghapus lampiran yang Anda unggah.', 403)
   }),
   http.get('/api/v1/workspaces/:id/documents/quota', () => ok({ quota_bytes: 10 * 1024 ** 3, used_bytes: 2 * 1024 ** 3, retention_days: 30, per_project: [] })),
   // Pelengkap Task Detail yang belum punya data tiruan -- kosong saja.

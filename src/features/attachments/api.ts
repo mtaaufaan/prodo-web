@@ -63,6 +63,12 @@ export function bulkDeleteProjectDocuments(projectId: string, ids: string[]) {
   return apiClient.post<{ succeeded: number; total: number }>(`/api/v1/projects/${projectId}/documents/bulk-delete`, { ids })
 }
 
+// Lampiran Saya Editor (S6E-11, IG-142): file yang saya unggah, lintas project dalam workspace.
+// Kontrak usulan -- backend di S6E-12 (sebelum itu mock MSW).
+export function getMyAttachments(workspaceId: string, filter: DocumentFilter) {
+  return apiClient.get<Attachment[]>(`/api/v1/workspaces/${workspaceId}/my-attachments`, { params: filter })
+}
+
 export function requestDocumentsQuota(workspaceId: string, additionalGb: number, reason: string) {
   return apiClient.post<{ sent: boolean }>(`/api/v1/workspaces/${workspaceId}/documents/quota-request`, {
     additional_gb: additionalGb,

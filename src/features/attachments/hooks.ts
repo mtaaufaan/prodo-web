@@ -6,6 +6,7 @@ import {
   deleteAttachment,
   deleteDocument,
   getDocumentsQuota,
+  getMyAttachments,
   getProjectDocuments,
   getProjectDocumentsQuota,
   getTaskAttachments,
@@ -23,6 +24,7 @@ export const attachmentKeys = {
   workspace: (workspaceId: string, filter: DocumentFilter) => [...attachmentKeys.all, 'workspace', workspaceId, filter] as const,
   quota: (workspaceId: string) => [...attachmentKeys.all, 'quota', workspaceId] as const,
   project: (projectId: string, filter: DocumentFilter) => [...attachmentKeys.all, 'project', projectId, filter] as const,
+  mine: (workspaceId: string, filter: DocumentFilter) => [...attachmentKeys.all, 'mine', workspaceId, filter] as const,
   projectQuota: (projectId: string) => [...attachmentKeys.all, 'project-quota', projectId] as const,
 }
 
@@ -90,6 +92,14 @@ export function useProjectDocumentsQuota(projectId: string) {
   })
 }
 
+export function useMyAttachments(workspaceId: string, filter: DocumentFilter) {
+  return useQuery({
+    queryKey: attachmentKeys.mine(workspaceId, filter),
+    queryFn: () => getMyAttachments(workspaceId, filter),
+    enabled: workspaceId !== '',
+  })
+}
+
 function useInvalidateWorkspaceDocs() {
   const queryClient = useQueryClient()
   return () => {
@@ -119,6 +129,15 @@ export function useBulkDeleteProjectDocuments(projectId: string) {
   const invalidate = useInvalidateWorkspaceDocs()
   return useMutation({
     mutationFn: (ids: string[]) => bulkDeleteProjectDocuments(projectId, ids),
+    onSuccess: invalidate,
+  })
+}
+
+// Hapus lampiran milik sendiri (Editor): selalu mode retensi, lewat endpoint per-lampiran.
+export function useDeleteOwnAttachment() {
+  const invalidate = useInvalidateWorkspaceDocs()
+  return useMutation({
+    mutationFn: (id: string) => deleteAttachment(id),
     onSuccess: invalidate,
   })
 }
