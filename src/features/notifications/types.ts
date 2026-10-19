@@ -1,5 +1,6 @@
-// Notification Bell (US-034, S6E-13, IG-144). Kontrak usulan untuk backend S6E-14:
+// Notification Bell (US-034, S6E-13/14, IG-144/145). Kontrak: API_CONTRACT §19.7 --
 // GET /me/notifications?workspace_id=&page=&per_page= -> NotificationPage (terbaru dulu, >30 hari tidak dikirim).
+// `title` kalimat mandiri dari server ("Anda di-mention di QST-002"); pengirim di `actor_name`.
 export interface AppNotification {
   id: string
   // task_mention | task_mention_digest | task_comment | task_assigned | pic_assigned | time_entry_* | task_regressed | ...
