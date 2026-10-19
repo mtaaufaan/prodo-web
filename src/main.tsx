@@ -13,11 +13,11 @@ import './i18n'
 async function enableMocking() {
   if (import.meta.env.MODE !== 'mock') return
   const { worker } = await import('./mocks/browser')
-  // Sesi mock = akun Editor (S6E-01) supaya AuthGuard lolos tanpa login.
+  // Sesi mock = akun Editor (S6E-01) atau Approver (VITE_MOCK_ROLE=approver, S7A-01) supaya AuthGuard lolos tanpa login.
   const { useAuthStore } = await import('./store/useAuthStore')
-  const { MOCK_EDITOR } = await import('./mocks/editorFixtures')
+  const { MOCK_USER } = await import('./mocks/editorFixtures')
   if (!useAuthStore.getState().accessToken) {
-    useAuthStore.getState().setSession({ accessToken: 'mock-access-token', refreshToken: 'mock-refresh-token', user: MOCK_EDITOR })
+    useAuthStore.getState().setSession({ accessToken: 'mock-access-token', refreshToken: 'mock-refresh-token', user: MOCK_USER })
   }
   return worker.start({ onUnhandledRequest: 'bypass' })
 }

@@ -1,16 +1,16 @@
 import type { NotificationPreference, Profile } from '@/features/account-settings/types'
 import type { SessionSummary } from '@/features/sessions/types'
 
-import { MOCK_EDITOR } from './editorFixtures'
+import { MOCK_USER } from './editorFixtures'
 
 // Data tiruan Pengaturan Akun Editor (S6E-13, IG-144) -- BERSTATE di memori supaya 5 tab bisa dicoba tanpa
 // backend: profil, preferensi notifikasi, sesi, password, MFA. Hanya dipakai `npm run dev:mock`.
 const HOUR = 3_600_000
 
 let profile: Profile = {
-  id: MOCK_EDITOR.id,
-  email: MOCK_EDITOR.email,
-  display_name: MOCK_EDITOR.display_name,
+  id: MOCK_USER.id,
+  email: MOCK_USER.email,
+  display_name: MOCK_USER.display_name,
   title: 'Product Delivery',
   phone: '+62 812 4400 118',
   avatar_url: null,

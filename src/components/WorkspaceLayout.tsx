@@ -12,8 +12,10 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/useAuthStore'
 
 import {
+  approverNavItems,
   awNavItems,
   editorNavItems,
+  isApproverPath,
   isEditorPath,
   pmNavItems,
   type WorkspaceNavItemDef,
@@ -149,15 +151,18 @@ export default function WorkspaceLayout() {
   // isEditor (S6E-01, Sprint 6): Editor memakai kerangka project-scoped yang
   // sama dengan PM (switcher project, URL = sumber kebenaran) tapi nav sendiri.
   const isEditor = myWorkspaceRole === 'editor'
-  const hasProjectFrame = isPM || isEditor
+  // isApprover (S7A-01, Sprint 7): kerangka project-scoped yang sama dengan Editor, nav sendiri, baca-saja.
+  const isApprover = myWorkspaceRole === 'approver'
+  const followsProjects = isEditor || isApprover
+  const hasProjectFrame = isPM || followsProjects
   const allProjects = useProjects(isPM ? workspaceId : '')
-  // Editor: hanya project yang diikuti (GET /me/projects, S6E-02) -- anggota project,
+  // Editor/Approver: hanya project yang diikuti (GET /me/projects, S6E-02) -- anggota project,
   // assignee, atau PIC aktif; bukan semua project workspace.
-  const followedProjects = useMyProjects(isEditor ? workspaceId : '')
+  const followedProjects = useMyProjects(followsProjects ? workspaceId : '')
   const myProjects = useMemo<{ id: string; name: string }[]>(() => {
-    if (isEditor) return followedProjects.data ?? []
+    if (followsProjects) return followedProjects.data ?? []
     return (allProjects.data ?? []).filter((p) => isProjectPM(p, currentUserId) && !p.is_archived)
-  }, [allProjects.data, followedProjects.data, currentUserId, isEditor])
+  }, [allProjects.data, followedProjects.data, currentUserId, followsProjects])
   const [activeProjectId, setActiveProjectId] = useState('')
   useEffect(() => {
     if (hasProjectFrame && !activeProjectId && myProjects.length > 0) setActiveProjectId(myProjects[0].id)
@@ -172,6 +177,10 @@ export default function WorkspaceLayout() {
   useEffect(() => {
     if (isEditor && !isEditorPath(location.pathname, workspaceId)) navigate(`/workspaces/${workspaceId}/board`, { replace: true })
   }, [isEditor, location.pathname, workspaceId, navigate])
+  // Approver di rute milik PM/AW -> Antrean Approval.
+  useEffect(() => {
+    if (isApprover && !isApproverPath(location.pathname, workspaceId)) navigate(`/workspaces/${workspaceId}/approvals`, { replace: true })
+  }, [isApprover, location.pathname, workspaceId, navigate])
   // Pilih project di switcher: halaman project yang sedang terbuka ikut pindah
   // ke project baru (sebelumnya hanya link menu yang berubah, isi halaman tetap
   // project lama).
@@ -188,8 +197,9 @@ export default function WorkspaceLayout() {
   const items = useMemo(() => {
     if (isPM) return pmNavItems(workspaceId, activeProjectId || null)
     if (isEditor) return editorNavItems(workspaceId, activeProjectId || null)
+    if (isApprover) return approverNavItems(workspaceId, activeProjectId || null)
     return awNavItems(workspaceId)
-  }, [isPM, isEditor, workspaceId, activeProjectId])
+  }, [isPM, isEditor, isApprover, workspaceId, activeProjectId])
   const accountItem = useMemo(() => accountNavItem(workspaceId), [workspaceId])
   const isAccountPath = location.pathname.startsWith(accountItem.to ?? '')
   const activeNav = useMemo(
@@ -201,9 +211,9 @@ export default function WorkspaceLayout() {
   // 'Semua' dan menentukan tab bawaan di halamannya sendiri.
   const activeNavKey = activeNav?.key
   useEffect(() => {
-    if (isEditor && activeNav?.tabs) setView(activeNav.tabs[0])
+    if (followsProjects && activeNav?.tabs) setView(activeNav.tabs[0])
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditor, activeNavKey])
+  }, [followsProjects, activeNavKey])
 
   // Masuk Pengaturan Akun -> sub-tab mulai dari Profil; keluar -> buang sub-tab
   // akun dari `view` supaya halaman lain tidak menerima nilai asing (mis.
@@ -443,7 +453,7 @@ export default function WorkspaceLayout() {
           )}
 
           <div className="flex flex-1 flex-col gap-0.5 overflow-auto p-2">
-            {isEditor && <div className="px-2.5 pb-1.5 pt-1.5 font-mono text-[9px] tracking-[0.14em] text-text-muted">EDITOR</div>}
+            {followsProjects && <div className="px-2.5 pb-1.5 pt-1.5 font-mono text-[9px] tracking-[0.14em] text-text-muted">{isEditor ? 'EDITOR' : 'APPROVER'}</div>}
             {visibleItems.map((item) => (
               <WorkspaceNavItem key={item.key} icon={item.icon} label={item.label} to={item.to} />
             ))}
