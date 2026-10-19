@@ -3,8 +3,8 @@ import type { Attachment } from '@/features/attachments/types'
 import { mockProjects, mockTasks } from './editorFixtures'
 
 // Data tiruan "Lampiran Saya" Editor (S6E-11, IG-142) -- BERSTATE di memori: file yang saya unggah lintas
-// project (termasuk satu orphan dan satu dalam retensi), rename/hapus-retensi milik sendiri. Dibuang di S6E-12
-// saat endpoint GET /workspaces/:id/my-attachments tersambung ke backend.
+// project (termasuk satu orphan dan satu dalam retensi), rename/hapus-retensi milik sendiri. Hanya dipakai
+// `npm run dev:mock`; aplikasi nyata memakai GET /me/attachments (backend S6E-12).
 const ME = 'mock-editor-id'
 const ME_NAME = 'Eka Editor'
 const DAY = 86_400_000
