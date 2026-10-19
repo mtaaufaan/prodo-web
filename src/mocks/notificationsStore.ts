@@ -1,7 +1,7 @@
 import type { AppNotification, NotificationPage } from '@/features/notifications/types'
 
 // Data tiruan lonceng Editor (S6E-13, IG-144) -- BERSTATE di memori: tandai dibaca / semua dibaca mengubah hitung.
-// Hanya dipakai `npm run dev:mock`; aplikasi nyata memakai GET /me/notifications (backend S6E-14).
+// Hanya dipakai `npm run dev:mock`; aplikasi nyata memakai GET /me/notifications (backend S6E-14, bentuk sama).
 const MIN = 60_000
 const QUEST = 'mock-proj-quest'
 const ago = (min: number) => new Date(Date.now() - min * MIN).toISOString()
@@ -24,19 +24,19 @@ function n(i: number, type: string, actor: string | null, title: string, taskN: 
 }
 
 const items: AppNotification[] = [
-  n(1, 'task_mention', 'Budi', 'menyebut Anda di komentar', 2, 5, false, '@Eka tolong cek data dari tim API sebelum review.'),
-  n(2, 'task_comment', 'Citra', 'berkomentar pada task Anda', 3, 42, false, 'Bug sinkronisasi masih muncul di build terbaru.'),
-  n(3, 'task_assigned', 'Pandu PM', 'menugaskan task kepada Anda', 6, 130, false),
-  n(4, 'time_entry_approved', 'Pandu PM', 'menyetujui catatan waktu Anda (2,5 jam)', 2, 26 * 60, false),
-  n(5, 'task_mention', 'Citra', 'menyebut Anda di komentar', 8, 3 * 24 * 60, true, '@Eka hasil uji beban sudah siap dicek.'),
-  n(6, 'task_comment', 'Budi', 'berkomentar pada task Anda', 9, 4 * 24 * 60, true),
-  n(7, 'pic_assigned', 'Pandu PM', 'menunjuk Anda sebagai PIC fase IN PROGRESS', 2, 5 * 24 * 60, true),
-  n(8, 'task_regressed', null, 'task Anda dikembalikan ke IN PROGRESS', 8, 6 * 24 * 60, true),
-  n(9, 'time_entry_rejected', 'Pandu PM', 'menolak catatan waktu Anda', 7, 7 * 24 * 60, true, 'Jam melebihi estimasi, mohon rinci.'),
-  n(10, 'task_assigned', 'Pandu PM', 'menugaskan task kepada Anda', 10, 9 * 24 * 60, true),
-  n(11, 'task_comment', 'Citra', 'berkomentar pada task Anda', 11, 12 * 24 * 60, true),
-  n(12, 'task_mention', 'Budi', 'menyebut Anda di komentar', 12, 15 * 24 * 60, true),
-  n(13, 'task_assigned', 'Pandu PM', 'menugaskan task kepada Anda', 1, 20 * 24 * 60, true),
+  n(1, 'task_mention', 'Budi', 'Anda di-mention di QST-002', 2, 5, false, 'Budi menyebut Anda di task "Implementasi daftar quest".'),
+  n(2, 'task_comment', 'Citra', 'Komentar baru di QST-003', 3, 42, false, 'Ada komentar baru pada task "Perbaiki bug sinkronisasi".'),
+  n(3, 'task_assigned', 'Pandu PM', 'Task ditugaskan kepada Anda -- QST-006', 6, 130, false, 'Anda ditugaskan pada task "Susun dokumentasi API".'),
+  n(4, 'timesheet_approved', 'Pandu PM', 'Entri waktu disetujui -- QST-002', 2, 26 * 60, false, 'Entri waktu Anda pada task "Implementasi daftar quest" disetujui.'),
+  n(5, 'task_mention', 'Citra', 'Anda di-mention di QST-008', 8, 3 * 24 * 60, true, 'Citra menyebut Anda di task "Uji beban server".'),
+  n(6, 'task_comment', 'Budi', 'Komentar baru di QST-009', 9, 4 * 24 * 60, true),
+  n(7, 'task_assigned', 'Pandu PM', 'Task ditugaskan kepada Anda -- QST-002', 2, 5 * 24 * 60, true),
+  n(8, 'task_regressed', null, 'Task Mengalami Regresi', 8, 6 * 24 * 60, true, 'Task "Uji beban server" dikembalikan ke IN PROGRESS.'),
+  n(9, 'timesheet_rejected', 'Pandu PM', 'Entri waktu ditolak -- QST-007', 7, 7 * 24 * 60, true, 'Jam melebihi estimasi, mohon rinci.'),
+  n(10, 'task_assigned', 'Pandu PM', 'Task ditugaskan kepada Anda -- QST-010', 10, 9 * 24 * 60, true),
+  n(11, 'task_comment', 'Citra', 'Komentar baru di QST-011', 11, 12 * 24 * 60, true),
+  n(12, 'task_mention', 'Budi', 'Anda di-mention di QST-012', 12, 15 * 24 * 60, true),
+  n(13, 'task_assigned', 'Pandu PM', 'Task ditugaskan kepada Anda -- QST-001', 1, 20 * 24 * 60, true),
 ]
 
 export function listNotifications(page: number, perPage: number): NotificationPage {

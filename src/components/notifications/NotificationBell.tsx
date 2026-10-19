@@ -27,12 +27,10 @@ function Item({ n, onOpen }: { n: AppNotification; onOpen: (n: AppNotification) 
         {meta.icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[12px] leading-snug text-text-bone">
-          {n.actor_name && <b className="font-bold">{n.actor_name} </b>}
-          {n.title}
-        </span>
+        <span className="block text-[12px] font-bold leading-snug text-text-bone">{n.title}</span>
         {n.body && <span className="mt-0.5 block truncate text-[11px] text-text-muted">{n.body}</span>}
         <span className="mt-1 flex items-center gap-2 font-mono text-[8.5px] text-text-dim">
+          {n.actor_name && <span className="flex-shrink-0 text-text-muted">{n.actor_name}</span>}
           {where && <span className="truncate text-signal">{where}</span>}
           <span className="ml-auto flex-shrink-0">{relativeTime(n.created_at)}</span>
         </span>

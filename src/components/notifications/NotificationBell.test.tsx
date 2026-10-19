@@ -35,7 +35,7 @@ vi.mock('@/features/notifications/hooks', () => ({
 vi.mock('@/store/useUIStore', () => ({ useUIStore: (sel: (s: { showToast: typeof m.showToast }) => unknown) => sel({ showToast: m.showToast }) }))
 
 const note = (id: string, over: Partial<AppNotification> = {}): AppNotification => ({
-  id, type: 'task_mention', actor_name: 'Budi', title: 'menyebut Anda di komentar', body: 'cek data', entity_type: 'task', entity_id: `task-${id}`,
+  id, type: 'task_mention', actor_name: 'Budi', title: 'Anda di-mention di QST-002', body: 'cek data', entity_type: 'task', entity_id: `task-${id}`,
   project_id: 'proj-1', task_code: 'QST-002', project_name: 'QuestLog', is_read: false, created_at: new Date().toISOString(), ...over,
 })
 
@@ -88,7 +88,7 @@ describe('NotificationBell', () => {
     m.markRead.mockImplementation((_id: string, opts: { onSuccess: () => void }) => opts.onSuccess())
     show()
     fireEvent.click(screen.getByRole('button', { name: /Notifikasi/ }))
-    fireEvent.click(screen.getAllByText('menyebut Anda di komentar')[0])
+    fireEvent.click(screen.getAllByText('Anda di-mention di QST-002')[0])
     expect(m.markRead).toHaveBeenCalledTimes(1)
     expect(m.markRead.mock.calls[0][0]).toBe('1')
     expect(screen.getByTestId('where')).toHaveTextContent('/workspaces/ws-1/projects/proj-1/board?task=task-1')
@@ -108,7 +108,7 @@ describe('NotificationBell', () => {
     m.markRead.mockImplementation((_id: string, opts: { onError: () => void }) => opts.onError())
     show()
     fireEvent.click(screen.getByRole('button', { name: /Notifikasi/ }))
-    fireEvent.click(screen.getAllByText('menyebut Anda di komentar')[0])
+    fireEvent.click(screen.getAllByText('Anda di-mention di QST-002')[0])
     expect(m.showToast).toHaveBeenCalledWith('Gagal menandai notifikasi dibaca.')
     expect(screen.getByTestId('where')).toHaveTextContent('/workspaces/ws-1/board')
   })
