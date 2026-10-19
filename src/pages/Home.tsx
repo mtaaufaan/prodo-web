@@ -15,6 +15,7 @@ import { useAuthStore } from '@/store/useAuthStore'
 // bukan adminOnly) memang menyertakannya.
 function landingViewFor(role: string) {
   if (role === 'editor') return 'board' // S6E-01: Board project pertama (EditorBoardRedirect)
+  if (role === 'approver') return 'approvals' // S7A-01: Antrean Approval project pertama
   return role === 'admin_workspace' || role === 'project_manager' ? 'performance' : 'projects'
 }
 
