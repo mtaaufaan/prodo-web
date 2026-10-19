@@ -1,6 +1,6 @@
 // Timesheet Editor (S6E-09, Sprint 6 "Editor Console"; desain "TM Timesheet.dc.html" + "TM Catat Waktu.dc.html").
-// Kontrak usulan untuk backend S6E-10 (IG-140): GET /me/timesheets?workspace_id=&view=week|history&page=&per_page=
-// dan POST /tasks/:id/time-log {hours, note}. Sampai S6E-10 selesai halaman memakai mock `dev:mock`.
+// Kontrak (API_CONTRACT §19.5, backend S6E-10): GET /me/timesheets?workspace_id=&view=week|history&page=&per_page=
+// dan POST /tasks/:id/time-log {hours, note}. Mock `dev:mock` hanya untuk pengembangan tanpa backend.
 
 export type TimesheetView = 'week' | 'history'
 
