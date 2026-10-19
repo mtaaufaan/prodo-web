@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 
+import NotificationBell from '@/components/notifications/NotificationBell'
 import { useMyContext, useMyProjects, useSwitchContext } from '@/features/context/hooks'
 import { useProjects } from '@/features/projects/hooks'
 import { isProjectPM } from '@/features/projects/types'
@@ -528,14 +529,18 @@ export default function WorkspaceLayout() {
                 className="hidden max-w-[220px] flex-1 border border-line bg-transparent px-3 py-1.5 font-mono text-[11px] text-text-bone outline-none placeholder:text-text-dim focus-visible:border-signal md:block"
               />
             )}
-            <button
-              type="button"
-              disabled
-              title="Notifikasi belum tersedia"
-              className="flex h-[34px] w-[34px] flex-shrink-0 cursor-not-allowed items-center justify-center border border-line text-[14px] text-text-dim"
-            >
-              🔔
-            </button>
+            {isEditor ? (
+              <NotificationBell workspaceId={workspaceId} />
+            ) : (
+              <button
+                type="button"
+                disabled
+                title="Notifikasi belum tersedia"
+                className="flex h-[34px] w-[34px] flex-shrink-0 cursor-not-allowed items-center justify-center border border-line text-[14px] text-text-dim"
+              >
+                🔔
+              </button>
+            )}
             {activeNav?.cta && ctaHandler && (
               <button
                 type="button"
