@@ -1,12 +1,13 @@
 import type { MyTask, MyTaskNextStatus, MyTasksPage, MyTaskView, PostCommentResult } from '@/features/my-tasks/types'
 import type { TaskPriority } from '@/features/tasks/types'
 
-import { mockStatuses, mockTasks } from './editorFixtures'
+import { MOCK_USER, mockStatuses, mockTasks } from './editorFixtures'
 
 // Data tiruan Task Saya (S6E-03) -- BERSTATE di memori: pindah status dan
 // komentar mengubah baris, supaya halaman bisa dicoba tanpa backend. Dibuang
 // di S6E-04 saat endpoint /me/tasks dan komentar nyata tersambung.
 const ME = 'Eka Editor'
+const IS_APPROVER = MOCK_USER.id === 'mock-approver-id'
 
 // Urutan status project mock; DONE terakhir (tanpa status berikutnya).
 function nextOf(statusId: string): MyTaskNextStatus | null {
@@ -76,9 +77,17 @@ const PRODO: Seed[] = [
   { code: 'PRD-002', title: 'Tinjau kontrak vendor', status: 'UNDER REVIEW', priority: 'high', sprint: 'Sprint 1', due: '2026-10-18', pics: ['Dewi'], comments: 2, sub: [0, 0], hours: [2, 3], mine: false, followed: true },
 ]
 
+// Sesi mock Approver (VITE_MOCK_ROLE=approver): task di fase review menjadi tugas Approver (PIC fase), sisanya hanya
+// diikuti -- meniru assignee + PIC aktif vs follower di backend.
+const forApprover = (s: Seed): Seed =>
+  s.status === 'UNDER REVIEW'
+    ? { ...s, pics: [MOCK_USER.display_name], mine: true, followed: true }
+    : { ...s, pics: s.pics.map((p) => (p === ME ? 'Budi' : p)), mine: false, followed: true }
+const seeds = (list: Seed[]) => (IS_APPROVER ? list.map(forApprover) : list)
+
 const store = new Map<string, MyTask[]>([
-  ['mock-proj-quest', QUEST.map((s, i) => row('mock-proj-quest', i + 1, s))],
-  ['mock-proj-prodo', PRODO.map((s, i) => row('mock-proj-prodo', i + 1, s))],
+  ['mock-proj-quest', seeds(QUEST).map((s, i) => row('mock-proj-quest', i + 1, s))],
+  ['mock-proj-prodo', seeds(PRODO).map((s, i) => row('mock-proj-prodo', i + 1, s))],
 ])
 
 // Bentuk sama dengan GET /me/tasks (service.MyTaskService): satu halaman + total + kartu dari task "saya".
