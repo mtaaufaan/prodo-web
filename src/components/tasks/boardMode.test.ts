@@ -14,6 +14,7 @@ const caps = (over: Partial<Capabilities>): Capabilities => ({
   manage_project: false,
   manage_rules: false,
   manage_members: false,
+  approve_task: false,
   ...over,
 })
 
@@ -41,6 +42,9 @@ describe('boardModeFor', () => {
   it('Approver/Viewer/Division Viewer = baca saja', () => {
     expect(boardModeFor(caps({ comment: true }))).toEqual({ limitToMine: false, readOnly: true, bulk: false })
     expect(boardModeFor(caps({}))).toEqual({ limitToMine: false, readOnly: true, bulk: false })
+  })
+  it('Approver (comment + attach + approve_task, S7A-02) tetap baca saja di Board', () => {
+    expect(boardModeFor(caps({ comment: true, attach: true, approve_task: true }))).toEqual({ limitToMine: false, readOnly: true, bulk: false })
   })
 })
 

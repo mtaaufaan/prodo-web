@@ -28,6 +28,7 @@ const caps = (over: Partial<Capabilities>): Capabilities => ({
   manage_project: false,
   manage_rules: false,
   manage_members: false,
+  approve_task: false,
   ...over,
 })
 const show = (capabilities?: Capabilities) => render(<AddTaskModal open onClose={vi.fn()} projectId="p" projectName="QuestLog" capabilities={capabilities} />)

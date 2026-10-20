@@ -10,7 +10,7 @@ import { editorNavItems, isEditorPath } from './workspaceNav'
 // S6E-15 (IG-146): kolom Editor `rbac_matrix.xlsx` v4.1 dari sisi UI. Penegak sebenarnya tetap backend
 // (service/editor_rbac_matrix_test.go, cmd/api/routes_guard_test.go); di sini dikunci apa yang tampil dan bisa diklik.
 const WS = 'w1'
-const EDITOR: Capabilities = { create_task: true, edit_own_task: true, comment: true, log_time: true, attach: true, manage_project: false, manage_rules: false, manage_members: false }
+const EDITOR: Capabilities = { create_task: true, edit_own_task: true, comment: true, log_time: true, attach: true, manage_project: false, manage_rules: false, manage_members: false, approve_task: false }
 
 const task = (over: Partial<Task>): Task =>
   ({ id: 't1', status_name: 'IN PROGRESS', assignees: [], active_pics: [], ...over }) as unknown as Task

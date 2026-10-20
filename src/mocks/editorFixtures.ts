@@ -19,10 +19,10 @@ const PROJ_A = 'mock-proj-quest'
 const PROJ_B = 'mock-proj-prodo'
 
 // Bentuk sama dengan service.CapabilitiesForRole(role) di backend.
-const NO_CAPABILITIES: Capabilities = { create_task: false, edit_own_task: false, comment: false, log_time: false, attach: false, manage_project: false, manage_rules: false, manage_members: false }
+const NO_CAPABILITIES: Capabilities = { create_task: false, edit_own_task: false, comment: false, log_time: false, attach: false, manage_project: false, manage_rules: false, manage_members: false, approve_task: false }
 const roleCapabilities: Capabilities =
   MOCK_ROLE === 'approver'
-    ? { ...NO_CAPABILITIES, comment: true }
+    ? { ...NO_CAPABILITIES, comment: true, attach: true, approve_task: true }
     : { ...NO_CAPABILITIES, create_task: true, edit_own_task: true, comment: true, log_time: true, attach: true }
 
 export const mockContext: UserContext = {
