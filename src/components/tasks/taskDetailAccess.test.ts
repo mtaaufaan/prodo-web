@@ -55,8 +55,27 @@ describe('taskDetailAccess', () => {
     expect(taskDetailAccess(caps({ edit_own_task: true }), mine, 'u1')).toMatchObject({ canAttach: false, canComment: false })
   })
 
-  it('role baca-saja (Approver/Division Viewer): read-only, komentar sesuai capabilities', () => {
+  it('Division Viewer (hanya komentar): read-only, tanpa lampiran, alasan generik', () => {
     const a = taskDetailAccess(caps({ comment: true }), mine, 'u1')
-    expect(a).toMatchObject({ readOnly: true, canMove: false, canAttach: false, canComment: true })
+    expect(a).toMatchObject({ readOnly: true, canMove: false, canAttach: false, canComment: true, readOnlyReason: 'Role Anda hanya dapat membaca task ini.' })
+  })
+
+  // S7A-05 (IG-151): Approver baca-saja tetapi boleh melampirkan dan berkomentar (desain dCanAttach, PRD US-064).
+  const approver = caps({ comment: true, attach: true, approve_task: true })
+
+  it('Approver: read-only, tidak bisa pindah status/hapus/ubah, tetap boleh melampirkan dan berkomentar', () => {
+    for (const t of [mine, task({ assignees: [{ user_id: 'lain' } as Task['assignees'][number]] })]) {
+      const a = taskDetailAccess(approver, t, 'u1')
+      expect(a).toMatchObject({
+        readOnly: true, canMove: false, canAttach: true, canComment: true,
+        canDelete: false, canRemovePic: false, canApproveTime: false, canSetStoryPoints: false,
+      })
+      expect(a.readOnlyReason).toContain('Approver')
+      expect(a.readOnlyReason).toContain('melampirkan')
+    }
+  })
+
+  it('Viewer tanpa kemampuan apa pun: murni baca', () => {
+    expect(taskDetailAccess(caps({}), mine, 'u1')).toMatchObject({ readOnly: true, canAttach: false, canComment: false, canMove: false })
   })
 })

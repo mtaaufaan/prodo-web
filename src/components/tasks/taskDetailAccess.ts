@@ -57,16 +57,20 @@ export function taskDetailAccess(caps: Capabilities | undefined, task: Task | un
       readOnlyReason: 'Task ini bukan milik Anda -- hanya assignee atau PIC aktif yang dapat mengubahnya. Anda tetap dapat membaca dan berkomentar.',
     }
   }
+  // Role baca-saja. Approver (caps.attach) tetap boleh melampirkan dan berkomentar (desain `dCanAttach`, PRD US-064);
+  // ubah status lewat keputusan approval menyusul di S7A-09. Viewer/Division Viewer: hanya membaca.
   return {
     ...FULL_TASK_ACCESS,
     readOnly: true,
     canMove: false,
-    canAttach: false,
+    canAttach: caps.attach,
     canComment: caps.comment,
     canDelete: false,
     canRemovePic: false,
     canApproveTime: false,
     canSetStoryPoints: false,
-    readOnlyReason: 'Role Anda hanya dapat membaca task ini.',
+    readOnlyReason: caps.attach
+      ? 'Sebagai Approver Anda dapat melampirkan berkas dan berkomentar — namun tidak mengubah judul, deskripsi, atau assignee.'
+      : 'Role Anda hanya dapat membaca task ini.',
   }
 }
