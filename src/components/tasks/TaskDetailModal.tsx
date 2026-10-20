@@ -79,6 +79,12 @@ function describeTaskAction(action: string, before: Record<string, unknown> | nu
       return `Field task diperbarui: "${(after as { title?: string } | null)?.title ?? ''}"`
     case 'task.status_changed':
       return `Status diubah dari ${(before as { status?: string } | null)?.status ?? '—'} ke ${(after as { status?: string } | null)?.status ?? '—'}`
+    case 'task.approved': {
+      const note = (after as { note?: string } | null)?.note
+      return `Disetujui dan dipindahkan ke ${(after as { status?: string } | null)?.status ?? '—'}${note ? ` (catatan: ${note})` : ''}`
+    }
+    case 'task.rejected':
+      return `Ditolak dan dikembalikan ke ${(after as { status?: string } | null)?.status ?? '—'}. Alasan: ${(after as { note?: string } | null)?.note ?? '—'}`
     case 'task.completeness_changed':
       return `Kelengkapan diubah jadi "${(after as { completeness?: string } | null)?.completeness ?? '—'}"`
     case 'task.deleted':

@@ -103,7 +103,7 @@ export default function ApprovalQueuePage() {
           {approvals.isLoading && <div className="p-[30px_14px] text-center font-mono text-[10.5px] text-text-dim">Memuat...</div>}
           {approvals.isError && <div className="p-[30px_14px] text-center font-mono text-[10.5px] text-red">Gagal memuat antrean approval.</div>}
           {rows.map((item) => (
-            <ApprovalRow key={item.task_id} item={item} canDecide={canDecide} onDecide={(it, mode) => setPending({ item: it, mode })} />
+            <ApprovalRow key={item.approval_id ?? item.task_id} item={item} canDecide={canDecide} onDecide={(it, mode) => setPending({ item: it, mode })} />
           ))}
           {approvals.isSuccess && total === 0 && (
             <div className="p-[30px_14px] text-center font-mono text-[10.5px] leading-[1.8] text-text-dim">

@@ -48,6 +48,6 @@ describe('approvalsStore (mock Antrean Approval)', () => {
     expect(pending.stats.pending).toBe(before.stats.pending - 2)
     expect(decided.total).toBe(2)
     expect(decided.items.map((t) => t.decision).sort()).toEqual(['approved', 'rejected'])
-    expect(decide(a.task_id, 'approve', '')).toMatchObject({ ok: false, code: 'TASK_NOT_UNDER_REVIEW' })
+    expect(decide(a.task_id, 'approve', '')).toMatchObject({ ok: false, code: 'NOT_IN_REVIEW' })
   })
 })

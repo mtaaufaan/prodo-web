@@ -8,6 +8,9 @@ export type ApprovalView = 'pending' | 'decided'
 export type ApprovalDecision = 'approve' | 'reject'
 
 export interface ApprovalItem {
+  // approval_id -- id keputusan (null pada antrean pending); riwayat memuat SATU baris per keputusan, jadi task yang
+  // ditolak lalu disetujui kemudian muncul dua kali -- kunci unik baris = approval_id ?? task_id.
+  approval_id: string | null
   task_id: string
   task_code: string
   title: string

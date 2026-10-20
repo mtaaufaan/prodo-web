@@ -24,7 +24,7 @@ export function decisionNotice(decision: ApprovalDecision, code: string): string
 // describeDecisionError -- pesan galat server untuk ditampilkan di dalam modal.
 export function describeDecisionError(err: unknown): string {
   if (err instanceof ApiError) {
-    if (err.code === 'TASK_NOT_UNDER_REVIEW') return 'Task ini sudah tidak berstatus UNDER REVIEW — mungkin sudah diputuskan. Muat ulang antrean.'
+    if (err.code === 'NOT_IN_REVIEW') return 'Task ini sudah tidak berstatus UNDER REVIEW — mungkin sudah diputuskan. Muat ulang antrean.'
     if (err.code === 'FORBIDDEN') return 'Role Anda tidak dapat memutuskan approval pada task ini.'
     if (err.code === 'NOT_FOUND') return 'Task tidak ditemukan.'
     if (err.code === 'VALIDATION_ERROR' && err.message) return err.message

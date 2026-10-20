@@ -34,7 +34,7 @@ describe('decisionNotice', () => {
 
 describe('describeDecisionError', () => {
   it('memetakan kode server ke pesan', () => {
-    expect(describeDecisionError(new ApiError('TASK_NOT_UNDER_REVIEW', 'x'))).toMatch(/sudah tidak berstatus UNDER REVIEW/)
+    expect(describeDecisionError(new ApiError('NOT_IN_REVIEW', 'x'))).toMatch(/sudah tidak berstatus UNDER REVIEW/)
     expect(describeDecisionError(new ApiError('FORBIDDEN', 'x'))).toMatch(/Role Anda/)
     expect(describeDecisionError(new ApiError('NOT_FOUND', 'x'))).toMatch(/tidak ditemukan/)
     expect(describeDecisionError(new ApiError('VALIDATION_ERROR', 'Alasan terlalu pendek'))).toBe('Alasan terlalu pendek')

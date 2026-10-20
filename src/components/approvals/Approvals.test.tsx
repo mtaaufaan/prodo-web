@@ -7,7 +7,7 @@ import ApprovalDecisionModal from './ApprovalDecisionModal'
 import ApprovalRow from './ApprovalRow'
 
 const item = (over: Partial<ApprovalItem> = {}): ApprovalItem => ({
-  task_id: 't1', task_code: 'QST-101', title: 'Rekonsiliasi vendor Q3', project_id: 'p1', status_name: 'UNDER REVIEW', status_color: 'violet',
+  approval_id: null, task_id: 't1', task_code: 'QST-101', title: 'Rekonsiliasi vendor Q3', project_id: 'p1', status_name: 'UNDER REVIEW', status_color: 'violet',
   priority: 'high', sprint_name: 'Sprint 1', due_date: '2026-10-12', pic_names: ['Sinta A.'], comment_count: 3, sub_total: 4, sub_done: 4,
   logged_hours: 9, estimate_hours: 8, decision: null, decided_at: null, decision_note: null, ...over,
 })

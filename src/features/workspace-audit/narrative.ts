@@ -151,6 +151,12 @@ export function formatWorkspaceAuditNarrative(entry: WorkspaceAuditLogEntry): Au
       return { text: taskUpdatedText(entry), scope: 'TASK' }
     case 'task.status_changed':
       return { text: `Status task ${taskLabel(entry)} diubah dari ${stateStr(entry.state_before, 'status', '?')} menjadi ${stateStr(entry.state_after, 'status', '?')}`, scope: 'TASK' }
+    case 'task.approved': {
+      const note = stateStr(entry.state_after, 'note', '')
+      return { text: `Task ${taskLabel(entry)} disetujui dan dipindahkan ke ${stateStr(entry.state_after, 'status', '?')}${note ? ` (catatan: ${note})` : ''}`, scope: 'TASK' }
+    }
+    case 'task.rejected':
+      return { text: `Task ${taskLabel(entry)} ditolak dan dikembalikan ke ${stateStr(entry.state_after, 'status', '?')}. Alasan: ${stateStr(entry.state_after, 'note', '-')}`, scope: 'TASK' }
     case 'task.completeness_changed':
       return {
         text: `Kelengkapan task ${taskLabel(entry)} diubah dari ${completenessLabel(stateStr(entry.state_before, 'completeness', ''))} menjadi ${completenessLabel(stateStr(entry.state_after, 'completeness', ''))}`,
