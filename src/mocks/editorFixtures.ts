@@ -7,29 +7,29 @@ import type { Workspace } from '@/features/workspaces/types'
 // Data tiruan Editor untuk `npm run dev:mock` (S6E-01) -- kerangka Master UI
 // Editor bisa dilihat tanpa backend/akun Editor. Dibuang bertahap: tiap menu
 // Editor melepas mock-nya di langkah backend-nya (S6E-02, 06, 09, 12, 14).
-export const MOCK_EDITOR = { id: 'mock-editor-id', email: 'editor@prodo.local', display_name: 'Eka Editor', platform_role: 'none', avatar_url: null }
+// Role sesi mock dipilih lewat variabel lingkungan (bukan kontrol di UI): `VITE_MOCK_ROLE=approver npm run dev:mock`; bawaan editor.
+const MOCK_ROLE: 'editor' | 'approver' = import.meta.env.VITE_MOCK_ROLE === 'approver' ? 'approver' : 'editor'
+export const MOCK_USER =
+  MOCK_ROLE === 'approver'
+    ? { id: 'mock-approver-id', email: 'approver@prodo.local', display_name: 'Adit Approver', platform_role: 'none', avatar_url: null }
+    : { id: 'mock-editor-id', email: 'editor@prodo.local', display_name: 'Eka Editor', platform_role: 'none', avatar_url: null }
 
 const WS = 'mock-ws-1'
 const PROJ_A = 'mock-proj-quest'
 const PROJ_B = 'mock-proj-prodo'
 
-// Bentuk sama dengan service.CapabilitiesForRole('editor') di backend.
-const editorCapabilities: Capabilities = {
-  create_task: true,
-  edit_own_task: true,
-  comment: true,
-  log_time: true,
-  attach: true,
-  manage_project: false,
-  manage_rules: false,
-  manage_members: false,
-}
+// Bentuk sama dengan service.CapabilitiesForRole(role) di backend.
+const NO_CAPABILITIES: Capabilities = { create_task: false, edit_own_task: false, comment: false, log_time: false, attach: false, manage_project: false, manage_rules: false, manage_members: false, approve_task: false }
+const roleCapabilities: Capabilities =
+  MOCK_ROLE === 'approver'
+    ? { ...NO_CAPABILITIES, comment: true, attach: true, approve_task: true }
+    : { ...NO_CAPABILITIES, create_task: true, edit_own_task: true, comment: true, log_time: true, attach: true }
 
 export const mockContext: UserContext = {
   platform_role: 'none',
   ga_console_enabled: false,
   active_context: 'workspace',
-  workspace_memberships: [{ workspace_id: WS, name: 'IT - Eldwin', org_name: 'RDS', role: 'editor', capabilities: editorCapabilities, joined_at: '2026-09-01' }],
+  workspace_memberships: [{ workspace_id: WS, name: 'IT - Eldwin', org_name: 'RDS', role: MOCK_ROLE, capabilities: roleCapabilities, joined_at: '2026-09-01' }],
   project_scoped_projects: [],
 }
 
@@ -109,7 +109,7 @@ interface BoardSeed {
 }
 
 const OWNERS = {
-  me: { user_id: MOCK_EDITOR.id, display_name: MOCK_EDITOR.display_name, email: MOCK_EDITOR.email },
+  me: { user_id: MOCK_USER.id, display_name: MOCK_USER.display_name, email: MOCK_USER.email },
   budi: { user_id: 'mock-budi', display_name: 'Budi', email: 'budi@prodo.local' },
   citra: { user_id: 'mock-citra', display_name: 'Citra', email: 'citra@prodo.local' },
 }

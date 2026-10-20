@@ -238,3 +238,39 @@ export function isEditorPath(pathname: string, workspaceId: string): boolean {
   }
   return new RegExp(`^${base}/projects/[^/]+/(board|my-tasks)/?$`).test(pathname)
 }
+
+// approverNavItems -- master frame Approver (S7A-01, Sprint 7 "Approver Console"): 3 item PERSIS
+// NAV.Approver di "Master UI User.dc.html" (dibaca langsung via DesignSync), tanpa CTA. Ketiganya
+// project-scoped (mengikuti switcher project); tanpa project aktif -> Antrean Approval dan Board
+// jatuh ke redirect workspace, Task Saya SEGERA. Panel "Role Aktif", catatan role dan chip izin
+// prototipe sengaja TIDAK dibangun (UI demo, preseden frame Editor).
+export function approverNavItems(workspaceId: string, activeProjectId: string | null): WorkspaceNavItemDef[] {
+  const p = activeProjectId
+  return [
+    {
+      key: 'approvals',
+      icon: '◈',
+      label: 'Antrean Approval',
+      to: p ? `/workspaces/${workspaceId}/projects/${p}/approvals` : `/workspaces/${workspaceId}/approvals`,
+      tabs: ['Menunggu Saya', 'Sudah Diputuskan'],
+      cta: null,
+    },
+    {
+      key: 'board',
+      icon: '▦',
+      label: 'Board',
+      to: p ? `/workspaces/${workspaceId}/projects/${p}/board` : `/workspaces/${workspaceId}/board`,
+      tabs: ['Kanban', 'Daftar'],
+      cta: null,
+    },
+    { key: 'mytask', icon: '◉', label: 'Task Saya', to: p ? `/workspaces/${workspaceId}/projects/${p}/my-tasks` : null, tabs: ['Ditugaskan', 'Diikuti'], cta: null },
+  ]
+}
+
+// isApproverPath -- rute yang boleh dibuka Approver; selain itu diarahkan ke Antrean Approval.
+// Backend tetap penjaga akses sebenarnya.
+export function isApproverPath(pathname: string, workspaceId: string): boolean {
+  const base = `/workspaces/${workspaceId}`
+  if (['/approvals', '/board', '/account'].some((x) => pathname === base + x || pathname.startsWith(`${base}${x}/`))) return true
+  return new RegExp(`^${base}/projects/[^/]+/(approvals|board|my-tasks)/?$`).test(pathname)
+}

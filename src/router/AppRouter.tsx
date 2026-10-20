@@ -49,7 +49,8 @@ import PlatformLoginPage from '@/pages/PlatformLoginPage'
 import PlatformSecuritySettingsPage from '@/pages/PlatformSecuritySettingsPage'
 import PlatformTiersPage from '@/pages/PlatformTiersPage'
 import EditorBoardRedirect from '@/pages/EditorBoardRedirect'
-import MyTasksPage from '@/pages/MyTasksPage'
+import ApproverPlaceholderPage from '@/pages/ApproverPlaceholderPage'
+import MyTasksRoute from '@/pages/MyTasksRoute'
 import MyAttachmentsPage from '@/pages/MyAttachmentsPage'
 import MyTimesheetPage from '@/pages/MyTimesheetPage'
 import ProjectBoardPage from '@/pages/ProjectBoardPage'
@@ -111,7 +112,13 @@ export default function AppRouter() {
               Timesheet/Lampiran Saya masih kerangka, diganti halaman sungguhan
               di S6E-03/09/11. */}
           <Route path="/workspaces/:wsId/board" element={<EditorBoardRedirect />} />
-          <Route path="/workspaces/:wsId/projects/:projectId/my-tasks" element={<MyTasksPage />} />{/* Task Saya Editor, S6E-03 */}
+          <Route path="/workspaces/:wsId/projects/:projectId/my-tasks" element={<MyTasksRoute />} />{/* Task Saya Editor, S6E-03; Approver kerangka sampai S7A-07 */}
+          {/* Master frame Approver (S7A-01, Sprint 7): Antrean Approval kerangka sampai S7A-02. */}
+          <Route path="/workspaces/:wsId/approvals" element={<EditorBoardRedirect page="approvals" />} />
+          <Route
+            path="/workspaces/:wsId/projects/:projectId/approvals"
+            element={<ApproverPlaceholderPage title="Antrean Approval" note="Antrean fase task yang menunggu persetujuan Anda menyusul (S7A-02)." />}
+          />
           <Route path="/workspaces/:wsId/my-timesheet" element={<MyTimesheetPage />} />{/* Timesheet Editor, S6E-09 */}
           <Route path="/workspaces/:wsId/my-attachments" element={<MyAttachmentsPage />} />{/* Lampiran Saya Editor, S6E-11 */}
           <Route path="/workspaces/:wsId/projects" element={<ProjectListPage />} />{/* S4-04, US-012 */}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { awNavItems, editorNavItems, isEditorPath, pmNavItems } from './workspaceNav'
+import { approverNavItems, awNavItems, editorNavItems, isApproverPath, isEditorPath, pmNavItems } from './workspaceNav'
 
 const WS = 'w1'
 
@@ -63,4 +63,45 @@ describe('nav PM/AW tetap', () => {
     expect(items.map((i) => i.key)).toEqual(['kinerja', 'project', 'members', 'cooldown', 'status', 'rule', 'webhook', 'docs', 'audit'])
     expect(items.filter((i) => i.adminOnly)).toHaveLength(6)
   })
+})
+
+describe('approverNavItems', () => {
+  it('punya 3 menu sesuai desain Master UI User (tab, tanpa CTA)', () => {
+    expect(approverNavItems(WS, 'p1').map((i) => [i.label, i.tabs, i.cta])).toEqual([
+      ['Antrean Approval', ['Menunggu Saya', 'Sudah Diputuskan'], null],
+      ['Board', ['Kanban', 'Daftar'], null],
+      ['Task Saya', ['Ditugaskan', 'Diikuti'], null],
+    ])
+  })
+
+  it('mengikuti project aktif; tanpa project Antrean/Board ke redirect workspace, Task Saya SEGERA', () => {
+    expect(approverNavItems(WS, 'p1').map((i) => i.to)).toEqual([
+      '/workspaces/w1/projects/p1/approvals',
+      '/workspaces/w1/projects/p1/board',
+      '/workspaces/w1/projects/p1/my-tasks',
+    ])
+    expect(approverNavItems(WS, null).map((i) => i.to)).toEqual(['/workspaces/w1/approvals', '/workspaces/w1/board', null])
+  })
+})
+
+describe('isApproverPath', () => {
+  it.each([
+    '/workspaces/w1/approvals',
+    '/workspaces/w1/board',
+    '/workspaces/w1/account',
+    '/workspaces/w1/projects/p9/approvals',
+    '/workspaces/w1/projects/p9/board',
+    '/workspaces/w1/projects/p9/my-tasks',
+  ])('mengizinkan %s', (path) => expect(isApproverPath(path, WS)).toBe(true))
+
+  it.each([
+    '/workspaces/w1/projects',
+    '/workspaces/w1/my-timesheet',
+    '/workspaces/w1/my-attachments',
+    '/workspaces/w1/projects/p9/sprints',
+    '/workspaces/w1/projects/p9/members',
+    '/workspaces/w1/projects/p9/timesheet',
+    '/workspaces/w1/members',
+    '/workspaces/w1/performance',
+  ])('mengalihkan %s', (path) => expect(isApproverPath(path, WS)).toBe(false))
 })

@@ -52,6 +52,7 @@ const caps = (over: Partial<Capabilities>): Capabilities => ({
   manage_project: false,
   manage_rules: false,
   manage_members: false,
+  approve_task: false,
   ...over,
 })
 const EDITOR = caps({ create_task: true, edit_own_task: true, comment: true, log_time: true, attach: true })
