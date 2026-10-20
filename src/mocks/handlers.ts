@@ -116,7 +116,7 @@ export const handlers = [
     const body = (await request.json()) as { decision: 'approve' | 'reject'; note?: string }
     const out = decide(String(params.id), body.decision, body.note ?? '')
     if (out.ok) return ok(out.result)
-    return fail(out.code, out.message, out.code === 'NOT_FOUND' ? 404 : 422)
+    return fail(out.code, out.message, out.code === 'NOT_FOUND' ? 404 : out.code === 'NOT_IN_REVIEW' ? 409 : 422)
   }),
 
   // Task Saya + komentar (S6E-03) -- berstate di memori (myTasksStore.ts).

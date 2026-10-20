@@ -10,6 +10,8 @@ const MENTION: NotificationMeta = { icon: '@', label: 'MENTION', tone: 'border-s
 const COMMENT: NotificationMeta = { icon: '✎', label: 'KOMENTAR', tone: 'border-violet text-violet' }
 const ASSIGNED: NotificationMeta = { icon: '◉', label: 'DITUGASKAN', tone: 'border-mint text-mint' }
 const TIMESHEET: NotificationMeta = { icon: '◷', label: 'TIMESHEET', tone: 'border-amber text-amber' }
+const APPROVED: NotificationMeta = { icon: '✓', label: 'DISETUJUI', tone: 'border-mint text-mint' }
+const REJECTED: NotificationMeta = { icon: '✕', label: 'DITOLAK', tone: 'border-red text-red' }
 const REGRESSED: NotificationMeta = { icon: '↺', label: 'TASK', tone: 'border-amber text-amber' }
 const OTHER: NotificationMeta = { icon: '•', label: 'INFO', tone: 'border-text-dim text-text-muted' }
 
@@ -20,6 +22,8 @@ export function notificationMeta(type: string): NotificationMeta {
   if (type === 'task_assigned' || type === 'pic_assigned' || type === 'rule_action_notify') return ASSIGNED
   if (type.startsWith('time_entry') || type.startsWith('timesheet')) return TIMESHEET
   if (type === 'task_regressed') return REGRESSED
+  if (type === 'task_approved') return APPROVED
+  if (type === 'task_rejected') return REJECTED
   return OTHER
 }
 

@@ -22,6 +22,7 @@ interface Seed {
 
 function row(projectId: string, prefix: string, n: number, s: Seed): ApprovalItem {
   return {
+    approval_id: s.decision ? `${projectId}-apv-${n}` : null,
     task_id: `${projectId}-ap-${n}`,
     task_code: `${prefix}-${String(100 + n)}`,
     title: s.title,
@@ -94,19 +95,20 @@ export function listApprovals(projectId: string, view: ApprovalView, page: numbe
   }
 }
 
-export type DecideOutcome = { ok: true; result: DecisionResult } | { ok: false; code: 'NOT_FOUND' | 'TASK_NOT_UNDER_REVIEW' | 'VALIDATION_ERROR'; message: string }
+export type DecideOutcome = { ok: true; result: DecisionResult } | { ok: false; code: 'NOT_FOUND' | 'NOT_IN_REVIEW' | 'VALIDATION_ERROR'; message: string }
 
 // decide -- meniru gerbang backend: hanya task UNDER REVIEW yang belum diputuskan; tolak wajib beralasan.
 export function decide(taskId: string, decision: 'approve' | 'reject', note: string): DecideOutcome {
   const t = [...store.values()].flat().find((x) => x.task_id === taskId)
   if (!t) return { ok: false, code: 'NOT_FOUND', message: 'Task tidak ditemukan' }
-  if (t.status_name !== 'UNDER REVIEW' || t.decision !== null) return { ok: false, code: 'TASK_NOT_UNDER_REVIEW', message: 'Task tidak berstatus UNDER REVIEW' }
+  if (t.status_name !== 'UNDER REVIEW' || t.decision !== null) return { ok: false, code: 'NOT_IN_REVIEW', message: 'Task tidak berstatus UNDER REVIEW' }
   const n = note.trim()
   if (decision === 'reject' && n.length < REJECT_NOTE_MIN) return { ok: false, code: 'VALIDATION_ERROR', message: `Alasan penolakan minimal ${REJECT_NOTE_MIN} karakter.` }
   const approved = decision === 'approve'
   t.status_name = approved ? 'DONE' : 'IN PROGRESS'
   t.status_color = COLORS[t.status_name]
   t.decision = approved ? 'approved' : 'rejected'
+  t.approval_id = `${t.task_id}-apv`
   t.decided_at = new Date().toISOString()
   t.decision_note = n || null
   return { ok: true, result: { task_id: t.task_id, task_code: t.task_code, status_name: t.status_name, decision: t.decision } }
