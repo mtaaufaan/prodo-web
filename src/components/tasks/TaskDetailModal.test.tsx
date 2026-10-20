@@ -145,6 +145,30 @@ describe('TaskDetailModal hak akses', () => {
     expect(screen.getByText(/tidak dapat berkomentar/)).toBeInTheDocument()
   })
 
+  // S7A-05 (IG-151): Approver baca saja untuk konten task, tetapi boleh melampirkan dan berkomentar.
+  const APPROVER = caps({ comment: true, attach: true, approve_task: true })
+
+  it('Approver: konten terkunci, alasan khusus Approver, komentar ada, pindah status/hapus tidak ada', () => {
+    open(APPROVER, 'lain')
+    expect(screen.queryByText('✎ Edit Field')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Tambah sub-task baru')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'IN PROGRESS' })).toBeDisabled()
+    expect(screen.getByText(/Sebagai Approver Anda dapat melampirkan berkas dan berkomentar/)).toBeInTheDocument()
+    expect(screen.getByText('+ Komentar')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Hapus' })).not.toBeInTheDocument()
+  })
+
+  it('Approver: tab LAMPIRAN dapat mengunggah; Viewer tidak', () => {
+    const { unmount } = open(APPROVER, 'lain')
+    fireEvent.click(screen.getByText('LAMPIRAN'))
+    expect(screen.getByText(/pilih file/)).toBeInTheDocument()
+    expect(screen.queryByText(/Anda tidak dapat mengunggah lampiran/)).not.toBeInTheDocument()
+    unmount()
+    open(caps({}), 'lain')
+    fireEvent.click(screen.getByText('LAMPIRAN'))
+    expect(screen.getByText(/Anda tidak dapat mengunggah lampiran/)).toBeInTheDocument()
+  })
+
   it('PM: akses penuh termasuk Hapus task', () => {
     open(PM, 'lain')
     expect(screen.getByText('✎ Edit Field')).toBeInTheDocument()
