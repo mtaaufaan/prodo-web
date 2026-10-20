@@ -5,13 +5,17 @@ import { COMMENT_MAX, type MyTask } from './types'
 // Fungsi murni halaman Task Saya (port logika "TM Task Saya.dc.html" /
 // "TM Komentar.dc.html"). Tab dan kartu dihitung server (GET /me/tasks, S6E-04).
 
-export function metaLine(t: MyTask): string {
+// Bidang yang dipakai juga oleh Antrean Approval (S7A-03): baris task dengan bentuk serupa.
+export type TaskMetaFields = Pick<MyTask, 'sprint_name' | 'due_date' | 'pic_names' | 'comment_count'>
+export type TaskProgressFields = Pick<MyTask, 'sub_total' | 'sub_done' | 'logged_hours' | 'estimate_hours'>
+
+export function metaLine(t: TaskMetaFields): string {
   const sprint = t.sprint_name ? `SPRINT ${t.sprint_name.replace(/^Sprint /i, '')}` : 'TANPA SPRINT'
   const pic = t.pic_names.length ? t.pic_names.join(', ') : '—'
   return `${sprint} · DUE ${formatDateDMY(t.due_date)} · PIC ${pic} · ${t.comment_count} KOMENTAR`
 }
 
-export function progressInfo(t: MyTask) {
+export function progressInfo(t: TaskProgressFields) {
   return {
     show: t.sub_total > 0 || t.estimate_hours > 0,
     label: t.sub_total ? `${t.sub_done}/${t.sub_total} SUB-TASK SELESAI` : 'TANPA SUB-TASK',

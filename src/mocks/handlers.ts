@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw'
 
 import { mockContext, mockFollowedProjects, mockMembers, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
 
+import { decide, listApprovals } from './approvalsStore'
 import { addComment, isOwnedByMe, listMine, moveStatus, setCompleteness } from './myTasksStore'
 import * as account from './accountStore'
 import { deleteMine, findMine, listMyAttachments, registerMyUpload, renameMine } from './myAttachmentsStore'
@@ -105,6 +106,18 @@ export const handlers = [
   http.get('/api/v1/projects/:id/sprints', () => ok(mockSprints)),
   http.get('/api/v1/projects/:id/tasks', () => ok(mockTasks)),
   http.get('/api/v1/projects/:id/members', () => ok(mockMembers)),
+
+  // Antrean Approval (S7A-03) -- berstate di memori (approvalsStore.ts); API nyata di S7A-04.
+  http.get('/api/v1/me/approvals', ({ request }) => {
+    const q = new URL(request.url).searchParams
+    return ok(listApprovals(q.get('project_id') ?? '', q.get('view') === 'decided' ? 'decided' : 'pending', Number(q.get('page') ?? 1), Number(q.get('per_page') ?? 10)))
+  }),
+  http.post('/api/v1/tasks/:id/approval', async ({ params, request }) => {
+    const body = (await request.json()) as { decision: 'approve' | 'reject'; note?: string }
+    const out = decide(String(params.id), body.decision, body.note ?? '')
+    if (out.ok) return ok(out.result)
+    return fail(out.code, out.message, out.code === 'NOT_FOUND' ? 404 : out.code === 'NOT_IN_REVIEW' ? 409 : 422)
+  }),
 
   // Task Saya + komentar (S6E-03) -- berstate di memori (myTasksStore.ts).
   http.get('/api/v1/me/tasks', ({ request }) => {

@@ -37,6 +37,8 @@ describe('notificationMeta', () => {
   it('memetakan tipe komentar, mention, penugasan, timesheet', () => {
     expect(notificationMeta('task_mention').label).toBe('MENTION')
     expect(notificationMeta('task_mention_digest').label).toBe('MENTION')
+    expect(notificationMeta('task_approved')).toMatchObject({ label: 'DISETUJUI', tone: expect.stringContaining('mint') })
+    expect(notificationMeta('task_rejected')).toMatchObject({ label: 'DITOLAK', tone: expect.stringContaining('red') })
     expect(notificationMeta('task_comment').label).toBe('KOMENTAR')
     expect(notificationMeta('task_assigned').label).toBe('DITUGASKAN')
     expect(notificationMeta('pic_assigned').label).toBe('DITUGASKAN')
