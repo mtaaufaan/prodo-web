@@ -33,6 +33,10 @@ const COMMENT_FAIL: Record<string, [string, number, string]> = {
   COMMENT_EDIT_LOCKED: ['COMMENT_EDIT_LOCKED', 422, 'Komentar hanya dapat diedit dalam 3 menit setelah dikirim.'],
 }
 const commentFail = (code: string) => fail(COMMENT_FAIL[code][0], COMMENT_FAIL[code][2], COMMENT_FAIL[code][1])
+// Role Approver di mode mock (VITE_MOCK_ROLE=approver): jalur status biasa/urut/lengkap ditolak backend (S7A-06, IG-152).
+const isApproverMock = () => mockContext.workspace_memberships[0]?.role === 'approver'
+const useApproval = () => fail('USE_APPROVAL', 'Approver mengubah status task lewat keputusan Setujui/Tolak.', 403)
+const forbidden = () => fail('FORBIDDEN', 'Role Anda tidak dapat melakukan aksi ini.', 403)
 const notYourTask = () => HttpResponse.json({ error: { code: 'NOT_YOUR_TASK', message: 'Anda hanya dapat mengubah task yang ditugaskan kepada Anda.' } }, { status: 403 })
 
 // Handler skeleton untuk dev paralel FE/BE (S0-26). Mengikuti bentuk
@@ -125,16 +129,18 @@ export const handlers = [
     return ok(listMine(q.get('project_id') ?? '', q.get('view') === 'following' ? 'following' : 'assigned', Number(q.get('page') ?? 1), Number(q.get('per_page') ?? 10)))
   }),
   http.put('/api/v1/tasks/:id/status', async ({ params, request }) => {
+    if (isApproverMock()) return useApproval()
     if (!isOwnedByMe(String(params.id))) return notYourTask()
     const body = (await request.json()) as { status_id: string }
     return moveStatus(String(params.id), body.status_id) ? ok({ id: params.id, status_id: body.status_id }) : HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Task tidak ditemukan' } }, { status: 404 })
   }),
   http.put('/api/v1/tasks/:id/completeness', async ({ params, request }) => {
+    if (isApproverMock()) return forbidden()
     if (!isOwnedByMe(String(params.id))) return notYourTask()
     const body = (await request.json()) as { completeness: 'complete' | 'incomplete' }
     return setCompleteness(String(params.id), body.completeness) ? ok({ id: params.id, completeness: body.completeness }) : HttpResponse.json({ error: { code: 'NOT_FOUND', message: 'Task tidak ditemukan' } }, { status: 404 })
   }),
-  http.put('/api/v1/tasks/:id/reorder', ({ params }) => (isOwnedByMe(String(params.id)) ? ok({ id: params.id }) : notYourTask())),
+  http.put('/api/v1/tasks/:id/reorder', ({ params }) => (isApproverMock() ? forbidden() : isOwnedByMe(String(params.id)) ? ok({ id: params.id }) : notYourTask())),
   http.post('/api/v1/projects/:id/tasks/bulk-status', () => HttpResponse.json({ error: { code: 'BULK_NOT_ALLOWED', message: 'Role Anda tidak dapat memakai aksi bulk.' } }, { status: 403 })),
   http.post('/api/v1/tasks/:id/comments', async ({ params, request }) => {
     const body = (await request.json()) as { body: string }
