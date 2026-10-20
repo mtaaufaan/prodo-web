@@ -308,6 +308,7 @@ export default function KanbanBoard({ projectId, statuses, tasks, onOpenTask, ac
                         <span className="flex min-w-0 items-center gap-1 truncate font-mono text-[10.5px] text-text-dim">
                           {t.is_blocked && <span title="Diblokir -- ada predecessor yang belum selesai">🔒</span>}
                           {dim && <span title="Hanya dapat dibaca — task ini bukan milik Anda">🔒</span>}
+                          {mode.readOnly && <span title="Hanya dapat dibaca — role Anda tidak dapat mengubah task">🔒</span>}
                           {t.task_code} · {t.sprint_name ?? 'Backlog'}
                         </span>
                         {isMine(t) && (

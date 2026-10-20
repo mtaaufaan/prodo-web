@@ -113,6 +113,47 @@ describe('KanbanBoard mode Editor', () => {
   })
 })
 
+// S7A-05 (IG-151): mode Approver = baca-saja -- semua task terlihat, kartu terkunci, tanpa aksi ubah.
+describe('Board mode Approver (baca saja)', () => {
+  const APPROVER: BoardMode = { limitToMine: false, readOnly: true, bulk: false }
+  const card = (title: string) => screen.getByText(title).closest('[draggable]') as HTMLElement
+
+  it('Kanban: semua task terlihat dan terkunci -- tanpa drag, quick-move, checkbox, tombol tandai lengkap, petunjuk seret', () => {
+    wrap(<KanbanBoard projectId="p" statuses={statuses} tasks={[mine, theirs, backlogMine]} onOpenTask={vi.fn()} activeSprintId="sp" mode={APPROVER} />)
+    for (const title of ['Task milik saya', 'Task orang lain', 'Backlog saya']) {
+      expect(card(title)).toHaveAttribute('draggable', 'false')
+      expect(within(card(title)).getByTitle(/role Anda tidak dapat mengubah task/)).toBeInTheDocument()
+      expect(within(card(title)).queryByRole('button', { name: /→|←|TANDAI/ })).not.toBeInTheDocument()
+    }
+    expect(screen.queryByText('☐')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Seret kartu/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/TASK DIPILIH/)).not.toBeInTheDocument()
+    expect(screen.queryByTitle(/bukan milik Anda/)).not.toBeInTheDocument() // bukan penanda mode Editor
+  })
+
+  it('Kanban: klik kartu tetap membuka detail', () => {
+    const open = vi.fn()
+    wrap(<KanbanBoard projectId="p" statuses={statuses} tasks={[theirs]} onOpenTask={open} activeSprintId="sp" mode={APPROVER} />)
+    fireEvent.click(screen.getByText('Task orang lain'))
+    expect(open).toHaveBeenCalledWith('theirs')
+  })
+
+  it('Daftar: semua task terlihat tanpa penanda MILIK SAYA/redup, baris membuka detail', () => {
+    const open = vi.fn()
+    wrap(<TaskListView tasks={[mine, theirs]} statuses={statuses} mode={APPROVER} onOpenTask={open} />)
+    expect(screen.getByText('Task milik saya')).toBeInTheDocument()
+    expect(screen.getByText('Task orang lain')).toBeInTheDocument()
+    expect(screen.queryByText('MILIK SAYA')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByText('Task orang lain'))
+    expect(open).toHaveBeenCalledWith('theirs')
+  })
+
+  it('mode Editor tidak mendapat kunci mode baca-saja pada task miliknya (regresi)', () => {
+    wrap(<KanbanBoard projectId="p" statuses={statuses} tasks={[mine]} onOpenTask={vi.fn()} activeSprintId="sp" mode={EDITOR} />)
+    expect(within(card('Task milik saya')).queryByTitle(/role Anda tidak dapat mengubah task/)).not.toBeInTheDocument()
+  })
+})
+
 describe('KanbanBoard mode PM (regresi)', () => {
   const card = (title: string) => screen.getByText(title).closest('[draggable]') as HTMLElement
 
