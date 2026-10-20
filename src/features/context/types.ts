@@ -14,6 +14,7 @@ export interface Capabilities {
   manage_project: boolean
   manage_rules: boolean
   manage_members: boolean
+  approve_task: boolean
 }
 
 // FollowedProject -- GET /me/projects: project yang diikuti user (anggota/assignee/PIC aktif).
