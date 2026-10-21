@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useOutletContext, useParams } from 'react-router-dom'
+import { useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 
 import ApprovalDecisionModal from '@/components/approvals/ApprovalDecisionModal'
 import ApprovalRow from '@/components/approvals/ApprovalRow'
@@ -22,6 +22,8 @@ const APPROVER_CAP_NOTE = 'Dapat menyetujui atau menolak task pada tahap review 
 export default function ApprovalQueuePage() {
   const { wsId = '', projectId = '' } = useParams<{ wsId: string; projectId: string }>()
   const { view } = useOutletContext<WorkspaceOutletContext>()
+  // ?task= -- task yang dituju notifikasi antrean; baris disorot bila ada di halaman yang sedang tampil.
+  const focusTask = useSearchParams()[0].get('task')
   const approvalView: ApprovalView = view === 'Sudah Diputuskan' ? 'decided' : 'pending'
 
   const ctx = useMyContext()
@@ -103,7 +105,7 @@ export default function ApprovalQueuePage() {
           {approvals.isLoading && <div className="p-[30px_14px] text-center font-mono text-[10.5px] text-text-dim">Memuat...</div>}
           {approvals.isError && <div className="p-[30px_14px] text-center font-mono text-[10.5px] text-red">Gagal memuat antrean approval.</div>}
           {rows.map((item) => (
-            <ApprovalRow key={item.approval_id ?? item.task_id} item={item} canDecide={canDecide} onDecide={(it, mode) => setPending({ item: it, mode })} />
+            <ApprovalRow key={item.approval_id ?? item.task_id} item={item} canDecide={canDecide} highlighted={item.task_id === focusTask} onDecide={(it, mode) => setPending({ item: it, mode })} />
           ))}
           {approvals.isSuccess && total === 0 && (
             <div className="p-[30px_14px] text-center font-mono text-[10.5px] leading-[1.8] text-text-dim">
