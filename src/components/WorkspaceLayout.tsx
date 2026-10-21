@@ -539,7 +539,7 @@ export default function WorkspaceLayout() {
                 className="hidden max-w-[220px] flex-1 border border-line bg-transparent px-3 py-1.5 font-mono text-[11px] text-text-bone outline-none placeholder:text-text-dim focus-visible:border-signal md:block"
               />
             )}
-            {isEditor ? (
+            {followsProjects ? (
               <NotificationBell workspaceId={workspaceId} />
             ) : (
               <button

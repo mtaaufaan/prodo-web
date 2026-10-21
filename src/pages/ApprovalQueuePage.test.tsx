@@ -39,10 +39,10 @@ vi.mock('@/features/context/hooks', () => ({
 function Frame({ view }: { view: string }) {
   return <Outlet context={{ view, registerCta: vi.fn(), query: '' }} />
 }
-const show = (view = 'Menunggu Saya') =>
+const show = (view = 'Menunggu Saya', search = '') =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={['/workspaces/ws-1/projects/mock-proj-prodo/approvals']}>
+      <MemoryRouter initialEntries={['/workspaces/ws-1/projects/mock-proj-prodo/approvals' + search]}>
         <Routes>
           <Route element={<Frame view={view} />}>
             <Route path="/workspaces/:wsId/projects/:projectId/approvals" element={<ApprovalQueuePage />} />
@@ -53,6 +53,23 @@ const show = (view = 'Menunggu Saya') =>
   )
 
 describe('ApprovalQueuePage', () => {
+  // S7A-11 (IG-157): notifikasi antrean membuka antrean dengan task yang dituju disorot (?task=). Berjalan pertama
+  // karena store mock berstate (keputusan di tes berikutnya memindahkan baris).
+  it('?task= menyorot baris task yang dituju notifikasi dan hanya baris itu', async () => {
+    show('Menunggu Saya', '?task=mock-proj-prodo-ap-3')
+    const title = await screen.findByText('Rapikan arsip dokumen')
+    const row = title.closest('[data-highlighted]')
+    expect(row).not.toBeNull()
+    expect(document.querySelectorAll('[data-highlighted]')).toHaveLength(1)
+    expect(screen.getByText('Tinjau kontrak vendor').closest('[data-highlighted]')).toBeNull()
+  })
+
+  it('tanpa ?task= tidak ada baris yang disorot', async () => {
+    show()
+    await screen.findByText('Rapikan arsip dokumen')
+    expect(document.querySelectorAll('[data-highlighted]')).toHaveLength(0)
+  })
+
   it('tanpa approve_task: strip abu-abu dan baris terkunci (dibuka dulu karena store belum berubah)', async () => {
     m.canApprove = false
     show()
