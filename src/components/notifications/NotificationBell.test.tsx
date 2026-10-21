@@ -104,6 +104,19 @@ describe('NotificationBell', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('?task=task-3')
   })
 
+  // S7A-11 (IG-157): notifikasi antrean (◈ APPROVAL) membuka Antrean Approval pada task itu.
+  it('notifikasi approval_pending: lencana ◈ APPROVAL, tandai dibaca lalu buka Antrean Approval pada task itu', () => {
+    m.state.items = [note('9', { type: 'approval_pending', title: 'Task menunggu keputusan Anda -- QST-101', entity_id: 'task-ap-1', task_code: 'QST-101' })]
+    m.state.unread = 1
+    m.markRead.mockImplementation((_id: string, opts: { onSuccess: () => void }) => opts.onSuccess())
+    show()
+    fireEvent.click(screen.getByRole('button', { name: /Notifikasi/ }))
+    expect(screen.getByTitle('APPROVAL')).toHaveTextContent('◈')
+    fireEvent.click(screen.getByText('Task menunggu keputusan Anda -- QST-101'))
+    expect(m.markRead).toHaveBeenCalledWith('9', expect.anything())
+    expect(screen.getByTestId('where')).toHaveTextContent('/workspaces/ws-1/projects/proj-1/approvals?task=task-ap-1')
+  })
+
   it('gagal menandai dibaca: toast error dan tetap di halaman', () => {
     m.markRead.mockImplementation((_id: string, opts: { onError: () => void }) => opts.onError())
     show()

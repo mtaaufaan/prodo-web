@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react'
+
 import { DECISION_BADGE } from '@/features/approvals/approvalRules'
 import type { ApprovalDecision, ApprovalItem } from '@/features/approvals/types'
 import { metaLine, progressInfo } from '@/features/my-tasks/myTaskStats'
@@ -16,11 +18,17 @@ interface ApprovalRowProps {
   // canDecide -- kemampuan approve_task; baris yang sudah diputuskan selalu terkunci.
   canDecide: boolean
   onDecide: (item: ApprovalItem, mode: ApprovalDecision) => void
+  // highlighted -- baris yang dituju notifikasi (?task=): disorot dan digulir ke tampilan (S7A-11).
+  highlighted?: boolean
 }
 
 // Satu baris "TM Antrean Approval.dc.html": kode, judul, meta, badge status/prioritas, bar progres sub-task +
 // jam, aksi ✓ SETUJUI / ✕ TOLAK; baris yang sudah diputuskan menampilkan badge keputusan dan 🔒.
-export default function ApprovalRow({ item, canDecide, onDecide }: ApprovalRowProps) {
+export default function ApprovalRow({ item, canDecide, onDecide, highlighted = false }: ApprovalRowProps) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (highlighted) ref.current?.scrollIntoView?.({ block: 'center' })
+  }, [highlighted])
   const decided = item.decision !== null
   const badge = decided ? DECISION_BADGE[item.decision as 'approved' | 'rejected'] : null
   const status = statusColorClasses(item.status_color)
@@ -28,7 +36,11 @@ export default function ApprovalRow({ item, canDecide, onDecide }: ApprovalRowPr
   const showActions = canDecide && !decided
 
   return (
-    <div className="flex flex-col gap-[9px] border-t border-line px-[15px] py-[13px] first:border-t-0">
+    <div
+      ref={ref}
+      data-highlighted={highlighted || undefined}
+      className={cn('flex flex-col gap-[9px] border-t border-line px-[15px] py-[13px] first:border-t-0', highlighted && 'border-l-2 border-l-signal bg-signal/5')}
+    >
       <div className="flex items-start gap-2.5">
         <span className="shrink-0 pt-0.5 font-mono text-[8.5px] text-text-muted">{item.task_code}</span>
         <div className="min-w-0 flex-1 leading-[1.4]">

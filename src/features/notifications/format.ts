@@ -10,8 +10,10 @@ const MENTION: NotificationMeta = { icon: '@', label: 'MENTION', tone: 'border-s
 const COMMENT: NotificationMeta = { icon: '✎', label: 'KOMENTAR', tone: 'border-violet text-violet' }
 const ASSIGNED: NotificationMeta = { icon: '◉', label: 'DITUGASKAN', tone: 'border-mint text-mint' }
 const TIMESHEET: NotificationMeta = { icon: '◷', label: 'TIMESHEET', tone: 'border-amber text-amber' }
-const APPROVED: NotificationMeta = { icon: '✓', label: 'DISETUJUI', tone: 'border-mint text-mint' }
-const REJECTED: NotificationMeta = { icon: '✕', label: 'DITOLAK', tone: 'border-red text-red' }
+// Kategori ◈ APPROVAL (S7A-11): menunggu keputusan = ungu (warna role Approver), disetujui = mint, ditolak = merah.
+const APPROVAL_PENDING: NotificationMeta = { icon: '◈', label: 'APPROVAL', tone: 'border-violet text-violet' }
+const APPROVAL_APPROVED: NotificationMeta = { icon: '◈', label: 'APPROVAL', tone: 'border-mint text-mint' }
+const APPROVAL_REJECTED: NotificationMeta = { icon: '◈', label: 'APPROVAL', tone: 'border-red text-red' }
 const REGRESSED: NotificationMeta = { icon: '↺', label: 'TASK', tone: 'border-amber text-amber' }
 const OTHER: NotificationMeta = { icon: '•', label: 'INFO', tone: 'border-text-dim text-text-muted' }
 
@@ -22,8 +24,9 @@ export function notificationMeta(type: string): NotificationMeta {
   if (type === 'task_assigned' || type === 'pic_assigned' || type === 'rule_action_notify') return ASSIGNED
   if (type.startsWith('time_entry') || type.startsWith('timesheet')) return TIMESHEET
   if (type === 'task_regressed') return REGRESSED
-  if (type === 'task_approved') return APPROVED
-  if (type === 'task_rejected') return REJECTED
+  if (type === 'approval_pending') return APPROVAL_PENDING
+  if (type === 'task_approved') return APPROVAL_APPROVED
+  if (type === 'task_rejected') return APPROVAL_REJECTED
   return OTHER
 }
 
@@ -40,9 +43,11 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
   return `${days} hari lalu`
 }
 
-// Tautan dalam: notifikasi task membuka Board project terkait dengan Task Detail (?task=); selain itu null.
+// Tautan dalam: notifikasi task membuka Board project terkait dengan Task Detail (?task=); notifikasi antrean
+// (approval_pending) membuka Antrean Approval project itu dengan task disorot (?task=); selain itu null.
 export function notificationHref(n: AppNotification, workspaceId: string): string | null {
   if (n.entity_type === 'task' && n.entity_id && n.project_id) {
+    if (n.type === 'approval_pending') return `/workspaces/${workspaceId}/projects/${n.project_id}/approvals?task=${n.entity_id}`
     return `/workspaces/${workspaceId}/projects/${n.project_id}/board?task=${n.entity_id}`
   }
   return null

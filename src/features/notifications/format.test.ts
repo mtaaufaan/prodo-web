@@ -37,8 +37,10 @@ describe('notificationMeta', () => {
   it('memetakan tipe komentar, mention, penugasan, timesheet', () => {
     expect(notificationMeta('task_mention').label).toBe('MENTION')
     expect(notificationMeta('task_mention_digest').label).toBe('MENTION')
-    expect(notificationMeta('task_approved')).toMatchObject({ label: 'DISETUJUI', tone: expect.stringContaining('mint') })
-    expect(notificationMeta('task_rejected')).toMatchObject({ label: 'DITOLAK', tone: expect.stringContaining('red') })
+    // ◈ APPROVAL (S7A-11): hasil keputusan terbaca dari warna lencana.
+    expect(notificationMeta('approval_pending')).toMatchObject({ icon: '◈', label: 'APPROVAL', tone: expect.stringContaining('violet') })
+    expect(notificationMeta('task_approved')).toMatchObject({ icon: '◈', label: 'APPROVAL', tone: expect.stringContaining('mint') })
+    expect(notificationMeta('task_rejected')).toMatchObject({ icon: '◈', label: 'APPROVAL', tone: expect.stringContaining('red') })
     expect(notificationMeta('task_comment').label).toBe('KOMENTAR')
     expect(notificationMeta('task_assigned').label).toBe('DITUGASKAN')
     expect(notificationMeta('pic_assigned').label).toBe('DITUGASKAN')
@@ -54,6 +56,11 @@ describe('notificationMeta', () => {
 describe('notificationHref', () => {
   it('notifikasi task membuka Board project dengan Task Detail', () => {
     expect(notificationHref(base, 'ws-1')).toBe('/workspaces/ws-1/projects/proj-1/board?task=task-1')
+  })
+
+  it('notifikasi antrean membuka Antrean Approval project itu dengan task disorot; keputusan membuka Board', () => {
+    expect(notificationHref({ ...base, type: 'approval_pending' }, 'ws-1')).toBe('/workspaces/ws-1/projects/proj-1/approvals?task=task-1')
+    expect(notificationHref({ ...base, type: 'task_approved' }, 'ws-1')).toBe('/workspaces/ws-1/projects/proj-1/board?task=task-1')
   })
 
   it('tanpa project/entitas task -> tanpa tautan (hanya ditandai dibaca)', () => {
