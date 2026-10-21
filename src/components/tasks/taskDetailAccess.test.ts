@@ -70,9 +70,30 @@ describe('taskDetailAccess', () => {
         readOnly: true, canMove: false, canAttach: true, canComment: true,
         canDelete: false, canRemovePic: false, canApproveTime: false, canSetStoryPoints: false,
       })
-      expect(a.readOnlyReason).toContain('Approver')
-      expect(a.readOnlyReason).toContain('melampirkan')
+      expect(a.readOnlyReason).toBe('Sebagai Approver Anda dapat mengubah status task, melampirkan berkas, dan berkomentar — namun tidak mengubah judul, deskripsi, atau assignee.')
     }
+  })
+
+  // S7A-09 (IG-155): Approver memutuskan approval, tidak mencatat waktu, boleh Mulai Pengerjaan hanya bila PIC aktif.
+  it('Approver: canDecide dan canStartWhenPic, tanpa catat waktu, teks kunci khusus Approver', () => {
+    const a = taskDetailAccess(approver, mine, 'u1')
+    expect(a).toMatchObject({ canDecide: true, canStartWhenPic: true, canLogTime: false })
+    expect(a.statusLockReason).toContain('keputusan Setujui/Tolak')
+    expect(a.timeLockReason).toBe('Approver tidak mencatat waktu kerja.')
+  })
+
+  it('selain Approver tidak punya seksi keputusan: PM/AW, Editor, Viewer', () => {
+    expect(taskDetailAccess(caps({ manage_project: true, approve_task: true }), mine, 'u1').canDecide).toBe(false)
+    expect(taskDetailAccess(editor, mine, 'u1')).toMatchObject({ canDecide: false, canStartWhenPic: false })
+    expect(taskDetailAccess(caps({}), mine, 'u1')).toMatchObject({ canDecide: false, canStartWhenPic: false, canLogTime: false, timeLockReason: 'Role Anda tidak mencatat waktu kerja.' })
+  })
+
+  it('catat waktu: Editor hanya pada task miliknya dan bila log_time; PM/AW selalu', () => {
+    const withTime = caps({ edit_own_task: true, log_time: true })
+    expect(taskDetailAccess(withTime, mine, 'u1').canLogTime).toBe(true)
+    expect(taskDetailAccess(withTime, mine, 'u2').canLogTime).toBe(false)
+    expect(taskDetailAccess(caps({ edit_own_task: true }), mine, 'u1').canLogTime).toBe(false)
+    expect(taskDetailAccess(caps({ manage_project: true }), mine, 'u2').canLogTime).toBe(true)
   })
 
   it('Viewer tanpa kemampuan apa pun: murni baca', () => {

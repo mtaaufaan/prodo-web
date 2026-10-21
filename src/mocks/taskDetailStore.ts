@@ -1,16 +1,17 @@
 import type { Attachment } from '@/features/attachments/types'
 import type { TaskComment } from '@/features/tasks/comments'
-import type { Task, TaskChecklistItem, TaskFormValues } from '@/features/tasks/types'
+import type { Task, TaskActivityEntry, TaskChecklistItem, TaskFormValues } from '@/features/tasks/types'
 
-import { mockMembers, mockStatuses, mockTasks } from './editorFixtures'
+import { MOCK_USER, mockMembers, mockStatuses, mockTasks } from './editorFixtures'
 import { isOwnedByMe } from './myTasksStore'
 
 // Data tiruan Task Detail + Tambah Task Editor (S6E-07) -- BERSTATE di memori supaya modal bisa dicoba tanpa
 // backend: komentar, sub-task, lampiran, edit task, dan task baru. Dibuang di S6E-08 saat izin Editor di
 // backend (buat task, lampiran, sub-task) tersambung.
-const ME = 'mock-editor-id'
+// Pengguna sesi mock mengikuti role (VITE_MOCK_ROLE): komentar/lampiran miliknya bisa diubah/dihapus sendiri.
+const ME = MOCK_USER.id
 const EDIT_WINDOW_MS = 3 * 60 * 1000
-const nameOf = (id: string) => mockMembers.find((m) => m.user_id === id)?.display_name ?? 'Anggota'
+const nameOf = (id: string) => (id === MOCK_USER.id ? MOCK_USER.display_name : (mockMembers.find((m) => m.user_id === id)?.display_name ?? 'Anggota'))
 let seq = 1000
 const nextId = (p: string) => `${p}-${++seq}`
 
@@ -146,4 +147,19 @@ export function createMockTask(projectId: string, v: TaskFormValues): Task {
   }
   mockTasks.push(t)
   return t
+}
+
+// Aktivitas task (tab AKTIVITAS): hanya yang tercipta di sesi mock (mis. keputusan approval, S7A-09).
+const activity = new Map<string, TaskActivityEntry[]>()
+
+export function listActivity(taskId: string): TaskActivityEntry[] {
+  return (activity.get(taskId) ?? []).slice().reverse()
+}
+
+export function addActivity(taskId: string, action: string, before: Record<string, unknown> | null, after: Record<string, unknown> | null) {
+  const entry: TaskActivityEntry = {
+    id: nextId('act'), action, actor_id: ME, actor_name: MOCK_USER.display_name, actor_email: MOCK_USER.email, actor_role: 'approver',
+    state_before: before, state_after: after, metadata: null, logged_at: new Date().toISOString(),
+  }
+  activity.set(taskId, [...(activity.get(taskId) ?? []), entry])
 }
