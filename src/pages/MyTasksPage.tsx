@@ -8,6 +8,7 @@ import AddTaskModal from '@/components/tasks/AddTaskModal'
 import PicPickerModal from '@/components/tasks/PicPickerModal'
 import type { WorkspaceOutletContext } from '@/components/WorkspaceLayout'
 import { useMyContext } from '@/features/context/hooks'
+import { capabilityStrip } from '@/features/my-tasks/capabilityStrip'
 import { useMyTasks, usePostComment } from '@/features/my-tasks/hooks'
 import type { MyTask, MyTaskView } from '@/features/my-tasks/types'
 import { useProjectMembers } from '@/features/project-members/hooks'
@@ -19,9 +20,6 @@ import { cn } from '@/lib/utils'
 
 const PER_PAGE = 10
 const NOTICE_MS = 15000
-
-const EDITOR_CAP_NOTE =
-  'Dapat mengubah task yang ditugaskan, mencatat waktu, dan berkomentar. Tidak dapat menyetujui atau mengubah struktur project.'
 
 // MyTasksPage -- "TM Task Saya.dc.html" (S6E-03, Sprint 6 Editor Console).
 // Cakupan = project aktif di URL (switcher sidebar). Data dari GET /me/tasks (S6E-04):
@@ -35,7 +33,7 @@ export default function MyTasksPage() {
   const ctx = useMyContext()
   const membership = ctx.data?.workspace_memberships.find((w) => w.workspace_id === wsId) ?? ctx.data?.project_scoped_projects.find((p) => p.workspace_id === wsId)
   const caps = membership?.capabilities
-  const roleLabel = (membership?.role ?? 'editor').toUpperCase().replace(/_/g, ' ')
+  const strip = capabilityStrip(caps, membership?.role)
 
   const projects = useProjects(wsId)
   const projectName = projects.data?.find((p) => p.id === projectId)?.name ?? '—'
@@ -116,10 +114,8 @@ export default function MyTasksPage() {
   return (
     <div className="flex h-full min-h-0 flex-col bg-content p-6">
       <div className="flex flex-wrap items-center gap-[9px] px-0.5 pb-3">
-        <span className={cn('border px-2 py-1 font-mono text-[8.5px] tracking-[0.12em]', caps?.edit_own_task ? 'border-mint text-mint' : 'border-text-muted text-text-muted')}>
-          AKSES {roleLabel}
-        </span>
-        <span className="font-mono text-[8.5px] leading-[1.6] text-text-dim">{EDITOR_CAP_NOTE}</span>
+        <span className={cn('border px-2 py-1 font-mono text-[8.5px] tracking-[0.12em]', strip.tone)}>{strip.label}</span>
+        <span className="font-mono text-[8.5px] leading-[1.6] text-text-dim">{strip.note}</span>
       </div>
 
       {notice && (
