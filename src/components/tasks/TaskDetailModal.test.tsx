@@ -1,16 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { Capabilities } from '@/features/context/types'
 import type { CustomStatus, Task } from '@/features/tasks/types'
+import { ApiError } from '@/lib/api'
 import { useAuthStore } from '@/store/useAuthStore'
 
 import TaskDetailModal from './TaskDetailModal'
 
 // Semua hook data diganti hasil kosong; hanya yang menentukan tampilan modal ini yang diisi.
-const { state, empty } = vi.hoisted(() => ({
-  state: { task: undefined as unknown },
+const { state, empty, decide } = vi.hoisted(() => ({
+  state: { task: undefined as unknown, sessions: [] as unknown[] },
+  decide: { fn: undefined as unknown as (a: unknown) => Promise<unknown> },
   empty: () => ({ data: undefined, isLoading: false, isPending: false, isError: false, mutate: () => undefined, mutateAsync: () => Promise.resolve() }),
 }))
 
@@ -18,6 +20,7 @@ vi.mock('@/features/tasks/hooks', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@/features/tasks/hooks')
   const overrides: Record<string, unknown> = {
     useTask: () => ({ data: state.task, isLoading: false }),
+    useTaskStatusSessions: () => ({ data: state.sessions }),
     useTaskChecklistItems: () => ({ data: [{ id: 'i1', task_id: 't', title: 'Cek hasil', is_done: false, position: 1 }] }),
   }
   return new Proxy(actual, {
@@ -25,6 +28,7 @@ vi.mock('@/features/tasks/hooks', async () => {
     has: () => true,
   })
 })
+vi.mock('@/features/approvals/hooks', () => ({ useDecideApproval: () => ({ mutateAsync: (a: unknown) => decide.fn(a), isPending: false }) }))
 vi.mock('@/features/attachments/hooks', () => ({
   useTaskAttachments: () => ({ data: [] }),
   useDocumentsQuota: () => ({ data: undefined }),
@@ -59,6 +63,7 @@ const EDITOR = caps({ create_task: true, edit_own_task: true, comment: true, log
 const PM = caps({ create_task: true, edit_own_task: true, comment: true, log_time: true, attach: true, manage_project: true })
 
 const status: CustomStatus = { id: 's1', name: 'IN PROGRESS', color_token: 'signal', position: 1, is_system: true, is_undefined: false, require_start_confirmation: false, require_pic: true, task_count: 0 }
+const reviewStatus: CustomStatus = { ...status, id: 's2', name: 'UNDER REVIEW', color_token: 'violet', position: 2, require_start_confirmation: true }
 const task = (assignee: string): Task =>
   ({
     id: 't',
@@ -89,17 +94,19 @@ const task = (assignee: string): Task =>
     active_pics: [],
   }) as Task
 
-function open(capabilities: Capabilities | undefined, assignee: string, allowEditorStoryPoints = false) {
-  state.task = task(assignee)
+function open(capabilities: Capabilities | undefined, assignee: string, allowEditorStoryPoints = false, over: Partial<Task> = {}) {
+  state.task = { ...task(assignee), ...over }
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <TaskDetailModal taskId="t" onClose={vi.fn()} projectId="p" workspaceId="w" statuses={[status]} capabilities={capabilities} allowEditorStoryPoints={allowEditorStoryPoints} />
+      <TaskDetailModal taskId="t" onClose={vi.fn()} projectId="p" workspaceId="w" statuses={[status, reviewStatus]} capabilities={capabilities} allowEditorStoryPoints={allowEditorStoryPoints} />
     </QueryClientProvider>,
   )
 }
 
 beforeEach(() => {
+  state.sessions = []
+  decide.fn = vi.fn().mockResolvedValue(undefined)
   useAuthStore.setState({ user: { id: 'me', email: 'e@x.id', display_name: 'Eka', platform_role: 'none', avatar_url: null } })
 })
 
@@ -153,7 +160,8 @@ describe('TaskDetailModal hak akses', () => {
     expect(screen.queryByText('✎ Edit Field')).not.toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Tambah sub-task baru')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'IN PROGRESS' })).toBeDisabled()
-    expect(screen.getByText(/Sebagai Approver Anda dapat melampirkan berkas dan berkomentar/)).toBeInTheDocument()
+    expect(screen.getByText(/Sebagai Approver Anda dapat mengubah status task, melampirkan berkas, dan berkomentar — namun tidak mengubah judul, deskripsi, atau assignee\./)).toBeInTheDocument()
+    expect(screen.getByText(/Status task diubah lewat keputusan Setujui\/Tolak/)).toBeInTheDocument()
     expect(screen.getByText('+ Komentar')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Hapus' })).not.toBeInTheDocument()
   })
@@ -179,5 +187,80 @@ describe('TaskDetailModal hak akses', () => {
     open(EDITOR, 'me')
     expect(screen.getByText('Sudah dicek')).toBeInTheDocument()
     expect(screen.getByText('✕ Hapus')).toBeInTheDocument()
+  })
+})
+
+// S7A-09 (IG-155): keputusan approval dari Task Detail mode Approver.
+describe('TaskDetailModal mode Approver: keputusan approval', () => {
+  const APPROVER = caps({ comment: true, attach: true, approve_task: true })
+  const review: Partial<Task> = { status_id: 's2', status_name: 'UNDER REVIEW', task_code: 'QST-004', title: 'Review desain profil' }
+  const pic = { id: 'p1', task_id: 't', status_id: 's2', status_name: 'UNDER REVIEW', user_id: 'x', user_name: 'Citra', user_email: 'c@x.id', is_active: true, acknowledged_at: null, activated_at: '2026-10-05T00:00:00Z', deactivated_at: null, assigned_by: null }
+
+  it('task UNDER REVIEW menampilkan KEPUTUSAN APPROVAL; status lain, PM, dan Editor tidak', () => {
+    const { unmount } = open(APPROVER, 'lain', false, review)
+    expect(screen.getByText('KEPUTUSAN APPROVAL')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '✓ SETUJUI' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '✕ TOLAK' })).toBeInTheDocument()
+    unmount()
+    open(APPROVER, 'lain')
+    expect(screen.queryByText('KEPUTUSAN APPROVAL')).not.toBeInTheDocument()
+    unmount()
+    open(PM, 'lain', false, review)
+    expect(screen.queryByText('KEPUTUSAN APPROVAL')).not.toBeInTheDocument()
+    unmount()
+    open(EDITOR, 'me', false, review)
+    expect(screen.queryByText('KEPUTUSAN APPROVAL')).not.toBeInTheDocument()
+  })
+
+  it('setuju: modal konfirmasi, catatan opsional, keputusan terkirim lalu notifikasi tampil', async () => {
+    open(APPROVER, 'lain', false, { ...review, active_pics: [pic] as unknown as Task['active_pics'] })
+    fireEvent.click(screen.getByRole('button', { name: '✓ SETUJUI' }))
+    expect(screen.getByText('Setujui QST-004 — Review desain profil')).toBeInTheDocument()
+    expect(screen.getByText('Status saat ini UNDER REVIEW · PIC Citra')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '✓ SETUJUI TASK' }))
+    await waitFor(() => expect(decide.fn).toHaveBeenCalledWith({ taskId: 't', decision: 'approve', note: '' }))
+    expect(await screen.findByText(/Task QST-004 disetujui dan dipindahkan ke DONE/)).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: /Setujui QST-004/ })).not.toBeInTheDocument()
+  })
+
+  it('tolak tanpa alasan ditolak dengan pesan desain; dengan alasan terkirim', async () => {
+    open(APPROVER, 'lain', false, review)
+    fireEvent.click(screen.getByRole('button', { name: '✕ TOLAK' }))
+    fireEvent.click(screen.getByRole('button', { name: '✕ TOLAK TASK' }))
+    expect(screen.getByText(/Alasan penolakan minimal 5 karakter agar assignee tahu apa yang perlu diperbaiki/)).toBeInTheDocument()
+    expect(decide.fn).not.toHaveBeenCalled()
+    fireEvent.change(screen.getByPlaceholderText(/Jelaskan bagian yang perlu diperbaiki/), { target: { value: 'Uji ulang pembayaran' } })
+    fireEvent.click(screen.getByRole('button', { name: '✕ TOLAK TASK' }))
+    await waitFor(() => expect(decide.fn).toHaveBeenCalledWith({ taskId: 't', decision: 'reject', note: 'Uji ulang pembayaran' }))
+    expect(await screen.findByText(/Task QST-004 ditolak dan dikembalikan ke IN PROGRESS/)).toBeInTheDocument()
+  })
+
+  it('galat server (sudah diputuskan) tampil di modal dan modal tetap terbuka', async () => {
+    decide.fn = vi.fn().mockRejectedValue(new ApiError('NOT_IN_REVIEW', 'x', 409))
+    open(APPROVER, 'lain', false, review)
+    fireEvent.click(screen.getByRole('button', { name: '✓ SETUJUI' }))
+    fireEvent.click(screen.getByRole('button', { name: '✓ SETUJUI TASK' }))
+    expect(await screen.findByText(/sudah tidak berstatus UNDER REVIEW/)).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: /Setujui QST-004/ })).toBeInTheDocument()
+  })
+
+  it('Mulai Pengerjaan hanya bila Approver adalah PIC aktif fase itu', () => {
+    state.sessions = [{ id: 's', task_id: 't', status_id: 's2', status_name: 'UNDER REVIEW', session_no: 1, entered_at: '2026-10-05T00:00:00Z', exited_at: null, work_started_at: null, is_regression: false, is_auto_start: false, triggered_by: null }]
+    const { unmount } = open(APPROVER, 'lain', false, review)
+    expect(screen.queryByText(/Mulai Pengerjaan/)).not.toBeInTheDocument()
+    unmount()
+    open(APPROVER, 'lain', false, { ...review, active_pics: [{ ...pic, user_id: 'me' }] as unknown as Task['active_pics'] })
+    expect(screen.getByText(/Mulai Pengerjaan/)).toBeInTheDocument()
+  })
+
+  it('tab WAKTU STATUS: Approver tidak mencatat waktu; PM tetap bisa', () => {
+    const { unmount } = open(APPROVER, 'lain', false, review)
+    fireEvent.click(screen.getByText('WAKTU STATUS'))
+    expect(screen.getByText(/Approver tidak mencatat waktu kerja/)).toBeInTheDocument()
+    expect(screen.queryByText(/Mulai Timer/)).not.toBeInTheDocument()
+    unmount()
+    open(PM, 'lain', false, review)
+    fireEvent.click(screen.getByText('WAKTU STATUS'))
+    expect(screen.getByText(/Mulai Timer/)).toBeInTheDocument()
   })
 })

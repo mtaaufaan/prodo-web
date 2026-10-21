@@ -1,6 +1,10 @@
 import type { MyTask, MyTaskNextStatus, MyTasksPage, MyTaskView, PostCommentResult } from '@/features/my-tasks/types'
 import type { TaskPriority } from '@/features/tasks/types'
 
+import { REJECT_NOTE_MIN } from '@/features/approvals/types'
+import type { DecideOutcome } from './approvalsStore'
+import { addActivity } from './taskDetailStore'
+
 import { MOCK_USER, mockStatuses, mockTasks } from './editorFixtures'
 
 // Data tiruan Task Saya (S6E-03) -- BERSTATE di memori: pindah status dan
@@ -120,13 +124,16 @@ function find(taskId: string): MyTask | undefined {
 export function moveStatus(taskId: string, statusId: string): boolean {
   const t = find(taskId)
   const st = mockStatuses.find((s) => s.id === statusId)
-  if (!t || !st) return false
-  t.status_id = st.id
-  t.status_name = st.name
-  t.status_color = st.color_token
-  t.next_status = nextOf(st.id)
-  // Board memakai objek Task yang sama id-nya (editorFixtures.mockTasks) -- sinkronkan.
+  // Board memakai objek Task yang sama id-nya (editorFixtures.mockTasks) -- sinkronkan. Task Board milik orang lain
+  // (QST-013..016) tidak punya baris Task Saya, tetapi tetap bisa berpindah (mis. keputusan approval, S7A-09).
   const board = mockTasks.find((x) => x.id === taskId)
+  if (!st || (!t && !board)) return false
+  if (t) {
+    t.status_id = st.id
+    t.status_name = st.name
+    t.status_color = st.color_token
+    t.next_status = nextOf(st.id)
+  }
   if (board) {
     board.status_id = st.id
     board.status_name = st.name
@@ -153,10 +160,29 @@ const MENTIONABLE: Record<string, string> = { budi: 'Budi', citra: 'Citra' }
 
 export function addComment(taskId: string, body: string): PostCommentResult | null {
   const t = find(taskId)
-  if (!t) return null
-  t.comment_count += 1
-  t.is_followed = true
+  // Task Board milik orang lain (QST-013..016) tidak punya baris Task Saya tetapi tetap bisa dikomentari.
+  if (!t && !mockTasks.some((x) => x.id === taskId)) return null
+  if (t) {
+    t.comment_count += 1
+    t.is_followed = true
+  }
   const tokens = Array.from(body.matchAll(/(?:^|[^\w.])@([A-Za-z][\w.]*)/g), (m) => m[1].toLowerCase().replace(/\.+$/, ''))
   const mentions = [...new Set(tokens)].filter((k) => MENTIONABLE[k]).map((k) => MENTIONABLE[k])
-  return { comment_count: t.comment_count, mentions, notified: mentions.length }
+  return { comment_count: t?.comment_count ?? 1, mentions, notified: mentions.length }
+}
+
+// decideBoardTask -- keputusan approval (S7A-09) untuk task Board/Task Detail (`...-mt-N`), meniru gerbang backend:
+// hanya task UNDER REVIEW; tolak wajib beralasan. null = bukan task Board (ditangani approvalsStore).
+export function decideBoardTask(taskId: string, decision: 'approve' | 'reject', note: string): DecideOutcome | null {
+  const t = mockTasks.find((x) => x.id === taskId)
+  if (!t) return null
+  if (t.status_name !== 'UNDER REVIEW') return { ok: false, code: 'NOT_IN_REVIEW', message: 'Task tidak berstatus UNDER REVIEW' }
+  const n = note.trim()
+  if (decision === 'reject' && n.length < REJECT_NOTE_MIN) return { ok: false, code: 'VALIDATION_ERROR', message: `Alasan penolakan minimal ${REJECT_NOTE_MIN} karakter.` }
+  const approved = decision === 'approve'
+  const target = mockStatuses.find((s) => s.name === (approved ? 'DONE' : 'IN PROGRESS'))
+  if (!target) return { ok: false, code: 'NOT_FOUND', message: 'Status tujuan tidak ditemukan' }
+  moveStatus(taskId, target.id)
+  addActivity(taskId, approved ? 'task.approved' : 'task.rejected', { status: 'UNDER REVIEW' }, { status: target.name, ...(n ? { note: n } : {}) })
+  return { ok: true, result: { task_id: taskId, task_code: t.task_code ?? '', status_name: target.name, decision: approved ? 'approved' : 'rejected' } }
 }

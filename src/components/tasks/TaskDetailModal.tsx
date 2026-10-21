@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import ApprovalDecisionModal from '@/components/approvals/ApprovalDecisionModal'
+import { decisionNotice, describeDecisionError } from '@/features/approvals/approvalRules'
+import { useDecideApproval } from '@/features/approvals/hooks'
+import type { ApprovalDecision } from '@/features/approvals/types'
 import { downloadAttachment } from '@/features/attachments/api'
 import { useDeleteAttachment, useDocumentsQuota, useRenameAttachment, useTaskAttachments, useUploadAttachment } from '@/features/attachments/hooks'
 import { ALLOWED_EXTENSIONS, MAX_ATTACHMENT_SIZE_BYTES, fileExt, formatBytes } from '@/features/attachments/types'
@@ -277,6 +281,8 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
   const addDependency = useAddDependency(projectId)
   const removeDependency = useRemoveDependency(projectId)
   const startWork = useStartWork(taskId ?? '')
+  const decide = useDecideApproval()
+  const [decisionMode, setDecisionMode] = useState<ApprovalDecision | null>(null)
   const statusSessions = useTaskStatusSessions(taskId)
   const attachments = useTaskAttachments(taskId)
   const quota = useDocumentsQuota(workspaceId)
@@ -705,6 +711,20 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
         onError: (err: unknown) => setPicTabError(picErrorMessage(err, 'Gagal menyerahkan PIC.')),
       },
     )
+  }
+
+  // submitDecision -- keputusan Approver (S7A-09): hanya jalur ini yang mengubah status bagi Approver (USE_APPROVAL).
+  // Mengembalikan pesan galat server ('' = sukses) supaya modal tetap terbuka saat gagal.
+  const submitDecision = async (note: string): Promise<string> => {
+    if (!taskId || !decisionMode) return ''
+    try {
+      await decide.mutateAsync({ taskId, decision: decisionMode, note })
+    } catch (err) {
+      return describeDecisionError(err)
+    }
+    setNotice(decisionNotice(decisionMode, task.data?.task_code ?? ''))
+    setDecisionMode(null)
+    return ''
   }
 
   const onRemovePic = (userId: string) => {
@@ -1233,7 +1253,7 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                     )}
                   </div>
 
-                  {showStartWorkButton && canEdit && (
+                  {showStartWorkButton && (canEdit || (access.canStartWhenPic && isActivePic)) && (
                     <Button
                       type="button"
                       onClick={() => startWork.mutate()}
@@ -1277,9 +1297,34 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                   {/* PINDAHKAN STATUS -- di desain letaknya di paling
                       bawah tab RINGKASAN (setelah field/deskripsi/sub-task),
                       bukan di atas. */}
+                  {access.canDecide && task.data.status_name === 'UNDER REVIEW' && (
+                    <div className="border border-violet bg-violet/5 p-3.5">
+                      <div className="font-mono text-[8.5px] tracking-[0.14em] text-violet">KEPUTUSAN APPROVAL</div>
+                      <p className="mt-1.5 font-mono text-[9.5px] leading-relaxed text-text-muted">
+                        Task ini menunggu keputusan Anda. Setujui memindahkan task ke DONE; tolak mengembalikannya ke IN PROGRESS beserta alasan Anda.
+                      </p>
+                      <div className="mt-2.5 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDecisionMode('approve')}
+                          className="border border-mint px-3 py-1.5 font-mono text-[9.5px] font-bold tracking-[0.06em] text-mint hover:bg-mint/10"
+                        >
+                          ✓ SETUJUI
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDecisionMode('reject')}
+                          className="border border-red px-3 py-1.5 font-mono text-[9.5px] font-bold tracking-[0.06em] text-red hover:bg-red/10"
+                        >
+                          ✕ TOLAK
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="border-t border-line pt-4">
                     <label className="mb-2 block font-mono text-[8.5px] tracking-[0.14em] text-text-dim">PINDAHKAN STATUS</label>
-                    {!canMoveStatus && <p className="mb-2 font-mono text-[9px] text-text-dim">🔒 Status task ini tidak dapat Anda ubah.</p>}
+                    {!canMoveStatus && <p className="mb-2 font-mono text-[9px] text-text-dim">🔒 {access.statusLockReason}</p>}
                     <div className="flex flex-wrap gap-1.5">
                       {statuses.map((s) => (
                         <button
@@ -1920,8 +1965,8 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
                     <p className="mb-2.5 font-mono text-[9px] leading-relaxed text-text-dim">
                       Jam kerja yang dicatat manusia (start/stop timer atau entri manual) -- beda dari Status Time Tracking di atas yang murni mengukur berapa lama task duduk di tiap status. Entri manual butuh approval AW/PM.
                     </p>
-                    {!canEdit ? (
-                      <p className="font-mono text-[9.5px] text-text-dim">🔒 Pencatatan waktu hanya untuk task milik Anda.</p>
+                    {!access.canLogTime ? (
+                      <p className="font-mono text-[9.5px] text-text-dim">🔒 {access.timeLockReason}</p>
                     ) : (
                     <>
                     <div className="flex items-center gap-2.5">
@@ -2144,6 +2189,16 @@ export default function TaskDetailModal({ taskId, onClose, projectId, workspaceI
         )}
 
         <DialogFooter>
+          {decisionMode && task.data && (
+            <ApprovalDecisionModal
+              mode={decisionMode}
+              code={task.data.task_code ?? ''}
+              taskTitle={task.data.title}
+              pic={activePics.map((p) => p.user_name || p.user_email).join(', ')}
+              onConfirm={submitDecision}
+              onClose={() => setDecisionMode(null)}
+            />
+          )}
           {task.data && access.readOnly && access.readOnlyReason && (
             <div className="mr-auto flex-1 self-center font-mono text-[9px] leading-[1.8] text-text-dim">🔒 {access.readOnlyReason}</div>
           )}
