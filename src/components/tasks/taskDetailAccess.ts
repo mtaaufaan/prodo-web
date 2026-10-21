@@ -22,8 +22,24 @@ export interface TaskDetailAccess {
   canApproveTime: boolean
   // canSetStoryPoints -- story point: PM/AW selalu; Editor hanya bila project mengizinkan (S6E-08, IG-139).
   canSetStoryPoints: boolean
+  // canDecide -- seksi KEPUTUSAN APPROVAL (Setujui/Tolak, S7A-09): hanya mode Approver; PM/AW memakai chip status biasa.
+  canDecide: boolean
+  // canStartWhenPic -- "Mulai Pengerjaan" untuk role baca-saja yang boleh memulai bila PIC aktif (Approver, matriks No 10b).
+  canStartWhenPic: boolean
+  // canLogTime -- timer dan entri manual: PM/AW dan Editor pada task miliknya; Approver/Viewer tidak mencatat waktu.
+  canLogTime: boolean
   readOnlyReason: string
+  // statusLockReason -- teks kunci chip PINDAHKAN STATUS saat canMove false.
+  statusLockReason: string
+  // timeLockReason -- teks kunci CATATAN WAKTU saat canLogTime false.
+  timeLockReason: string
 }
+
+const STATUS_LOCK = 'Status task ini tidak dapat Anda ubah.'
+const STATUS_LOCK_APPROVER = 'Status task diubah lewat keputusan Setujui/Tolak pada task UNDER REVIEW.'
+const TIME_LOCK_OWN = 'Pencatatan waktu hanya untuk task milik Anda.'
+const TIME_LOCK_APPROVER = 'Approver tidak mencatat waktu kerja.'
+const TIME_LOCK_READ = 'Role Anda tidak mencatat waktu kerja.'
 
 export const FULL_TASK_ACCESS: TaskDetailAccess = {
   readOnly: false,
@@ -34,7 +50,12 @@ export const FULL_TASK_ACCESS: TaskDetailAccess = {
   canRemovePic: true,
   canApproveTime: true,
   canSetStoryPoints: true,
+  canDecide: false,
+  canStartWhenPic: false,
+  canLogTime: true,
   readOnlyReason: '',
+  statusLockReason: STATUS_LOCK,
+  timeLockReason: TIME_LOCK_OWN,
 }
 
 // taskDetailAccess -- capabilities belum termuat/tidak diketahui -> akses penuh (perilaku sebelum S6E-07).
@@ -42,7 +63,7 @@ export function taskDetailAccess(caps: Capabilities | undefined, task: Task | un
   if (!caps || caps.manage_project) return FULL_TASK_ACCESS
   if (caps.edit_own_task) {
     if (task && isOwnTask(task, userId)) {
-      return { ...FULL_TASK_ACCESS, canAttach: caps.attach, canComment: caps.comment, canDelete: false, canRemovePic: false, canApproveTime: false, canSetStoryPoints: allowEditorStoryPoints }
+      return { ...FULL_TASK_ACCESS, canAttach: caps.attach, canComment: caps.comment, canDelete: false, canRemovePic: false, canApproveTime: false, canSetStoryPoints: allowEditorStoryPoints, canLogTime: caps.log_time }
     }
     return {
       ...FULL_TASK_ACCESS,
@@ -54,11 +75,12 @@ export function taskDetailAccess(caps: Capabilities | undefined, task: Task | un
       canRemovePic: false,
       canApproveTime: false,
       canSetStoryPoints: false,
+      canLogTime: false,
       readOnlyReason: 'Task ini bukan milik Anda -- hanya assignee atau PIC aktif yang dapat mengubahnya. Anda tetap dapat membaca dan berkomentar.',
     }
   }
-  // Role baca-saja. Approver (caps.attach) tetap boleh melampirkan dan berkomentar (desain `dCanAttach`, PRD US-064);
-  // ubah status lewat keputusan approval menyusul di S7A-09. Viewer/Division Viewer: hanya membaca.
+  // Role baca-saja. Approver (caps.attach) tetap boleh melampirkan dan berkomentar (desain `dCanAttach`, PRD US-064)
+  // dan memutuskan approval (S7A-09); Viewer/Division Viewer: hanya membaca.
   return {
     ...FULL_TASK_ACCESS,
     readOnly: true,
@@ -69,8 +91,14 @@ export function taskDetailAccess(caps: Capabilities | undefined, task: Task | un
     canRemovePic: false,
     canApproveTime: false,
     canSetStoryPoints: false,
+    canDecide: caps.approve_task,
+    canStartWhenPic: caps.approve_task,
+    canLogTime: false,
+    // Kalimat desain apa adanya: di PRODO "mengubah status" bagi Approver = keputusan Setujui/Tolak (USE_APPROVAL).
     readOnlyReason: caps.attach
-      ? 'Sebagai Approver Anda dapat melampirkan berkas dan berkomentar — namun tidak mengubah judul, deskripsi, atau assignee.'
+      ? 'Sebagai Approver Anda dapat mengubah status task, melampirkan berkas, dan berkomentar — namun tidak mengubah judul, deskripsi, atau assignee.'
       : 'Role Anda hanya dapat membaca task ini.',
+    statusLockReason: caps.approve_task ? STATUS_LOCK_APPROVER : STATUS_LOCK,
+    timeLockReason: caps.approve_task ? TIME_LOCK_APPROVER : TIME_LOCK_READ,
   }
 }

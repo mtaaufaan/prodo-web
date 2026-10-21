@@ -1,12 +1,13 @@
 import type { Attachment } from '@/features/attachments/types'
 
-import { mockProjects, mockTasks } from './editorFixtures'
+import { MOCK_USER, mockProjects, mockTasks } from './editorFixtures'
 
 // Data tiruan "Lampiran Saya" Editor (S6E-11, IG-142) -- BERSTATE di memori: file yang saya unggah lintas
 // project (termasuk satu orphan dan satu dalam retensi), rename/hapus-retensi milik sendiri. Hanya dipakai
 // `npm run dev:mock`; aplikasi nyata memakai GET /me/attachments (backend S6E-12).
-const ME = 'mock-editor-id'
-const ME_NAME = 'Eka Editor'
+// Pemilik berkas = pengguna sesi mock (mengikuti role), supaya rename/hapus milik sendiri juga terdemonstrasikan bagi Approver.
+const ME = MOCK_USER.id
+const ME_NAME = MOCK_USER.display_name
 const DAY = 86_400_000
 
 const projectName = (id: string) => mockProjects.find((p) => p.id === id)?.name ?? ''
@@ -19,7 +20,7 @@ function seed(n: number, name: string, taskId: string, projectId: string, kb: nu
     task_id: taskId,
     uploader_id: ME,
     uploader_name: ME_NAME,
-    uploader_email: 'editor@prodo.local',
+    uploader_email: MOCK_USER.email,
     original_name: name,
     display_name: name,
     mime_type: 'application/octet-stream',

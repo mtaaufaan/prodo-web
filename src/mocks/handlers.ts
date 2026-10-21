@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw'
 import { mockContext, mockFollowedProjects, mockMembers, mockProjects, mockSprints, mockStatuses, mockTasks, mockWorkspace } from './editorFixtures'
 
 import { decide, listApprovals } from './approvalsStore'
-import { addComment, isOwnedByMe, listMine, moveStatus, setCompleteness } from './myTasksStore'
+import { addComment, decideBoardTask, isOwnedByMe, listMine, moveStatus, setCompleteness } from './myTasksStore'
 import * as account from './accountStore'
 import { deleteMine, findMine, listMyAttachments, registerMyUpload, renameMine } from './myAttachmentsStore'
 import { getMyHours, logHours } from './myTimesheetStore'
@@ -18,6 +18,7 @@ import {
   findChecklistItem,
   listAttachments,
   listChecklist,
+  listActivity,
   listComments,
   removeChecklistItem,
   updateTaskFields,
@@ -118,7 +119,7 @@ export const handlers = [
   }),
   http.post('/api/v1/tasks/:id/approval', async ({ params, request }) => {
     const body = (await request.json()) as { decision: 'approve' | 'reject'; note?: string }
-    const out = decide(String(params.id), body.decision, body.note ?? '')
+    const out = decideBoardTask(String(params.id), body.decision, body.note ?? '') ?? decide(String(params.id), body.decision, body.note ?? '')
     if (out.ok) return ok(out.result)
     return fail(out.code, out.message, out.code === 'NOT_FOUND' ? 404 : out.code === 'NOT_IN_REVIEW' ? 409 : 422)
   }),
@@ -155,6 +156,7 @@ export const handlers = [
     return t ? ok({ ...t, logged_minutes: 135 }) : notFound()
   }),
   http.put('/api/v1/tasks/:id', async ({ params, request }) => {
+    if (isApproverMock()) return forbidden()
     if (!isOwnedByMe(String(params.id))) return notYourTask()
     return updateTaskFields(String(params.id), (await request.json()) as never) ? ok({ id: params.id }) : notFound()
   }),
@@ -194,7 +196,7 @@ export const handlers = [
   }),
   http.get('/api/v1/tasks/:id/attachments', ({ params }) => ok(listAttachments(String(params.id)))),
   http.post('/api/v1/tasks/:id/attachments', async ({ params, request }) => {
-    if (!isOwnedByMe(String(params.id))) return notYourTask()
+    if (!isApproverMock() && !isOwnedByMe(String(params.id))) return notYourTask() // Approver boleh melampirkan di task mana pun (S7A-02)
     const file = (await request.formData()).get('file') as File | null
     const created = addAttachment(String(params.id), file?.name ?? 'berkas', file?.size ?? 0)
     registerMyUpload(created)
@@ -221,7 +223,10 @@ export const handlers = [
   http.get('/api/v1/tasks/:id/pic-history', () => ok([])),
   http.get('/api/v1/tasks/:id/status-sessions', () => ok([])),
   http.get('/api/v1/tasks/:id/versions', () => ok([])),
-  http.get('/api/v1/tasks/:id/activity', () => ok({ items: [], total: 0 })),
+  http.get('/api/v1/tasks/:id/activity', ({ params }) => {
+    const items = listActivity(String(params.id))
+    return ok({ items, total: items.length })
+  }),
   http.get('/api/v1/tasks/:id/time-entries', () => ok({ items: [], total: 0 })),
   http.get('/api/v1/tasks/:id/time-entries/active', () => ok(null)),
 
