@@ -3,8 +3,8 @@ import type { ApprovalItem, ApprovalsPage, ApprovalView, DecisionResult } from '
 import type { TaskPriority } from '@/features/tasks/types'
 
 // Data tiruan Antrean Approval (S7A-03) -- BERSTATE di memori: keputusan memindahkan task ke DONE /
-// IN PROGRESS dan masuk riwayat "Sudah Diputuskan" (permanen selama sesi mock). Dibuang di S7A-04 saat
-// GET /me/approvals dan POST /tasks/:id/approval nyata tersambung.
+// IN PROGRESS dan masuk riwayat "Sudah Diputuskan" (permanen selama sesi mock). Hanya dipakai `npm run dev:mock`;
+// aplikasi nyata memakai GET /me/approvals dan POST /tasks/:id/approval (backend S7A-04).
 const COLORS: Record<string, string> = { 'UNDER REVIEW': 'violet', 'IN PROGRESS': 'signal', DONE: 'mint', BACKLOG: 'grey' }
 
 interface Seed {

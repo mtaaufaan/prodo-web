@@ -17,8 +17,8 @@ const NOTICE_MS = 15000
 const APPROVER_CAP_NOTE = 'Dapat menyetujui atau menolak task pada tahap review dan berkomentar. Tidak dapat mengubah isi task.'
 
 // ApprovalQueuePage -- "TM Antrean Approval.dc.html" (S7A-03, Sprint 7 Approver Console).
-// Cakupan = project aktif di URL (switcher sidebar). Data dari GET /me/approvals (kontrak usulan, IG-149;
-// mock MSW sampai S7A-04): baris satu halaman, total, dan 4 kartu dihitung server.
+// Cakupan = project aktif di URL (switcher sidebar). Data dari GET /me/approvals (API_CONTRACT section 19.9,
+// S7A-04): baris satu halaman, total, dan 4 kartu dihitung server.
 export default function ApprovalQueuePage() {
   const { wsId = '', projectId = '' } = useParams<{ wsId: string; projectId: string }>()
   const { view } = useOutletContext<WorkspaceOutletContext>()
