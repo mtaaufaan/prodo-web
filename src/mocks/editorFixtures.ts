@@ -5,8 +5,8 @@ import type { CustomStatus, Sprint, Task } from '@/features/tasks/types'
 import type { Workspace } from '@/features/workspaces/types'
 
 // Data tiruan Editor untuk `npm run dev:mock` (S6E-01) -- kerangka Master UI
-// Editor bisa dilihat tanpa backend/akun Editor. Dibuang bertahap: tiap menu
-// Editor melepas mock-nya di langkah backend-nya (S6E-02, 06, 09, 12, 14).
+// Editor/Approver bisa dilihat tanpa backend/akun asli. Hanya dipakai `npm run dev:mock`: MSW dan
+// seluruh berkas `src/mocks` tidak ikut build produksi (`npm run check:dist`, S7A-14).
 // Role sesi mock dipilih lewat variabel lingkungan (bukan kontrol di UI): `VITE_MOCK_ROLE=approver npm run dev:mock`; bawaan editor.
 const MOCK_ROLE: 'editor' | 'approver' = import.meta.env.VITE_MOCK_ROLE === 'approver' ? 'approver' : 'editor'
 export const MOCK_USER =

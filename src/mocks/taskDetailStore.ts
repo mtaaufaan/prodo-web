@@ -6,8 +6,8 @@ import { MOCK_USER, mockMembers, mockStatuses, mockTasks } from './editorFixture
 import { isOwnedByMe } from './myTasksStore'
 
 // Data tiruan Task Detail + Tambah Task Editor (S6E-07) -- BERSTATE di memori supaya modal bisa dicoba tanpa
-// backend: komentar, sub-task, lampiran, edit task, dan task baru. Dibuang di S6E-08 saat izin Editor di
-// backend (buat task, lampiran, sub-task) tersambung.
+// backend: komentar, sub-task, lampiran, edit task, dan task baru. Hanya dipakai `npm run dev:mock`; izin
+// sebenarnya ditegakkan backend (S6E-08, S7A-10).
 // Pengguna sesi mock mengikuti role (VITE_MOCK_ROLE): komentar/lampiran miliknya bisa diubah/dihapus sendiri.
 const ME = MOCK_USER.id
 const EDIT_WINDOW_MS = 3 * 60 * 1000

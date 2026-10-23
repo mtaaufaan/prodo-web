@@ -1,7 +1,7 @@
 import type { TaskPriority } from '@/features/tasks/types'
 
 // Antrean Approval (Sprint 7 "Approver Console", desain "TM Antrean Approval.dc.html" + "TM Konfirmasi
-// Approval.dc.html"). KONTRAK USULAN untuk S7A-04 (IG-149) -- sampai backend ada dilayani mock MSW:
+// Approval.dc.html"). Kontrak API NYATA sejak S7A-04 (API_CONTRACT section 19.9; `npm run dev:mock` dilayani MSW):
 //   GET  /me/approvals?project_id=&view=pending|decided&page=&per_page=
 //   POST /tasks/:id/approval  { decision: 'approve' | 'reject', note }
 export type ApprovalView = 'pending' | 'decided'
