@@ -8,8 +8,8 @@ import { addActivity } from './taskDetailStore'
 import { MOCK_USER, mockStatuses, mockTasks } from './editorFixtures'
 
 // Data tiruan Task Saya (S6E-03) -- BERSTATE di memori: pindah status dan
-// komentar mengubah baris, supaya halaman bisa dicoba tanpa backend. Dibuang
-// di S6E-04 saat endpoint /me/tasks dan komentar nyata tersambung.
+// komentar mengubah baris, supaya halaman bisa dicoba tanpa backend. Hanya dipakai
+// `npm run dev:mock`; aplikasi nyata memakai GET /me/tasks dan komentar nyata (backend S6E-04).
 const ME = 'Eka Editor'
 const IS_APPROVER = MOCK_USER.id === 'mock-approver-id'
 

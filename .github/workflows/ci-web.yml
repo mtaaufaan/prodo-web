@@ -124,6 +124,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Bundel produksi bersih dari mock
+        run: npm run check:dist
+
       - name: Verify build output
         run: |
           ls -la dist/
